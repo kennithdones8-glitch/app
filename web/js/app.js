@@ -34,7 +34,10 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
+export const APP_VERSION = '2026.09.29-4';
+
 const app = {
+  version: APP_VERSION,
   get state() { return state; },
   set state(v) { state = v; version++; },
   persist,
@@ -760,7 +763,7 @@ function renderSummary(session) {
 
 // Copies a text report to paste into a chat. Falls back to a selectable text box.
 async function copyReport(session) {
-  const text = buildReport(session, state);
+  const text = buildReport(session, state, APP_VERSION);
   try {
     await navigator.clipboard.writeText(text);
     toast(`Report copied (${reportSize(text)}). Paste it into your chat with Claude.`);
@@ -1121,7 +1124,13 @@ document.addEventListener('visibilitychange', async () => {
 });
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Reload once when a new version takes over, so the new code runs straight away.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController && !reloaded && !live) { reloaded = true; location.reload(); }
+  });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
 }
 
 afterDataChange();

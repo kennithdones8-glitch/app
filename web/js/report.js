@@ -7,13 +7,14 @@ const FORM_KEYS = ['guard', 'stance', 'blade', 'footwork', 'head', 'handReturnMs
   'rearDropPct', 'crossedPct', 'narrowPct', 'widePct', 'comboShare', 'avgComboLen', 'leftLeadPct'];
 const ROUND_KEYS = ['guard', 'stance', 'blade', 'footwork', 'head', 'leadReturnMs', 'rearReturnMs', 'rearDropPct', 'totalPunches'];
 
-export function buildReport(session, state = {}) {
+export function buildReport(session, state = {}, version = null) {
   const f = session.form;
   const rounds = (f?.perRound || []).filter((x) => x.frames > 30);
   const fm = fatigueMap(session, state.profile);
   const topSeq = Object.entries(f?.sequences || {}).sort((a, b) => b[1] - a[1]).slice(0, 12);
   const data = {
     v: 1,
+    app: version || undefined,
     date: session.date,
     type: session.type,
     source: session.source || (session.manual ? 'manual' : 'live'),
