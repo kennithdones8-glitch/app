@@ -30,6 +30,8 @@ export const BLADE_MIN_DEG = 12;
 const CUE_COOLDOWN_MS = 7000;
 const GLOBAL_CUE_GAP_MS = 2500;
 
+const r2 = (x) => Math.round(x * 100) / 100;
+
 export function dist3(a, b) {
   const dx = a.x - b.x, dy = a.y - b.y, dz = (a.z || 0) - (b.z || 0);
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
@@ -191,6 +193,8 @@ export class FormAnalyzer {
     this.lastSeen = null;
     this.events = []; // detections with confidence, used for video review
     this.roundNo = 0;
+    // Raw measurements behind each punch decision, for tuning thresholds to a real boxer.
+    this.calib = { vTh: Math.round(this.vTh * 100) / 100, punches: [], rejected: [], nearMiss: [], frames: 0, tracked: 0 };
   }
 
   _hand(side) {
@@ -245,6 +249,10 @@ export class FormAnalyzer {
       return null;
     }
     const visible = REQUIRED.every((i) => (image[i]?.visibility ?? 1) > 0.5);
+    if (this.active) {
+      this.calib.frames++;
+      if (visible) this.calib.tracked++;
+    }
     if (!visible) {
       if (this.active && this.held('nobody', true, t) > 3000) this.cue('visibility', 'Step back so I can see your whole body', t);
       return null;
@@ -361,7 +369,14 @@ export class FormAnalyzer {
     const shMidY = (world[LM.L_SH].y + world[LM.R_SH].y) / 2;
 
     if (h.state === 'idle') {
+      // Near-misses: fast hand movements that stayed under the punch threshold.
+      if (h.speed > this.vTh * 0.6 && h.speed <= this.vTh && away) h.nearPeak = Math.max(h.nearPeak || 0, h.speed);
+      else if (h.nearPeak && h.speed < this.vTh * 0.4) {
+        this._calibPush('nearMiss', [role === 'lead' ? 'L' : 'R', r2(h.nearPeak)]);
+        h.nearPeak = 0;
+      }
       if (h.speed > this.vTh && away && t - h.lastEnd > 180) {
+        h.nearPeak = 0;
         h.state = 'punch';
         h.start = h.prev || w;
         h.startT = t;
@@ -387,6 +402,7 @@ export class FormAnalyzer {
         h.lastEnd = t;
         const travel = h.maxNoseD - dist3(h.start, nose);
         if (travel > 0.1 || h.peakExt > 0.85) this._registerPunch(role, h, t);
+        else this._calibPush('rejected', [role === 'lead' ? 'L' : 'R', r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(travel)]);
       }
     }
     // Hand return: back in guard near the face.
@@ -428,6 +444,7 @@ export class FormAnalyzer {
     this.round.punches[type]++;
     this.round.punchLog.push({ t, type });
     this.event('punch', t, conf, { type });
+    this._calibPush('punches', [PUNCH_DIGIT[type], r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(h.maxRise), r2(h.maxLat), Math.round(conf)]);
     if (role === 'lead') {
       this.round.leadPunches++;
       if (h.rearDropped) {
@@ -436,6 +453,10 @@ export class FormAnalyzer {
       }
     }
     this.onPunch(type, { t, conf });
+  }
+
+  _calibPush(list, row) {
+    if (this.active && this.calib[list].length < 300) this.calib[list].push(row);
   }
 
   snapshot() {

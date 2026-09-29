@@ -38,3 +38,26 @@ test('fmt formats seconds', () => {
   assert.equal(fmt(65), '1:05');
   assert.equal(fmt(-3), '0:00');
 });
+
+test('coach report is compact JSON with calibration data', async () => {
+  const { buildReport } = await import('../web/js/report.js');
+  const round = { frames: 300, guard: 88.123, stance: 80, blade: 75, footwork: 40, head: 30, leadReturnMs: 410, rearReturnMs: 450, rearDropPct: 12, totalPunches: 120 };
+  const s = {
+    date: '2026-09-29T18:00:00Z', type: 'shadow', source: 'video', completedRounds: 3, workSec: 540, rpe: 7,
+    plan: { rounds: 3, roundSec: 180, restSec: 60 },
+    punches: { total: 360, perRound: [120, 120, 120], byType: { jab: 150 } },
+    form: { guard: 87.66, perRound: [round, round, round], sequences: { '1-2': 30, 1: 50 } },
+    calib: { vTh: 1.6, punches: [[1, 2.4, 0.9, 160, 0.02, 0.05, 88]], rejected: [], nearMiss: [['L', 1.2]], frames: 900, tracked: 850 },
+    notes: 'felt slow',
+  };
+  const text = buildReport(s, { profile: { stance: 'orthodox', level: 'advanced', fight: { rounds: 6 }, sensitivity: 1 } });
+  assert.match(text, /^BOXCOACH REPORT v1/);
+  const data = JSON.parse(text.split('\n')[1]);
+  assert.equal(data.form.guard, 87.7);
+  assert.equal(data.perRound.rows.length, 3);
+  assert.equal(data.perRound.rows[0][0], 88.1);
+  assert.deepEqual(data.combos, { 1: 50, '1-2': 30 });
+  assert.equal(data.calib.punches[0][1], 2.4);
+  assert.match(data.fatigue, /held your form/);
+  assert.ok(text.length < 4000);
+});
