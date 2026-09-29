@@ -8,7 +8,7 @@ export function defaultState() {
     version: 1,
     profile: {
       name: '', stance: 'orthodox', level: 'advanced', goal: 'compete', weeklyGoal: 6, sensitivity: 1,
-      fight: { rounds: 6, roundSec: 180, restSec: 60 }, fightDate: '', opponentStyle: '', targetWeight: null, unit: 'kg',
+      fight: { rounds: 6, roundSec: 180, restSec: 60 }, fightDate: '', opponentStyle: '', targetWeight: null, unit: 'lb',
     },
     settings: { voice: true, combos: true, comboInterval: 6, tracking: 'camera', cues: true },
     sessions: [],
@@ -27,6 +27,8 @@ export function defaultState() {
 const ARRAYS = ['sessions', 'weights', 'observations', 'patterns', 'decisions', 'hypotheses', 'checkins', 'paused'];
 
 function merge(base, data) {
+  // Earlier versions defaulted to kg; switch to lb if no weights were logged in kg yet.
+  if (data.profile?.unit === 'kg' && !(data.weights || []).length) data.profile.unit = 'lb';
   return {
     ...base,
     ...data,

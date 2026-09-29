@@ -16,7 +16,7 @@ import { buildContext, trainToday, aiObservations, generateRounds, rankProblems,
 import { stepHypothesis } from './hypotheses.js';
 import { recoveryStatus, readinessOf, baselineHr } from './recovery.js';
 import { fatigueMap } from './analysis.js';
-import { $, $$, esc, fmtDate, shortDate, toast, scoreClass, scoreChip, subnav, subOf } from './ui.js';
+import { $, $$, esc, fmtDate, shortDate, toast, scoreClass, scoreChip, subnav, subOf, pageHead } from './ui.js';
 import { reviewFieldsHTML, bindReview, readReview } from './views/review.js';
 import { renderBoxer } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
@@ -78,8 +78,10 @@ function renderStreak() {
 
 let showToday = false;
 
+const STATUS_WORD = { fresh: 'Fresh', normal: 'Ready to train', strained: 'Go lighter today', deload: 'Deload needed' };
+
 function renderHome() {
-  const { profile, memory, sessions } = state;
+  const { profile, sessions } = state;
   const ctx = app.model();
   const wk = weekSummary(sessions);
   const plan = currentPlan();
@@ -92,73 +94,83 @@ function renderHome() {
   const checkin = state.checkins.find((c) => c.date === today);
   const rec = ctx.recovery;
   const day = trainToday(state, ctx, { planItems: todays, tomorrowItems: nextPlan });
-  const last = sessions[sessions.length - 1];
   const phase = ctx.phase;
+  const dateLine = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+
+  // Short, prioritised notes from the coach.
+  const notes = [];
+  if (phase.camp) notes.push(['🥊', `${phase.name}`, phase.priorities.join(' · '), '#plan']);
+  if (day.priorities.congested) notes.push(['⚠️', 'Too many priorities at once', `${day.priorities.all.length - (state.paused || []).length} active — focus on the top 3`, '#coach/priorities']);
+  if (ctx.proposals.length) notes.push(['🧪', 'I have a hypothesis to test', ctx.proposals[0].text, '#coach/hypotheses']);
+  if (ws?.status === 'fast' || ws?.status === 'behind') notes.push(['⚖️', ws.status === 'fast' ? 'Cutting weight too fast' : 'Weight trending above target', ws.message, '#plan/weight']);
+  const decay = ctx.decay[0];
+  if (decay) notes.push(['📉', decay.kind === 'fatigue' ? 'Breaks down under fatigue' : 'Technical weakness', decay.text, '#boxer/analysis']);
 
   view.innerHTML = `
+    ${pageHead('Today', { eyebrow: esc(dateLine) })}
+
     ${!sessions.length ? `
       <section class="card hero">
-        <h1>Welcome${profile.name ? `, ${esc(profile.name)}` : ''} 👊</h1>
-        <p>This is a development system, not a workout logger. Every session, sparring log, drill and coach note becomes evidence about your boxing, and the plan is built from that.</p>
+        <h2>Welcome${profile.name ? `, ${esc(profile.name)}` : ''} 👊</h2>
+        <p>Every session, sparring round and coach note becomes evidence about your boxing. The plan is built from that.</p>
         <ol class="steps">
-          <li>Do the morning check-in below.</li>
-          <li>Do a camera session in <a href="#train">Train</a> so I can measure you.</li>
-          <li>Log sparring and what your coach says in <a href="#log">Log</a> and <a href="#coach">Coach</a>.</li>
+          <li>Do the check-in below.</li>
+          <li>Run a camera session from <a href="#train">Train</a> so I can measure you.</li>
+          <li>Log sparring and your coach's feedback.</li>
         </ol>
       </section>` : ''}
 
-    ${phase.camp ? `<section class="card camp"><div class="eyebrow">Fight camp mode</div><h2>${esc(phase.name)}</h2><p class="small">${esc(phase.note)}</p><p class="small"><b>Priorities:</b> ${phase.priorities.map(esc).join(' · ')}</p></section>` : ''}
-
     <section class="card">
-      <div class="eyebrow">Morning check-in</div>
       ${checkin ? `
-        <div class="readiness ${rec.status}">
-          <b>${rec.readiness ?? '–'}</b><span>readiness</span>
+        <div class="ready-row">
+          <div class="ring ${rec.status}" style="--v:${rec.readiness ?? 0}"><b>${rec.readiness ?? '–'}</b></div>
+          <div class="ready-text"><b>${esc(STATUS_WORD[rec.status])}</b><span>${esc(rec.advice)}</span></div>
         </div>
-        <p class="small"><b>${esc({ fresh: 'Fresh', normal: 'Normal', strained: 'Strained', deload: 'Deload needed' }[rec.status])}.</b> ${esc(rec.advice)}</p>
         ${rec.reasons.length ? `<ul class="small">${rec.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
-        <p class="muted small">Load: ${rec.load.acute} this week${rec.load.ratio != null ? ` · ${rec.load.ratio}× your 4-week average` : ''}</p>
-        <button class="linkbtn small" id="redoCheckin">Edit check-in</button>` : checkinForm()}
+        <div class="card-head" style="margin-top:10px"><span class="muted small">Load ${rec.load.acute} this week${rec.load.ratio != null ? ` · ${rec.load.ratio}× usual` : ''}</span><button class="linkbtn small" id="redoCheckin">Edit check-in</button></div>`
+        : `<div class="card-head"><h2>Morning check-in</h2><span class="muted small">30 seconds</span></div>${checkinForm()}`}
     </section>
 
-    <section class="card today-card">
-      <button class="btn primary block big" id="whatToday">${showToday ? 'Today’s session' : 'What should I train today?'}</button>
+    <section class="card objective">
+      <div class="eyebrow">What should I train today?</div>
+      <h2>${esc(day.objective)}</h2>
+      ${day.why[0] ? `<p class="small muted">${esc(day.why[0])}</p>` : ''}
+      <div class="meta"><span>${day.minutes} min</span>${day.priorityOrder.map((c) => `<span>${esc(c)}</span>`).join('')}</div>
       ${showToday ? todayHTML(day) : ''}
+      <div class="row2" style="margin-top:12px">
+        <button class="btn ghost" id="whatToday">${showToday ? 'Hide plan' : 'Session plan'}</button>
+        <button class="btn primary" id="startToday">Start rounds</button>
+      </div>
     </section>
 
     <section class="card">
-      <div class="eyebrow">Today's plan · ${esc(plan.phase.name)}</div>
-      ${todays.map((it) => planItemHTML(it, status[it.id] === 'today' ? '' : status[it.id])).join('') || '<p class="muted small">Nothing planned.</p>'}
-      <a class="small" href="#plan">Full week →</a>
+      <div class="card-head"><h2>Scheduled</h2><a href="#plan">Week →</a></div>
+      ${todays.map((it) => planItemHTML(it, status[it.id] === 'today' ? '' : status[it.id])).join('') || '<p class="muted small">Nothing scheduled today.</p>'}
     </section>
 
-    ${day.priorities.congested ? `<section class="card"><div class="msg behind">⚠️ ${esc(day.priorities.message)} <a href="#coach/priorities">Review priorities →</a></div></section>` : ''}
-    ${ctx.proposals.length ? `<section class="card"><div class="eyebrow">I have a hypothesis</div><p>${esc(ctx.proposals[0].text)}</p><a class="small" href="#coach/hypotheses">Test it →</a></section>` : ''}
+    ${notes.length ? `
+    <section class="card">
+      <h2>Coach notes</h2>
+      <ul class="rows notes-list">${notes.slice(0, 4).map(([ico, title, sub, href]) => `
+        <li><span class="row-ico">${ico}</span><a class="row-main" href="${href}" style="color:inherit;font-weight:400"><b>${esc(title)}</b><span>${esc(sub)}</span></a><span class="chev">›</span></li>`).join('')}</ul>
+    </section>` : ''}
 
     <section class="card">
-      <div class="eyebrow">This week</div>
+      <div class="card-head"><h2>This week</h2><span class="muted small">${wk.days} of ${profile.weeklyGoal} days</span></div>
       <div class="stats4">
-        <div><b>${wk.days}/${profile.weeklyGoal}</b><span>training days</span></div>
+        <div><b>${wk.sessions}</b><span>sessions</span></div>
         <div><b>${wk.minutes}</b><span>minutes</span></div>
         <div><b>${wk.punches.toLocaleString()}</b><span>punches</span></div>
-        <div><b>${ws ? ws.avg7 : '–'}</b><span>${ws ? `avg ${esc(profile.unit)}` : 'weight'}</span></div>
+        <div><b>${ws ? ws.avg7 : '–'}</b><span>${esc(profile.unit)} avg</span></div>
       </div>
       <div class="bar"><div style="width:${Math.min(100, (wk.days / profile.weeklyGoal) * 100)}%"></div></div>
-    </section>
-
-    ${last ? `
-      <section class="card">
-        <div class="eyebrow">Last session · ${fmtDate(last.date)}</div>
-        <h2>${ALL_TYPES[last.type] || esc(last.type)}</h2>
-        ${last.feedback?.fixes?.length ? `<p class="small"><b>Fix next time:</b> ${esc(last.feedback.fixes[0])}</p>` : ''}
-        <a class="small" href="#log">All sessions →</a>
-      </section>` : ''}`;
+    </section>`;
 
   $('#whatToday').addEventListener('click', () => { showToday = !showToday; renderHome(); });
-  $('#startToday')?.addEventListener('click', () => {
+  $('#startToday').addEventListener('click', () => {
     startSession({
       type: 'shadow', rounds: day.rounds.length, roundSec: 180, restSec: 60, tracking: state.settings.tracking === 'motion' ? 'camera' : state.settings.tracking,
-      combos: true, comboLevel: 3, focus: memory.focus?.area || null, rounds_: day.rounds,
+      combos: true, comboLevel: 3, focus: state.memory.focus?.area || null, rounds_: day.rounds,
     });
   });
   $('#redoCheckin')?.addEventListener('click', () => {
@@ -172,13 +184,9 @@ function renderHome() {
 function todayHTML(d) {
   return `
     <div class="today">
-      <div class="eyebrow">Today's objective</div>
-      <h2>${esc(d.objective)}</h2>
-      ${d.why.length ? `<p class="small"><b>Why:</b> ${d.why.map(esc).join(' ')}</p>` : ''}
-      <p class="small"><b>Session:</b> ${d.minutes} minutes${d.priorityOrder.length ? ` · <b>Priority:</b> ${d.priorityOrder.map(esc).join(' > ')}` : ''}</p>
-      <ol class="blocks">${d.blocks.map((b) => `<li><b>${esc(b.name)}</b> <span class="muted small">${b.minutes} min</span><br><span class="small">${esc(b.detail)}</span></li>`).join('')}</ol>
-      ${d.avoid.length ? `<p class="small"><b>Do not add:</b></p><ul class="small avoid">${d.avoid.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>` : ''}
-      <button class="btn primary block" id="startToday">Start the constraint rounds (${d.rounds.length} × 3 min)</button>
+      ${d.why.length > 1 ? `<p class="small"><b>Why:</b> ${d.why.slice(1).map(esc).join(' ')}</p>` : ''}
+      <ol class="blocks">${d.blocks.map((b) => `<li><b>${esc(b.name)}</b> <span class="muted small">· ${b.minutes} min</span><br><span class="small muted">${esc(b.detail)}</span></li>`).join('')}</ol>
+      ${d.avoid.length ? `<h3>Do not add</h3><ul class="avoid">${d.avoid.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>` : ''}
     </div>`;
 }
 
@@ -188,7 +196,7 @@ function checkinForm() {
     <form id="checkin" class="form">
       <div class="row2">
         <label>Sleep (hours)<input type="number" name="sleep" min="0" max="14" step="0.5" inputmode="decimal" required></label>
-        <label>Resting HR (optional)<input type="number" name="hr" min="30" max="120" inputmode="numeric"></label>
+        <label>Resting HR<input type="number" name="hr" min="30" max="120" inputmode="numeric" placeholder="optional"></label>
       </div>
       <label>Soreness</label>${chips('soreness', ['None', 'Mild', 'Some', 'Sore', 'Very'])}
       <label>Motivation</label>${chips('motivation', ['Low', 'Meh', 'OK', 'Good', 'Fired up'])}
@@ -222,7 +230,7 @@ let draft = null;
 
 function renderTrain() {
   const sub = subOf('session');
-  view.innerHTML = `<section class="card"><h1>Train</h1>${subnav('train', [['session', 'Session'], ['video', 'Analyse video']], sub)}</section><div id="trainBody"></div>`;
+  view.innerHTML = `${pageHead('Train', { nav: subnav('train', [['session', 'Live session'], ['video', 'Analyse video']], sub) })}<div id="trainBody"></div>`;
   if (sub === 'video') return renderVideo($('#trainBody'), app);
   const body = $('#trainBody');
   const ctx = app.model();
@@ -234,22 +242,32 @@ function renderTrain() {
   const rests = [0, 10, 15, 30, 45, 60, 90, 120];
 
   body.innerHTML = `
-    <section class="card">
-      <div class="chips">
+    <div class="chips">
         <button class="chip" data-preset="fight">Fight sim ${f.rounds}×${fmt(f.roundSec)}</button>
         <button class="chip" data-preset="6x3">6×3</button>
         <button class="chip" data-preset="12x3">12×3</button>
         <button class="chip" data-preset="3x2">3×2</button>
         <button class="chip" data-preset="tabata">Tabata 8×20s</button>
-      </div>
-      <form id="setup" class="form">
+    </div>
+    <form id="setup" class="form">
+      <section class="card form">
+        <h2>Session</h2>
         <label>Workout<select name="type">${types.map((t) => opt(t, draft.type, ALL_TYPES[t])).join('')}</select></label>
         <div class="row3">
           <label>Rounds<select name="rounds">${Array.from({ length: 15 }, (_, i) => opt(i + 1, draft.rounds, i + 1)).join('')}</select></label>
           <label>Round<select name="roundSec">${secs.map((s) => opt(s, draft.roundSec, fmt(s))).join('')}</select></label>
           <label>Rest<select name="restSec">${rests.map((s) => opt(s, draft.restSec, fmt(s))).join('')}</select></label>
         </div>
-        <label class="switch"><input type="checkbox" name="constraints" ${draft.constraints ? 'checked' : ''}> <span>Constraint rounds (a problem to solve each round, built from your weaknesses and opponent exposure)</span></label>
+      </section>
+      <section class="card form">
+        <h2>Rounds</h2>
+        <label class="switch"><input type="checkbox" name="constraints" ${draft.constraints ? 'checked' : ''}> <span>Constraint rounds</span></label>
+        <p class="muted small" style="margin:-4px 0 0">A problem to solve each round, built from your weaknesses and opponent exposure.</p>
+        <div id="roundPreview"></div>
+        <label class="switch"><input type="checkbox" name="combos" ${draft.combos ? 'checked' : ''}> <span>Call out combos</span></label>
+        <label>Combo difficulty<select name="comboLevel">${opt(1, draft.comboLevel, 'Basic')}${opt(2, draft.comboLevel, 'Intermediate')}${opt(3, draft.comboLevel, 'Advanced')}</select></label>
+      </section>
+      <section class="card form">
         <fieldset>
           <legend>Tracking</legend>
           <label class="radio"><input type="radio" name="tracking" value="camera" ${draft.tracking === 'camera' ? 'checked' : ''}>
@@ -259,13 +277,9 @@ function renderTrain() {
           <label class="radio"><input type="radio" name="tracking" value="none" ${draft.tracking === 'none' ? 'checked' : ''}>
             <span><b>Timer only</b> — rounds and effort, optional tap counting.</span></label>
         </fieldset>
-        <label class="switch"><input type="checkbox" name="combos" ${draft.combos ? 'checked' : ''}> <span>Call out combos</span></label>
-        <label>Combo difficulty<select name="comboLevel">${opt(1, draft.comboLevel, 'Basic')}${opt(2, draft.comboLevel, 'Intermediate')}${opt(3, draft.comboLevel, 'Advanced')}</select></label>
-        <div id="roundPreview"></div>
-        <p class="muted small">Total time: <b id="totalTime"></b></p>
-        <button class="btn primary block big" type="submit">Start</button>
-      </form>
-    </section>`;
+      </section>
+      <button class="btn primary block big" type="submit">Start · <span id="totalTime"></span></button>
+    </form>`;
 
   const form = $('#setup');
   let rounds = [];
@@ -278,7 +292,7 @@ function renderTrain() {
     $('#totalTime').textContent = fmt(draft.rounds * draft.roundSec + (draft.rounds - 1) * draft.restSec);
     const usable = draft.constraints && ['shadow', 'bag', 'mitts'].includes(draft.type);
     rounds = usable ? generateFor(draft.rounds, ctx) : [];
-    $('#roundPreview').innerHTML = rounds.length ? `<ol class="blocks small">${rounds.map((r) => `<li><b>${esc(CONSTRAINTS[r.constraint].name)}</b>${r.opponent ? ` vs ${esc(OPPONENTS[r.opponent].name.toLowerCase())}` : ''} <span class="muted">— ${esc(r.why)}</span></li>`).join('')}</ol>` : '';
+    $('#roundPreview').innerHTML = rounds.length ? `<ol class="blocks">${rounds.map((r) => `<li><b>${esc(CONSTRAINTS[r.constraint].name)}</b>${r.opponent ? ` <span class="muted small">vs ${esc(OPPONENTS[r.opponent].name.toLowerCase())}</span>` : ''}<br><span class="small muted">${esc(r.why)}</span></li>`).join('')}</ol>` : '';
   };
   form.addEventListener('change', sync);
   sync();
@@ -832,55 +846,41 @@ function planItemHTML(it, st) {
 }
 
 function renderPlan() {
+  const sub = subOf('week');
   const plan = currentPlan();
+  const nav = subnav('plan', [['week', 'Week'], ['weight', 'Weight']], sub);
+  const head = pageHead(sub === 'weight' ? 'Weight' : plan.phase.name, {
+    eyebrow: sub === 'weight' ? esc(`Target ${state.profile.targetWeight ? `${state.profile.targetWeight} ${state.profile.unit}` : 'not set'}`) : esc(`Week of ${fmtDate(plan.week + 'T12:00:00')}${plan.phase.days != null ? ` · ${plan.phase.days} days to fight` : ''}`),
+    nav,
+  });
+  if (sub === 'weight') return renderWeight(head);
+
   const status = planStatus(plan, state.sessions);
   const comp = weekCompletion(plan, state.sessions);
   const today = localDay(new Date());
-  const days = DAY_NAMES.map((name, d) => ({ name, d, items: plan.items.filter((i) => i.day === d) }));
   const { profile } = state;
-  const ws = weightStats(state.weights, profile);
-
   view.innerHTML = `
+    ${head}
     <section class="card">
-      <div class="eyebrow">Week of ${fmtDate(plan.week + 'T12:00:00')}</div>
-      <h1>${esc(plan.phase.name)}${plan.phase.days != null ? ` · ${plan.phase.days} days out` : ''}</h1>
-      <p class="muted small">${esc(plan.phase.note)} Fight format: ${profile.fight.rounds} × ${fmt(profile.fight.roundSec)}.</p>
-      <p class="small"><b>${comp.done}/${comp.planned}</b> sessions done</p>
-      <div class="bar"><div style="width:${comp.planned ? (comp.done / comp.planned) * 100 : 0}%"></div></div>
-      <h3>Gym days this week</h3>
+      <div class="card-head"><h2>${comp.done} of ${comp.planned} sessions done</h2><span class="muted small">${profile.fight.rounds} × ${fmt(profile.fight.roundSec)} fight</span></div>
+      <div class="bar" style="margin-top:0"><div style="width:${comp.planned ? (comp.done / comp.planned) * 100 : 0}%"></div></div>
+      <h3>Gym days</h3>
       <div class="daychips">${DAY_NAMES.map((n, d) => `<button type="button" data-gym="${d}" class="${plan.gymDays.includes(d) ? 'on' : ''}" aria-pressed="${plan.gymDays.includes(d)}">${n}</button>`).join('')}</div>
-      <p class="muted small">Tap the days you'll be at the gym. I'll rebuild the rest of the week around them.</p>
+      <p class="muted small">Tap the days you'll be at the gym; the rest of the week is rebuilt around them.</p>
       ${plan.notes.length ? `<ul class="plan-notes">${plan.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
-      <div class="legend"><span><span class="load hard"></span>hard</span><span><span class="load moderate"></span>moderate</span><span><span class="load easy"></span>easy</span></div>
     </section>
 
-    ${days.map(({ name, items }) => {
-      const date = items[0]?.date;
-      const cls = date === today ? 'today' : date < today ? 'past' : '';
-      return `<section class="card day ${cls}">
-        <div class="day-head"><b>${name} ${date ? new Date(date + 'T12:00:00').getDate() : ''}</b>${date === today ? '<span class="st today">today</span>' : ''}</div>
-        ${items.length ? items.map((it) => planItemHTML(it, status[it.id] === 'today' ? '' : status[it.id])).join('') : '<p class="muted small">Before this plan started.</p>'}
-      </section>`;
-    }).join('')}
-
     <section class="card">
-      <h2>Weight</h2>
-      ${ws ? `
-        <div class="stats4">
-          <div><b>${ws.latest.value}</b><span>latest</span></div>
-          <div><b>${ws.avg7}</b><span>7-day avg</span></div>
-          <div><b>${ws.weeklyChange != null ? (ws.weeklyChange > 0 ? '+' : '') + ws.weeklyChange : '–'}</b><span>${esc(profile.unit)}/week</span></div>
-          <div><b>${ws.toTarget != null ? ws.toTarget : '–'}</b><span>to target</span></div>
-        </div>
-        <div class="msg ${ws.status}">${esc(ws.message)}</div>
-        <div id="c-weight"></div>` : '<p class="muted small">Log your morning weight to see your trend.</p>'}
-      ${profile.targetWeight ? '' : '<p class="muted small">Set a target weight in <a href="#coach/settings">Coach → Settings</a>.</p>'}
-      <form id="weightForm" class="weight-row">
-        <label>Today's weight (${esc(profile.unit)})
-          <input type="number" name="w" step="0.1" min="20" max="400" inputmode="decimal" required value="${state.weights.find((w) => w.date === today)?.value ?? ''}">
-        </label>
-        <button class="btn primary" type="submit">Save</button>
-      </form>
+      <ul class="week">${DAY_NAMES.map((name, d) => {
+        const items = plan.items.filter((i) => i.day === d);
+        const date = localDay(new Date(new Date(plan.week + 'T12:00:00').getTime() + d * 86400000));
+        const cls = date === today ? 'today' : date < today ? 'past' : '';
+        return `<li class="${cls}">
+          <div class="week-day"><span>${name}</span><b>${new Date(date + 'T12:00:00').getDate()}</b></div>
+          <div>${items.length ? items.map((it) => planItemHTML(it, status[it.id] === 'today' ? '' : status[it.id])).join('') : '<p class="muted small" style="margin:6px 0">Before this plan started.</p>'}</div>
+        </li>`;
+      }).join('')}</ul>
+      <div class="legend"><span><span class="load hard"></span>Hard</span><span><span class="load moderate"></span>Moderate</span><span><span class="load easy"></span>Easy</span></div>
     </section>`;
 
   $$('[data-gym]').forEach((b) => b.addEventListener('click', () => {
@@ -888,10 +888,42 @@ function renderPlan() {
     rebuildPlan(plan.gymDays.includes(d) ? plan.gymDays.filter((x) => x !== d) : [...plan.gymDays, d]);
     renderPlan();
   }));
+}
+
+function renderWeight(head) {
+  const { profile } = state;
+  const ws = weightStats(state.weights, profile);
+  const today = localDay(new Date());
+  const logged = state.weights.find((w) => w.date === today)?.value;
+  view.innerHTML = `
+    ${head}
+    <section class="card">
+      <h2>Log today's weight</h2>
+      <form id="weightForm" class="weight-row" style="margin-top:0">
+        <label>Morning weight (${esc(profile.unit)})
+          <input type="number" name="w" step="0.1" min="50" max="400" inputmode="decimal" required value="${logged ?? ''}" placeholder="e.g. 160.0">
+        </label>
+        <button class="btn primary" type="submit">Save</button>
+      </form>
+      <p class="muted small" style="margin-top:8px">Same time each day, after the bathroom, before food. The 7-day average matters, not single days.</p>
+    </section>
+    ${ws ? `
+    <section class="card">
+      <div class="stats4">
+        <div><b>${ws.latest.value}</b><span>latest</span></div>
+        <div><b>${ws.avg7}</b><span>7-day avg</span></div>
+        <div><b>${ws.weeklyChange != null ? (ws.weeklyChange > 0 ? '+' : '') + ws.weeklyChange : '–'}</b><span>${esc(profile.unit)} / week</span></div>
+        <div><b>${ws.toTarget != null ? ws.toTarget : '–'}</b><span>to target</span></div>
+      </div>
+      <div class="msg ${ws.status}">${esc(ws.message)}</div>
+      <div id="c-weight" style="margin-top:12px"></div>
+    </section>` : ''}
+    ${profile.targetWeight ? '' : `<section class="card"><p class="small" style="margin:0">Pick your weight class in <a href="#coach/settings">Settings</a> to set a target.</p></section>`}`;
+
   if (ws) {
     const pts = [...state.weights].sort((a, b) => a.date.localeCompare(b.date)).slice(-30).map((w) => ({ x: shortDate(w.date + 'T12:00:00'), y: w.value }));
     const vals = pts.map((p) => p.y).concat(profile.targetWeight ? [profile.targetWeight] : []);
-    lineChart($('#c-weight'), pts, { min: Math.floor(Math.min(...vals) - 1), max: Math.ceil(Math.max(...vals) + 1), unit: ` ${profile.unit}`, target: profile.targetWeight, label: 'Bodyweight' });
+    lineChart($('#c-weight'), pts, { min: Math.floor(Math.min(...vals) - 2), max: Math.ceil(Math.max(...vals) + 2), unit: ` ${profile.unit}`, target: profile.targetWeight, label: 'Bodyweight' });
   }
   $('#weightForm').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -907,15 +939,26 @@ function renderPlan() {
 // ---------------------------------------------------------------------------
 // Log
 
+const TYPE_ICON = { shadow: '🥊', bag: '🎯', mitts: '🧤', sparring: '⚔️', rope: '➰', run: '🏃', strength: '🏋️', conditioning: '🔥', mobility: '🧘' };
+
 function renderLog() {
   const list = [...state.sessions].reverse();
   const now = new Date();
   const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  const groups = [];
+  const wkStart = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+  const thisWeek = +wkStart(now);
+  for (const s of list) {
+    const w = +wkStart(s.date);
+    const label = w === thisWeek ? 'This week' : w === thisWeek - 7 * 86400000 ? 'Last week' : `Week of ${new Date(w).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    if (!groups.length || groups[groups.length - 1].label !== label) groups.push({ label, items: [] });
+    groups[groups.length - 1].items.push(s);
+  }
   view.innerHTML = `
+    ${pageHead('Log', { eyebrow: `${list.length} sessions` })}
     <section class="card">
-      <h1>Training log</h1>
       <details class="add">
-        <summary class="btn primary block">+ Log a session</summary>
+        <summary class="btn primary block" style="margin-top:0">+ Log a session</summary>
         <form id="manual" class="form">
           <label>Type<select name="type">${Object.entries(ALL_TYPES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
           <div class="row2">
@@ -933,14 +976,17 @@ function renderLog() {
         </form>
       </details>
     </section>
-    ${list.length ? list.map((s) => `
-      <button class="card log-item" data-id="${s.id}">
-        <div class="log-main">
-          <b>${ALL_TYPES[s.type] || esc(s.type)}${s.source === 'video' ? ' · video' : ''}</b>
-          <span class="muted small">${fmtDate(s.date)} · ${s.durationMin ? `${s.durationMin} min` : `${s.completedRounds ?? 0}/${s.plan?.rounds ?? 0} rds`}${s.punches?.total ? ` · ${s.punches.total} punches` : ''}${s.hits ? ` · ${Object.values(s.hits).reduce((a, b) => a + b, 0)} hits logged` : ''}${s.rpe ? ` · RPE ${s.rpe}` : ''}</span>
-        </div>
-        ${s.scores?.overall != null ? `<span class="badge ${scoreClass(s.scores.overall)}">${s.scores.overall}</span>` : ''}
-      </button>`).join('') : '<p class="muted center">No sessions yet.</p>'}
+    ${groups.map((g) => `
+      <div class="section-label">${esc(g.label)}</div>
+      <section class="card"><div class="rows">${g.items.map((s) => `
+        <button class="row log-item" data-id="${s.id}">
+          <span class="row-ico">${TYPE_ICON[s.type] || '•'}</span>
+          <div class="log-main">
+            <b>${ALL_TYPES[s.type] || esc(s.type)}${s.source === 'video' ? ' · video' : ''}</b>
+            <span>${fmtDate(s.date)} · ${s.durationMin ? `${s.durationMin} min` : `${s.completedRounds ?? 0}/${s.plan?.rounds ?? 0} rds`}${s.punches?.total ? ` · ${s.punches.total} punches` : ''}${s.hits ? ` · ${Object.values(s.hits).reduce((a, b) => a + b, 0)} hits` : ''}${s.rpe ? ` · RPE ${s.rpe}` : ''}</span>
+          </div>
+          ${s.scores?.overall != null ? `<span class="badge ${scoreClass(s.scores.overall)}">${s.scores.overall}</span>` : '<span class="chev">›</span>'}
+        </button>`).join('')}</div></section>`).join('') || '<p class="muted center">No sessions yet.</p>'}
     <dialog id="detail"></dialog>`;
 
   const mf = $('#manual');

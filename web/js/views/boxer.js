@@ -4,7 +4,7 @@ import { evidenceFor, proofOfImprovement, styleProfile, developmentTimeline, com
 import { fatigueMap, medAnalysis, DIM_NAMES } from '../analysis.js';
 import { BOXING_TYPES, TARGETS, outputPpm } from '../coach.js';
 import { lineChart } from '../chart.js';
-import { $, $$, esc, shortDate, subnav, subOf, deltaHTML, confDot, scoreClass, toast } from '../ui.js';
+import { $, $$, esc, shortDate, subnav, subOf, deltaHTML, confDot, scoreClass, toast, pageHead } from '../ui.js';
 import { newId } from '../store.js';
 
 const SUBS = [['skills', 'Skills'], ['analysis', 'Analysis'], ['style', 'Style'], ['timeline', 'Timeline'], ['charts', 'Charts']];
@@ -13,7 +13,8 @@ export function renderBoxer(view, app) {
   const sub = subOf('skills');
   const ctx = app.model();
   const body = { skills, analysis, style, timeline, charts }[sub] || skills;
-  view.innerHTML = `<section class="card"><h1>Your boxing</h1>${subnav('boxer', SUBS, sub)}</section><div id="boxerBody"></div>`;
+  const measured = ctx.skills.filter((x) => x.confidence !== 'none').length;
+  view.innerHTML = `${pageHead('Your boxing', { eyebrow: `${measured} of 18 skills measured${ctx.skills.length ? ` · ${esc(ctx.phase.name)}` : ''}`, nav: subnav('boxer', SUBS, sub) })}<div id="boxerBody"></div>`;
   body($('#boxerBody'), app, ctx);
 }
 
@@ -21,12 +22,9 @@ export function renderBoxer(view, app) {
 
 function skills(el, app, ctx) {
   const byGroup = Object.fromEntries(SKILL_GROUPS.map((g) => [g, ctx.skills.filter((s) => s.group === g)]));
-  const measured = ctx.skills.filter((s) => s.confidence !== 'none').length;
   el.innerHTML = `
-    <section class="card">
-      <p class="muted small">Ratings are calculated from your training evidence (camera, sparring, drills, decisions, coach notes). You can't set them by hand. ${measured}/18 skills have evidence so far; unmeasured ones sit at 50.</p>
-      <div class="legend"><span>${confDot('high')} high</span><span>${confDot('medium')} medium</span><span>${confDot('low')} low</span><span>${confDot('none')} no evidence</span></div>
-    </section>
+    <p class="muted small" style="margin:0 2px 10px">Calculated from evidence — camera, sparring, drills, decisions and coach notes. Unmeasured skills sit at 50. Tap a skill for its proof.</p>
+    <div class="legend" style="margin:0 2px 12px"><span>${confDot('high')}High confidence</span><span>${confDot('medium')}Medium</span><span>${confDot('low')}Low</span><span>${confDot('none')}None</span></div>
     ${SKILL_GROUPS.map((g) => `
       <section class="card">
         <h3 class="group-h">${g}</h3>

@@ -30,7 +30,12 @@ export const opt = (v, cur, label) => `<option value="${esc(v)}" ${String(v) ===
 
 // Segmented sub-navigation for a tab, driven by the hash (#tab/sub).
 export function subnav(tab, items, current) {
-  return `<nav class="subnav">${items.map(([k, label]) => `<a href="#${tab}/${k}" class="${k === current ? 'on' : ''}">${esc(label)}</a>`).join('')}</nav>`;
+  return `<nav class="subnav" style="--n:${items.length}">${items.map(([k, label]) => `<a href="#${tab}/${k}" class="${k === current ? 'on' : ''}" ${k === current ? 'aria-current="page"' : ''}>${esc(label)}</a>`).join('')}</nav>`;
+}
+
+// Page header: eyebrow line, title, optional sub-navigation.
+export function pageHead(title, { eyebrow = '', nav = '' } = {}) {
+  return `<header class="page-head">${eyebrow ? `<div class="eyebrow">${eyebrow}</div>` : ''}<h1>${esc(title)}</h1>${nav}</header>`;
 }
 
 export function subOf(defaultSub) {

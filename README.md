@@ -54,7 +54,7 @@ The data model is built around **skills, observations, hypotheses, training stim
 | 19 | **Proof of improvement**: every skill shows its 8-week change and the measured metrics behind it ("↓ 23% straight-back exits") | Boxer → Skills → tap a skill |
 | 20 | **Video intelligence**: upload a video and it's analysed on-device. Every detection (punch type, guard drop, crossed feet, stance) comes with a confidence %, and you correct it before saving | Train → Analyse video |
 
-Plus: a round timer with voice combos, the live camera coach, motion-sensor punch counting, a weekly plan built around your gym days, weight tracking, progress charts and JSON backup.
+Plus: a round timer with voice combos, the live camera coach, motion-sensor punch counting, a weekly plan built around your gym days, weight tracking in pounds with a pro weight-class picker, progress charts and JSON backup.
 
 ## Honest limits
 

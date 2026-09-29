@@ -4,13 +4,23 @@ import { AREAS, TARGETS, INSIGHTS } from '../coach.js';
 import { memoryTrace, rankProblems, priorities } from '../engine.js';
 import { startHypothesis, evaluateHypothesis } from '../hypotheses.js';
 import * as store from '../store.js';
-import { $, $$, esc, shortDate, subnav, subOf, toast, opt, scoreClass } from '../ui.js';
+import { $, $$, esc, shortDate, subnav, subOf, toast, opt, scoreClass, pageHead } from '../ui.js';
 
-const SUBS = [['memory', 'Memory'], ['hypotheses', 'Hypotheses'], ['priorities', 'Priorities'], ['iq', 'Fight IQ'], ['settings', 'Settings']];
+const SUBS = [['memory', 'Memory'], ['hypotheses', 'Hypotheses'], ['priorities', 'Priorities'], ['iq', 'Fight IQ']];
+
+// Pro weight-class limits in pounds.
+export const WEIGHT_CLASSES = [
+  ['Flyweight', 112], ['Super flyweight', 115], ['Bantamweight', 118], ['Super bantamweight', 122], ['Featherweight', 126],
+  ['Super featherweight', 130], ['Lightweight', 135], ['Super lightweight', 140], ['Welterweight', 147],
+  ['Super welterweight', 154], ['Middleweight', 160], ['Super middleweight', 168], ['Light heavyweight', 175],
+  ['Cruiserweight', 200], ['Heavyweight', 999],
+];
 
 export function renderCoach(view, app) {
   const sub = subOf('memory');
-  view.innerHTML = `<section class="card"><h1>Coach</h1>${subnav('coach', SUBS, sub)}</section><div id="coachBody"></div>`;
+  view.innerHTML = sub === 'settings'
+    ? `${pageHead('Settings', { eyebrow: '<a href="#coach">‹ Coach</a>' })}<div id="coachBody"></div>`
+    : `${pageHead('Coach', { eyebrow: 'What I know and what I\'m testing', nav: subnav('coach', SUBS, sub) })}<div id="coachBody"></div>`;
   ({ memory, hypotheses, prioritiesView, iq, settings }[{ priorities: 'prioritiesView' }[sub] || sub] || memory)($('#coachBody'), app);
 }
 
@@ -276,7 +286,7 @@ function settings(el, app) {
   const { profile, settings: st } = app.state;
   el.innerHTML = `
     <section class="card">
-      <h2>You</h2>
+      <h2>Profile</h2>
       <form id="profile" class="form">
         <label>Name<input name="name" value="${esc(profile.name)}" maxlength="40" placeholder="Optional"></label>
         <div class="row2">
@@ -293,9 +303,10 @@ function settings(el, app) {
           <label>Opponent style<select name="opponentStyle">${opt('', profile.opponentStyle, 'Unknown')}${Object.entries(OPPONENTS).map(([k, o]) => opt(k, profile.opponentStyle, o.name)).join('')}</select></label>
           <p class="muted small">With a date set, the whole app switches into camp: 8 weeks out skill acquisition and volume, 5 weeks tactical work against your opponent's style, 3 weeks fight-specific intensity, fight week taper.</p>
         </fieldset>
+        <label>Weight class<select name="weightClass">${opt('', '', 'Choose…')}${WEIGHT_CLASSES.filter(([, lb]) => lb < 999).map(([n, lb]) => opt(lb, profile.unit === 'lb' ? profile.targetWeight : '', `${n} · ${lb} lb`)).join('')}</select></label>
         <div class="row2">
-          <label>Target weight<input type="number" name="targetWeight" step="0.1" min="0" inputmode="decimal" value="${profile.targetWeight ?? ''}" placeholder="e.g. 72.5"></label>
-          <label>Units<select name="unit">${opt('kg', profile.unit, 'kg')}${opt('lb', profile.unit, 'lb')}</select></label>
+          <label>Target weight (${esc(profile.unit)})<input type="number" name="targetWeight" step="0.1" min="0" inputmode="decimal" value="${profile.targetWeight ?? ''}" placeholder="${profile.unit === 'lb' ? 'e.g. 154' : 'e.g. 70'}"></label>
+          <label>Units<select name="unit">${opt('lb', profile.unit, 'Pounds (lb)')}${opt('kg', profile.unit, 'Kilograms (kg)')}</select></label>
         </div>
         <label>Training days per week<input type="number" name="weeklyGoal" min="1" max="7" value="${profile.weeklyGoal}"></label>
         <label><span>Punch detection sensitivity <b id="sensOut">${profile.sensitivity}</b></span>
@@ -324,6 +335,11 @@ function settings(el, app) {
     </section>`;
 
   const f = $('#profile', el);
+  f.weightClass.addEventListener('change', () => {
+    if (!f.weightClass.value) return;
+    const lb = +f.weightClass.value;
+    f.targetWeight.value = f.unit.value === 'kg' ? (lb / 2.20462).toFixed(1) : lb;
+  });
   f.sensitivity.addEventListener('input', () => { $('#sensOut').textContent = f.sensitivity.value; });
   f.addEventListener('submit', (e) => {
     e.preventDefault();
