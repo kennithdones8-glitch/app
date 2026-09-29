@@ -332,6 +332,7 @@ function settings(el, app) {
       <h3>How ratings work</h3>
       <p class="small">Each skill starts at 50. Evidence moves it: camera measurements, sparring (why you got hit, what worked), constraint rounds, pattern usage, decision drills and coach/self notes. Recent evidence counts more (45-day half-life) and coach notes count more than self notes. Confidence reflects how much evidence there is.</p>
       <p class="muted small">Camera analysis is an estimate from one phone camera — use it as a mirror that remembers, not a judge.</p>
+      <p class="muted small">BoxCoach version ${esc(app.version || '')}</p>
     </section>`;
 
   const f = $('#profile', el);

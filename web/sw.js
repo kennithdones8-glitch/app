@@ -1,5 +1,5 @@
 // Offline support: cache the app shell, and cache the pose model/runtime after first use.
-const CACHE = 'boxcoach-v6';
+const CACHE = 'boxcoach-v7';
 const SHELL = [
   './', 'index.html', 'css/styles.css', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png',
   'js/app.js', 'js/audio.js', 'js/chart.js', 'js/coach.js', 'js/form.js', 'js/motion.js', 'js/plan.js', 'js/pose.js', 'js/store.js', 'js/timer.js',
@@ -9,7 +9,8 @@ const SHELL = [
 const RUNTIME_HOSTS = ['cdn.jsdelivr.net', 'storage.googleapis.com'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: 'reload' skips the browser's HTTP cache so a new version never installs stale files.
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -25,9 +26,10 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin === location.origin) {
-    // Network first so updates land quickly; fall back to cache offline.
+    // Network first, revalidating with the server (GitHub Pages lets browsers reuse files for
+    // 10 minutes otherwise), so updates land on the next open; fall back to cache offline.
     e.respondWith(
-      fetch(req)
+      fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })
         .then((res) => {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(req, copy));
