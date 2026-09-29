@@ -72,6 +72,85 @@ export function choosePose(people, prefer = 'auto', prev = null) {
   return info.sort((a, b) => b.size - a.size)[0].i;
 }
 
+// Follows one specific person through a video with others in it. Identity comes from what they
+// look like (clothing colour, size) plus where they are, so it survives swapping sides, crossing
+// paths and brief occlusion. When the target can't be found it reports nobody (-1) rather than
+// jumping to someone else.
+export function personFeatures(pts) {
+  const hx = (pts[LM.L_HIP].x + pts[LM.R_HIP].x) / 2, hy = (pts[LM.L_HIP].y + pts[LM.R_HIP].y) / 2;
+  const top = Math.min(pts[LM.NOSE].y, pts[LM.L_SH].y, pts[LM.R_SH].y);
+  const bottom = Math.max(pts[LM.L_ANK].y, pts[LM.R_ANK].y, hy);
+  return { x: hx, y: hy, size: Math.max(0.05, bottom - top) };
+}
+
+const colorDist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+export class PersonTracker {
+  constructor() {
+    this.target = null;
+    this.lostSince = null;
+  }
+
+  get locked() {
+    return !!this.target;
+  }
+
+  lockOn(pts, color = null) {
+    this.target = { ...personFeatures(pts), color };
+    this.lostSince = null;
+  }
+
+  // people: image landmarks per detected person; colors: [r, g, b] torso colour per person.
+  pick(people, colors = [], t = 0) {
+    if (!this.target || !people?.length) {
+      if (this.target && this.lostSince == null) this.lostSince = t;
+      return -1;
+    }
+    const lost = this.lostSince != null && t - this.lostSince > 1000;
+    let best = -1, bestScore = Infinity;
+    people.forEach((pts, i) => {
+      const f = personFeatures(pts);
+      const pd = Math.hypot(f.x - this.target.x, f.y - this.target.y);
+      const sd = Math.abs(Math.log(f.size / this.target.size));
+      const cd = colors[i] && this.target.color ? colorDist(colors[i], this.target.color) : null;
+      // After losing them for a while, position is stale: rely on appearance.
+      let score = (lost ? Math.min(pd / 0.2, 1) : pd / 0.2) + sd * 2 + (cd != null ? cd / 45 : 0.6);
+      if (cd != null && cd > 85) score += 10; // clearly a different person
+      if (score < bestScore) { bestScore = score; best = i; }
+    });
+    if (bestScore > 3.5) {
+      if (this.lostSince == null) this.lostSince = t;
+      return -1;
+    }
+    const f = personFeatures(people[best]);
+    this.target.x = f.x;
+    this.target.y = f.y;
+    this.target.size = this.target.size * 0.8 + f.size * 0.2;
+    if (colors[best]) {
+      this.target.color = this.target.color && bestScore < 2
+        ? this.target.color.map((c, k) => c * 0.9 + colors[best][k] * 0.1)
+        : this.target.color || colors[best];
+    }
+    this.lostSince = null;
+    return best;
+  }
+}
+
+// Index of the person nearest a tap (normalised image coordinates).
+export function personAt(people, x, y) {
+  let best = -1, bestD = Infinity;
+  people.forEach((pts, i) => {
+    const xs = [LM.NOSE, LM.L_SH, LM.R_SH, LM.L_HIP, LM.R_HIP, LM.L_ANK, LM.R_ANK].map((k) => pts[k]);
+    const minX = Math.min(...xs.map((p) => p.x)) - 0.03, maxX = Math.max(...xs.map((p) => p.x)) + 0.03;
+    const minY = Math.min(...xs.map((p) => p.y)) - 0.05, maxY = Math.max(...xs.map((p) => p.y)) + 0.03;
+    const inside = x >= minX && x <= maxX && y >= minY && y <= maxY;
+    const f = personFeatures(pts);
+    const d = Math.hypot(x - f.x, y - f.y) - (inside ? 1 : 0);
+    if (d < bestD) { bestD = d; best = i; }
+  });
+  return best;
+}
+
 export function hipCenter(pts) {
   return { x: (pts[LM.L_HIP].x + pts[LM.R_HIP].x) / 2, y: (pts[LM.L_HIP].y + pts[LM.R_HIP].y) / 2 };
 }

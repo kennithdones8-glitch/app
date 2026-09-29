@@ -241,3 +241,36 @@ test('facing is right on real side-on pad footage landmarks', async () => {
   assert.ok(f.x < -0.9, `facing ${JSON.stringify(f)}`);
   assert.equal(leadSide(w), 'L'); // orthodox, left foot forward
 });
+
+test('PersonTracker follows the boxer through side swaps and occlusion', async () => {
+  const { PersonTracker, personAt } = await import('../web/js/form.js');
+  const person = (x, scale = 1) => {
+    const pts = Array.from({ length: 33 }, () => ({ x, y: 0.5 }));
+    pts[LM.NOSE] = { x, y: 0.5 - 0.3 * scale };
+    pts[LM.L_SH] = { x: x + 0.03, y: 0.5 - 0.22 * scale }; pts[LM.R_SH] = { x: x - 0.03, y: 0.5 - 0.22 * scale };
+    pts[LM.L_HIP] = { x: x + 0.02, y: 0.5 }; pts[LM.R_HIP] = { x: x - 0.02, y: 0.5 };
+    pts[LM.L_ANK] = { x: x + 0.04, y: 0.5 + 0.3 * scale }; pts[LM.R_ANK] = { x: x - 0.04, y: 0.5 + 0.3 * scale };
+    return pts;
+  };
+  const RED = [200, 40, 40], BLACK = [30, 30, 35];
+  // Boxer (red) starts on the left, coach (black) on the right; user taps the boxer.
+  const start = [person(0.3), person(0.7)];
+  assert.equal(personAt(start, 0.31, 0.4), 0);
+  const tr = new PersonTracker();
+  tr.lockOn(start[0], RED);
+  let t = 0;
+  // They circle and swap sides over 30 frames; detector order also flips halfway.
+  for (let i = 0; i <= 30; i++) {
+    const bx = 0.3 + (0.4 * i) / 30, cx = 0.7 - (0.4 * i) / 30;
+    const people = i < 15 ? [person(bx), person(cx)] : [person(cx), person(bx)];
+    const colors = i < 15 ? [RED, BLACK] : [BLACK, RED];
+    const idx = tr.pick(people, colors, (t += 33));
+    assert.equal(colors[idx], RED, `frame ${i} picked the wrong person`);
+  }
+  // The boxer is hidden for a few frames: only the coach is detected -> nobody, not the coach.
+  for (let i = 0; i < 10; i++) assert.equal(tr.pick([person(0.3)], [BLACK], (t += 33)), -1);
+  // Boxer reappears somewhere else: picked back up by appearance.
+  t += 1500;
+  const back = tr.pick([person(0.3), person(0.55)], [BLACK, RED], t);
+  assert.equal(back, 1);
+});

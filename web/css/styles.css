@@ -482,3 +482,5 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 }
 .vid-stage { position: relative; width: 100%; margin: 0 auto 12px; border-radius: 12px; overflow: hidden; background: #000; }
 .vid-stage video, .vid-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.vid-stage.pick { cursor: pointer; outline: 3px solid var(--accent); outline-offset: 2px; }
+.vid-stage.pick::after { content: 'Tap yourself'; position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 700; white-space: nowrap; pointer-events: none; }
