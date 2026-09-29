@@ -1,6 +1,6 @@
 // Video intelligence: analyse an uploaded shadowboxing/sparring/bag video on-device,
 // show every detection with a confidence score, let the boxer correct it, then save.
-import { FormAnalyzer, combineRounds, sequencesFrom, comboStats, PUNCH_NAMES, choosePose, PersonTracker, personAt } from '../form.js';
+import { FormAnalyzer, combineRounds, sequencesFrom, streamFrom, comboStats, PUNCH_NAMES, choosePose, PersonTracker, personAt } from '../form.js';
 import { ALL_TYPES } from '../coach.js';
 import { $, $$, esc, opt, toast } from '../ui.js';
 import { newId } from '../store.js';
@@ -332,8 +332,9 @@ export function buildSession(j) {
     const kept = j.events.filter((e) => e.kind === 'punch' && e.round === idx + 1 && e.keep);
     const punches = { jab: 0, cross: 0, leadHook: 0, rearHook: 0, leadUppercut: 0, rearUppercut: 0 };
     for (const e of kept) punches[e.fix]++;
-    const sequences = sequencesFrom(kept.map((e) => ({ t: e.t, type: e.fix })));
-    return { ...r, punches, totalPunches: kept.length, sequences, ...comboStats(sequences) };
+    const log = kept.map((e) => ({ t: e.t, type: e.fix }));
+    const sequences = sequencesFrom(log);
+    return { ...r, punches, totalPunches: kept.length, sequences, stream: streamFrom(log), ...comboStats(sequences) };
   });
   const form = combineRounds(rounds);
   return {

@@ -22,6 +22,8 @@ import { buildReport, reportSize } from './report.js';
 import { renderBoxer } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
 import { renderVideo } from './views/video.js';
+import { renderCombos, comboHTML } from './views/combos.js';
+import { parseCombo, comboText, comboLabel, comboSpeech, comboKey, punchDigits, pickCombo, judgeCalls, sessionCombos } from './combos.js';
 
 let state = store.load();
 const view = $('#view');
@@ -34,7 +36,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.29-7';
+export const APP_VERSION = '2026.09.29-8';
 
 const app = {
   version: APP_VERSION,
@@ -48,6 +50,12 @@ const app = {
   },
   rebuildPlan: () => rebuildPlan(currentPlan().gymDays),
   showSummary: (s) => { s.scores = scoreSession(s, state.profile); renderSummary(s); },
+  // Open the live-session setup with your combos (or just some of them) being called.
+  drillCombos: (ids) => {
+    draft = { ...(draft || {}), type: draft?.type || 'shadow', combos: true, comboLevel: ids ? 'only' : 'mine', comboIds: ids };
+    if (!draft.rounds) Object.assign(draft, { rounds: 3, roundSec: 180, restSec: 60, tracking: state.settings.tracking, constraints: false });
+    if (location.hash === '#train/session') renderTrain(); else location.hash = '#train/session';
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -234,8 +242,9 @@ let draft = null;
 
 function renderTrain() {
   const sub = subOf('session');
-  view.innerHTML = `${pageHead('Train', { nav: subnav('train', [['session', 'Live session'], ['video', 'Analyse video']], sub) })}<div id="trainBody"></div>`;
+  view.innerHTML = `${pageHead('Train', { nav: subnav('train', [['session', 'Live session'], ['combos', 'Combos'], ['video', 'Video']], sub) })}<div id="trainBody"></div>`;
   if (sub === 'video') return renderVideo($('#trainBody'), app);
+  if (sub === 'combos') return renderCombos($('#trainBody'), app);
   const body = $('#trainBody');
   const ctx = app.model();
   const f = state.profile.fight;
@@ -243,6 +252,8 @@ function renderTrain() {
   const types = ['shadow', 'bag', 'mitts', 'sparring', 'rope', 'conditioning'];
   const opt = (v, cur, label) => `<option value="${v}" ${String(v) === String(cur) ? 'selected' : ''}>${label}</option>`;
   const secs = [20, 30, 60, 90, 120, 150, 180, 240, 300];
+  const onlyCombos = state.combos.filter((c) => draft.comboIds?.includes(c.id));
+  if (['mine', 'mix'].includes(draft.comboLevel) && !state.combos.length) draft.comboLevel = 3;
   const rests = [0, 10, 15, 30, 45, 60, 90, 120];
 
   body.innerHTML = `
@@ -269,7 +280,11 @@ function renderTrain() {
         <p class="muted small" style="margin:-4px 0 0">A problem to solve each round, built from your weaknesses and opponent exposure.</p>
         <div id="roundPreview"></div>
         <label class="switch"><input type="checkbox" name="combos" ${draft.combos ? 'checked' : ''}> <span>Call out combos</span></label>
-        <label>Combo difficulty<select name="comboLevel">${opt(1, draft.comboLevel, 'Basic')}${opt(2, draft.comboLevel, 'Intermediate')}${opt(3, draft.comboLevel, 'Advanced')}</select></label>
+        <label>Combos to call<select name="comboLevel">
+          ${draft.comboLevel === 'only' && onlyCombos.length ? opt('only', 'only', `Only ${onlyCombos.map((c) => comboLabel(c.tokens)).join(', ')}`) : ''}
+          ${state.combos.length ? `${opt('mine', draft.comboLevel, `My combos (${state.combos.length})`)}${opt('mix', draft.comboLevel, 'My combos + built-in')}` : ''}
+          ${opt(1, draft.comboLevel, 'Built-in: basic')}${opt(2, draft.comboLevel, 'Built-in: intermediate')}${opt(3, draft.comboLevel, 'Built-in: advanced')}</select></label>
+        ${state.combos.length ? '' : '<p class="muted small" style="margin:-4px 0 0">Build your own in <a href="#train/combos">Combos</a>.</p>'}
       </section>
       <section class="card form">
         <fieldset>
@@ -291,7 +306,8 @@ function renderTrain() {
     const fd = new FormData(form);
     draft = {
       type: fd.get('type'), rounds: +fd.get('rounds'), roundSec: +fd.get('roundSec'), restSec: +fd.get('restSec'),
-      tracking: fd.get('tracking'), combos: fd.get('combos') === 'on', comboLevel: +fd.get('comboLevel'), constraints: fd.get('constraints') === 'on',
+      tracking: fd.get('tracking'), combos: fd.get('combos') === 'on', comboLevel: /^\d$/.test(fd.get('comboLevel')) ? +fd.get('comboLevel') : fd.get('comboLevel'),
+      comboIds: draft.comboIds, constraints: fd.get('constraints') === 'on',
     };
     $('#totalTime').textContent = fmt(draft.rounds * draft.roundSec + (draft.rounds - 1) * draft.restSec);
     const usable = draft.constraints && ['shadow', 'bag', 'mitts'].includes(draft.type);
@@ -366,7 +382,7 @@ async function startSession(plan) {
     total: 0, roundPunches: 0, perRound: [], formRounds: [], intensity: [],
     byType: tracking === 'camera' ? { jab: 0, cross: 0, leadHook: 0, rearHook: 0, leadUppercut: 0, rearUppercut: 0 } : null,
     completedRounds: 0, comboTimer: null, burstTimers: [], stopMotion: null, analyzer: null, tracker: null, wakeLock: null,
-    medThreshold: med?.threshold || null, medCued: false,
+    medThreshold: med?.threshold || null, medCued: false, calls: [], callResults: [], lastComboId: null,
   };
 
   try { live.wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* optional */ }
@@ -460,7 +476,11 @@ function roundPlan(n) {
 function closeRound() {
   if (!live) return;
   live.perRound.push(live.roundPunches);
-  if (live.analyzer) live.formRounds.push(live.analyzer.endRound());
+  if (live.analyzer) {
+    live.formRounds.push(live.analyzer.endRound());
+    live.callResults.push(...judgeCalls(live.calls, live.analyzer.round.punchLog));
+  }
+  live.calls = [];
   live.roundPunches = 0;
   clearInterval(live.comboTimer);
   live.burstTimers.forEach(clearTimeout);
@@ -553,12 +573,25 @@ function scheduleCombos(rp) {
   const opp = rp?.opponent ? OPPONENTS[rp.opponent] : null;
   const call = () => {
     if (!live || live.timer.phase !== 'work' || live.timer.paused || live.bursting) return;
-    let text;
-    if (opp && Math.random() < 0.3) text = opp.prompts[Math.floor(Math.random() * opp.prompts.length)];
-    else if (c?.combos) text = c.combos[Math.floor(Math.random() * c.combos.length)];
-    else text = nextCombo(live.plan.comboLevel, live.plan.focus);
-    $('#liveCombo').textContent = text;
-    audio.say(comboToSpeech(text), { rate: 1.3 });
+    const level = live.plan.comboLevel;
+    const mine = level === 'only' ? state.combos.filter((x) => live.plan.comboIds?.includes(x.id)) : state.combos;
+    const useMine = mine.length && (level === 'mine' || level === 'only' || (level === 'mix' && Math.random() < 0.5));
+    let tokens = null, text, speech;
+    if (useMine) {
+      const pick = pickCombo(mine, live.lastComboId);
+      live.lastComboId = pick.id;
+      tokens = pick.tokens;
+    } else {
+      if (opp && Math.random() < 0.3) text = opp.prompts[Math.floor(Math.random() * opp.prompts.length)];
+      else if (c?.combos) text = c.combos[Math.floor(Math.random() * c.combos.length)];
+      else text = nextCombo(typeof level === 'number' ? level : 3, live.plan.focus);
+      tokens = parseCombo(text);
+    }
+    if (tokens) { text = comboText(tokens); speech = comboSpeech(tokens); } else speech = comboToSpeech(text);
+    $('#liveCombo').innerHTML = tokens ? comboHTML(tokens) : esc(text);
+    audio.say(speech, { rate: 1.3 });
+    // With the camera on, remember the call so we can check what was actually thrown.
+    if (tokens && live.analyzer) live.calls.push({ t: performance.now(), key: comboKey(tokens), digits: punchDigits(tokens) });
   };
   setTimeout(call, 2500);
   live.comboTimer = setInterval(call, every);
@@ -617,6 +650,7 @@ function finishSession() {
     form: l.formRounds.some((r) => r.frames > 30) ? combineRounds(l.formRounds) : null,
     constraints: constraints.length ? constraints : undefined,
     calib: l.analyzer?.calib.frames ? l.analyzer.calib : undefined,
+    comboCalls: l.callResults.length ? l.callResults.slice(0, 400) : undefined,
     rpe: 7, notes: '',
   };
   teardownLive();
@@ -680,6 +714,15 @@ function roundsTable(s) {
   return `<table class="tbl"><thead><tr><th>Round</th><th>Punches</th></tr></thead><tbody>${pr.map((n, i) => `<tr><td>R${i + 1}</td><td>${n}</td></tr>`).join('')}</tbody></table>`;
 }
 
+function combosHTML(s) {
+  const { mine, calls } = sessionCombos(s, state.combos);
+  if (!mine.length && !calls.called) return '';
+  const judged = calls.exact + calls.close + calls.miss;
+  return `<h3>Your combos</h3>
+    ${calls.called ? `<p class="small">${calls.called} combos called${judged ? ` · <b>${calls.exact}</b> thrown clean · ${calls.close} one punch off · ${calls.miss} different` : ''}${calls.none ? ` · ${calls.none} with no punches seen` : ''}</p>` : ''}
+    ${mine.length ? `<ul class="rows">${mine.map((m) => `<li>${comboHTML(m.combo.tokens)}<span class="grow"></span><b>×${m.exact}</b>${m.close ? `<span class="muted small">+${m.close} close</span>` : ''}</li>`).join('')}</ul>` : ''}`;
+}
+
 function sessionDetailHTML(s, fb) {
   const sc = s.scores || {};
   const areaChips = Object.keys(AREAS).filter((a) => sc[a] != null).map((a) => scoreChip(AREAS[a], sc[a], TARGETS[a])).join('');
@@ -703,6 +746,7 @@ function sessionDetailHTML(s, fb) {
     ${(s.positives || []).length ? `<p class="small"><b>What worked:</b> ${s.positives.map((k) => esc(POSITIVES[k]?.name || k)).join(', ')}</p>` : ''}
     ${s.punches?.byType ? `<h3>Punch mix</h3>${punchBreakdown(s.punches.byType)}` : ''}
     ${s.form?.comboShare != null ? `<p class="small muted">${s.form.comboShare}% of punches thrown in combinations · average combo ${s.form.avgComboLen ?? '–'} punches</p>` : ''}
+    ${combosHTML(s)}
     ${roundsTable(s)}
     ${s.form?.handReturnMs != null ? `<p class="small muted">Hand return: lead ${s.form.leadReturnMs ?? '–'} ms · rear ${s.form.rearReturnMs ?? '–'} ms · rear hand dropped on ${s.form.rearDropPct ?? 0}% of lead punches</p>` : ''}
     ${s.intensity ? `<p class="small muted">Average punch intensity: ${s.intensity} m/s²</p>` : ''}

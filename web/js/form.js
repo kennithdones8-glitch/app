@@ -253,6 +253,23 @@ export function sequencesFrom(punchLog, gapMs = 700) {
   return seqs;
 }
 
+// The punches thrown, in order, with the gap between each pair:
+// '-' within 0.7 s (same combination), '~' within 1.6 s (room for a slip or roll), ' ' a new exchange.
+export function streamFrom(punchLog, tight = 700, loose = 1600) {
+  let s = '', last = null;
+  for (const p of punchLog) {
+    const d = PUNCH_DIGIT[p.type];
+    if (!d) continue;
+    if (last != null) {
+      const g = p.t - last;
+      s += g <= tight ? '-' : g <= loose ? '~' : ' ';
+    }
+    s += d;
+    last = p.t;
+  }
+  return s;
+}
+
 export function comboStats(seqs) {
   let punches = 0, inCombos = 0, combos = 0, comboLen = 0;
   for (const [k, n] of Object.entries(seqs)) {
@@ -293,6 +310,7 @@ export function roundMetrics(r) {
     punches: { ...r.punches },
     totalPunches: total,
     sequences,
+    stream: streamFrom(r.punchLog),
     ...comboStats(sequences),
     leftLeadPct: pct(r.leftCloser, r.depthFrames),
   };
