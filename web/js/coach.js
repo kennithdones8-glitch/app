@@ -75,7 +75,7 @@ export function outputPpm(session) {
   return Math.round(session.punches.total / workMin);
 }
 
-function returnScore(ms) {
+export function returnScore(ms) {
   if (ms == null) return null;
   // <=350ms is excellent, >=1100ms is poor.
   return clamp(Math.round(100 - ((ms - 350) / 750) * 100), 0, 100);

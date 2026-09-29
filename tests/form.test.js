@@ -127,3 +127,33 @@ test('combineRounds weights by frames and sums punches', () => {
   assert.equal(c.totalPunches, 11);
   assert.equal(c.perRound.length, 2);
 });
+
+test('sequences group punches into combinations', async () => {
+  const { sequencesFrom, comboStats } = await import('../web/js/form.js');
+  const log = [
+    { t: 0, type: 'jab' }, { t: 300, type: 'cross' },
+    { t: 2000, type: 'jab' },
+    { t: 4000, type: 'jab' }, { t: 4300, type: 'cross' }, { t: 4600, type: 'leadHook' },
+  ];
+  const seqs = sequencesFrom(log);
+  assert.deepEqual(seqs, { '1-2': 1, 1: 1, '1-2-3': 1 });
+  const c = comboStats(seqs);
+  assert.equal(c.comboShare, 83);
+  assert.equal(c.avgComboLen, 2.5);
+});
+
+test('punch events carry confidence and per-hand return times', () => {
+  const an = new FormAnalyzer();
+  an.startRound();
+  let t = feed(an, still(10), 0);
+  t = feed(an, punch(LM.L_WR, LM.L_EL, { x: 0.16, y: -0.49, z: -0.61 }, { x: 0.17, y: -0.47, z: -0.33 }), t);
+  feed(an, still(15), t);
+  const m = an.endRound();
+  const ev = an.events.find((e) => e.kind === 'punch');
+  assert.equal(ev.type, 'jab');
+  assert.ok(ev.conf > 50 && ev.conf <= 100, `conf ${ev.conf}`);
+  assert.ok(m.leadReturnMs > 0);
+  assert.equal(m.rearReturnMs, null);
+  assert.equal(m.leftLeadPct, 100); // orthodox: left shoulder closer to camera
+  assert.deepEqual(m.sequences, { 1: 1 });
+});

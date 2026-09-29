@@ -31,14 +31,28 @@ function addDays(d, n) {
 export function phaseFor(profile = {}, now = new Date()) {
   const date = profile.fightDate ? new Date(profile.fightDate + 'T12:00:00') : null;
   if (!date || date < weekStart(now)) {
-    return { key: 'base', name: 'Competitive base', volume: 1, note: 'Building your engine and fixing habits so you are always close to fight-ready.' };
+    return {
+      key: 'base', name: 'Competitive base', volume: 1, camp: false,
+      note: 'Building your engine and fixing habits so you are always close to fight-ready.',
+      priorities: ['Fix your biggest recurring problem', 'Build skills you are underexposed to', 'Aerobic base'],
+    };
   }
   const days = Math.round((date - now) / 86400000);
   const weeksOut = Math.max(0, Math.round(days / 7));
-  if (days <= 10) return { key: 'taper', name: 'Taper', weeksOut, days, volume: 0.6, note: 'Fight week(s): keep it sharp and short. No new skills, no hard sparring.' };
-  if (days <= 21) return { key: 'sharpen', name: 'Sharpen', weeksOut, days, volume: 0.9, note: 'Peak speed and timing. Quality over quantity.' };
-  if (days <= 56) return { key: 'camp', name: 'Fight camp', weeksOut, days, volume: 1.1, note: 'Hardest block: fight-pace rounds and conditioning at full distance.' };
-  return { key: 'build', name: 'Build', weeksOut, days, volume: 1, note: 'Build the base: volume, strength and skill work before camp.' };
+  const base = { weeksOut, days, camp: true };
+  if (days <= 7) {
+    return { ...base, key: 'taper', name: 'Fight week · taper', volume: 0.6, note: 'Sharpness and recovery. Short, crisp sessions; no new skills; no hard sparring.', priorities: ['Sharpness', 'Recovery', 'Make weight safely'] };
+  }
+  if (days <= 21) {
+    return { ...base, key: 'specific', name: 'Fight camp · fight-specific', volume: 0.9, note: 'Fight-specific intensity at full fight length. Cut every bit of unnecessary volume.', priorities: ['Fight-pace rounds', 'Game plan vs your opponent', 'Reduced volume'] };
+  }
+  if (days <= 35) {
+    return { ...base, key: 'tactical', name: 'Fight camp · tactical', volume: 1.05, note: 'Tactical development and specific conditioning: rounds built around your opponent’s style.', priorities: ['Opponent-specific tactics', 'Specific conditioning', 'Sparring quality'] };
+  }
+  if (days <= 56) {
+    return { ...base, key: 'camp', name: 'Fight camp · base', volume: 1.1, note: 'Skill acquisition, conditioning base and volume. The hardest training block.', priorities: ['Skill acquisition', 'Conditioning base', 'Volume'] };
+  }
+  return { ...base, camp: false, key: 'build', name: 'Pre-camp build', volume: 1, note: 'Develop skills and the engine before camp starts at 8 weeks out.', priorities: ['Skill development', 'Strength', 'Aerobic base'] };
 }
 
 // ---------------------------------------------------------------------------
@@ -54,7 +68,7 @@ function templates(profile, memory, phase, adjust) {
   const focus = memory?.focus?.area;
   const bestPpm = memory?.prs?.bestPpm?.value;
   const vol = (n) => Math.max(2, Math.round(n * phase.volume) - adjust);
-  const simRounds = phase.key === 'camp' ? fight.rounds + 1 : phase.key === 'taper' ? Math.max(2, Math.ceil(fight.rounds / 2)) : fight.rounds;
+  const simRounds = phase.key === 'camp' || phase.key === 'tactical' ? fight.rounds + 1 : phase.key === 'taper' ? Math.max(2, Math.ceil(fight.rounds / 2)) : fight.rounds;
   const pace = bestPpm ? Math.round(bestPpm * 0.85) : null;
   const min = Math.round(fight.roundSec / 60 * 10) / 10;
 
@@ -113,9 +127,11 @@ export function recentLoad(sessions, now = new Date()) {
 
 // `fromDay` (0 = Mon) is the first day to schedule; earlier days keep `keep` items (from the
 // previous version of this week's plan) so rebuilding mid-week never rewrites the past.
-export function buildWeek({ profile = {}, memory = {}, sessions = [], weights = [], gymDays = [], lastWeek = null, now = new Date(), fromDay = 0, keep = [] }) {
+export function buildWeek({ profile = {}, memory = {}, sessions = [], weights = [], gymDays = [], lastWeek = null, now = new Date(), fromDay = 0, keep = [], recovery = null }) {
   const start = weekStart(now);
-  const phase = phaseFor(profile, now);
+  const deload = recovery?.status === 'deload';
+  const basePhase = phaseFor(profile, now);
+  const phase = deload ? { ...basePhase, volume: basePhase.volume * 0.7 } : basePhase;
   const notes = [];
   const gym = [...new Set(gymDays)].filter((d) => d >= 0 && d <= 6).sort();
 
@@ -126,8 +142,9 @@ export function buildWeek({ profile = {}, memory = {}, sessions = [], weights = 
     notes.push(`Last week you completed ${lastWeek.done} of ${lastWeek.planned} sessions — trimmed a round off the bag work so this week is doable.`);
   }
   const load = recentLoad(sessions, now);
-  const overreached = load.avgRpe != null && load.avgRpe >= 8.5 && load.count >= 3;
-  if (overreached) notes.push(`Your effort has averaged ${load.avgRpe.toFixed(1)}/10 this past week — swapped one hard session for easy roadwork to let you absorb the work.`);
+  const overreached = deload || (load.avgRpe != null && load.avgRpe >= 8.5 && load.count >= 3);
+  if (deload) notes.push(`Deload week: ${recovery.reasons[0] || 'recovery markers are down'} Volume cut ~30% and one hard day swapped for easy work.`);
+  if (overreached && !deload) notes.push(`Your effort has averaged ${load.avgRpe.toFixed(1)}/10 this past week — swapped one hard session for easy roadwork to let you absorb the work.`);
 
   const T = templates(profile, memory, phase, adjust);
   const trainingDays = Math.min(7, Math.max(gym.length, profile.weeklyGoal || 6));
@@ -149,6 +166,8 @@ export function buildWeek({ profile = {}, memory = {}, sessions = [], weights = 
   let queue = PRIORITY.filter((k) => !already.has(k));
   if (gym.length >= 3) queue = queue.filter((k) => k !== 'bagVolume').concat('bagVolume'); // gym already gives bag volume
   if (phase.key === 'taper') queue = queue.filter((k) => !['bagVolume', 'intervals'].includes(k)).concat(['easyRun', 'mobility']);
+  if (phase.key === 'specific') queue = queue.filter((k) => k !== 'bagVolume').concat('mobility');
+  if (phase.key === 'camp') queue = ['fightSim', 'bagVolume', ...queue.filter((k) => k !== 'fightSim' && k !== 'bagVolume')];
   const focus = memory?.focus?.area;
   if (focus === 'output') queue = ['fightSim', 'bagVolume', ...queue.filter((k) => k !== 'fightSim' && k !== 'bagVolume')];
 

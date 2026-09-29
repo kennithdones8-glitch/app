@@ -72,7 +72,46 @@ function emptyRound() {
     frames: 0, guardEligible: 0, guardUp: 0, stanceFrames: 0, stanceOk: 0,
     narrow: 0, wide: 0, crossed: 0, bladeOk: 0, moving: 0, headMoving: 0,
     punches: { jab: 0, cross: 0, leadHook: 0, rearHook: 0, leadUppercut: 0, rearUppercut: 0 },
-    returnTimes: [], leadPunches: 0, rearDrops: 0,
+    returnTimes: [], returnLead: [], returnRear: [], leadPunches: 0, rearDrops: 0,
+    punchLog: [], leftCloser: 0, depthFrames: 0,
+  };
+}
+
+// Punch numbers used by boxers: 1 jab, 2 cross, 3 lead hook, 4 rear hook, 5 lead uppercut, 6 rear uppercut.
+export const PUNCH_DIGIT = { jab: 1, cross: 2, leadHook: 3, rearHook: 4, leadUppercut: 5, rearUppercut: 6 };
+
+// Groups punches thrown within `gapMs` of each other into combinations, e.g. {"1-2": 4, "1-2-3": 2}.
+export function sequencesFrom(punchLog, gapMs = 700) {
+  const seqs = {};
+  let cur = [];
+  let last = -Infinity;
+  const flush = () => {
+    if (cur.length) {
+      const k = cur.join('-');
+      seqs[k] = (seqs[k] || 0) + 1;
+    }
+    cur = [];
+  };
+  for (const p of punchLog) {
+    if (p.t - last > gapMs) flush();
+    cur.push(PUNCH_DIGIT[p.type]);
+    last = p.t;
+  }
+  flush();
+  return seqs;
+}
+
+export function comboStats(seqs) {
+  let punches = 0, inCombos = 0, combos = 0, comboLen = 0;
+  for (const [k, n] of Object.entries(seqs)) {
+    const len = k.split('-').length;
+    punches += len * n;
+    if (len >= 2) { inCombos += len * n; combos += n; comboLen += len * n; }
+  }
+  return {
+    comboShare: punches ? Math.round((inCombos / punches) * 100) : null,
+    avgComboLen: combos ? Math.round((comboLen / combos) * 10) / 10 : null,
+    combos,
   };
 }
 
@@ -82,9 +121,9 @@ function pct(n, d) {
 
 export function roundMetrics(r) {
   const total = Object.values(r.punches).reduce((a, b) => a + b, 0);
-  const avgReturn = r.returnTimes.length
-    ? Math.round(r.returnTimes.reduce((a, b) => a + b, 0) / r.returnTimes.length)
-    : null;
+  const avg = (xs) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
+  const avgReturn = avg(r.returnTimes);
+  const sequences = sequencesFrom(r.punchLog);
   return {
     frames: r.frames,
     guard: pct(r.guardUp, r.guardEligible),
@@ -96,9 +135,14 @@ export function roundMetrics(r) {
     footwork: pct(r.moving, r.frames),
     head: pct(r.headMoving, r.frames),
     handReturnMs: avgReturn,
+    leadReturnMs: avg(r.returnLead),
+    rearReturnMs: avg(r.returnRear),
     rearDropPct: pct(r.rearDrops, r.leadPunches),
     punches: { ...r.punches },
     totalPunches: total,
+    sequences,
+    ...comboStats(sequences),
+    leftLeadPct: pct(r.leftCloser, r.depthFrames),
   };
 }
 
@@ -106,7 +150,7 @@ export function roundMetrics(r) {
 export function combineRounds(rounds) {
   const valid = rounds.filter((r) => r.frames > 0);
   const out = { perRound: rounds };
-  const keys = ['guard', 'stance', 'crossedPct', 'narrowPct', 'widePct', 'blade', 'footwork', 'head', 'handReturnMs', 'rearDropPct'];
+  const keys = ['guard', 'stance', 'crossedPct', 'narrowPct', 'widePct', 'blade', 'footwork', 'head', 'handReturnMs', 'leadReturnMs', 'rearReturnMs', 'rearDropPct', 'leftLeadPct'];
   for (const k of keys) {
     let sum = 0, w = 0;
     for (const r of valid) {
@@ -119,6 +163,9 @@ export function combineRounds(rounds) {
   out.punches = { jab: 0, cross: 0, leadHook: 0, rearHook: 0, leadUppercut: 0, rearUppercut: 0 };
   for (const r of rounds) for (const k in r.punches) out.punches[k] += r.punches[k];
   out.totalPunches = Object.values(out.punches).reduce((a, b) => a + b, 0);
+  out.sequences = {};
+  for (const r of rounds) for (const [k, n] of Object.entries(r.sequences || {})) out.sequences[k] = (out.sequences[k] || 0) + n;
+  Object.assign(out, comboStats(out.sequences));
   return out;
 }
 
@@ -142,6 +189,8 @@ export class FormAnalyzer {
     this.lastCue = {};
     this.lastAnyCue = -Infinity;
     this.lastSeen = null;
+    this.events = []; // detections with confidence, used for video review
+    this.roundNo = 0;
   }
 
   _hand(side) {
@@ -157,6 +206,7 @@ export class FormAnalyzer {
   }
 
   startRound() {
+    this.roundNo++;
     this.round = emptyRound();
     this.active = true;
     this.since = {};
@@ -165,6 +215,10 @@ export class FormAnalyzer {
   endRound() {
     this.active = false;
     return roundMetrics(this.round);
+  }
+
+  event(kind, t, conf, extra = {}) {
+    if (this.active) this.events.push({ kind, t: Math.round(t), conf: Math.round(conf), round: this.roundNo, ...extra });
   }
 
   cue(key, text, t) {
@@ -201,6 +255,7 @@ export class FormAnalyzer {
     const nose = world[LM.NOSE];
 
     // --- Punch tracking per hand -------------------------------------------
+    this.image = image;
     for (const role of ['lead', 'rear']) this._trackHand(role, world, nose, t);
 
     if (!this.active) return this.snapshot(world, image);
@@ -218,7 +273,14 @@ export class FormAnalyzer {
       r.guardEligible++;
       if (bothUp) r.guardUp++;
     }
-    if (this.held('guardDown', eligible && !bothUp, t) > 1200) this.cue('guard', 'Hands up', t);
+    const downFor = this.held('guardDown', eligible && !bothUp, t);
+    if (downFor > 1200) {
+      if (!this.guardEventOpen) {
+        this.guardEventOpen = true;
+        this.event('guardDrop', this.since.guardDown, 100 * this._vis([LM.L_WR, LM.R_WR, LM.L_SH, LM.R_SH]));
+      }
+      this.cue('guard', 'Hands up', t);
+    } else if (!downFor) this.guardEventOpen = false;
 
     // --- Stance / feet -------------------------------------------------------
     const anklesVisible = (image[LM.L_ANK]?.visibility ?? 1) > 0.5 && (image[LM.R_ANK]?.visibility ?? 1) > 0.5;
@@ -232,7 +294,14 @@ export class FormAnalyzer {
       if (narrow) r.narrow++;
       if (wide) r.wide++;
       if (!crossed && !narrow && !wide) r.stanceOk++;
-      if (this.held('crossed', crossed, t) > 400) this.cue('crossed', "Don't cross your feet", t);
+      const crossedFor = this.held('crossed', crossed, t);
+      if (crossedFor > 400) {
+        if (!this.crossEventOpen) {
+          this.crossEventOpen = true;
+          this.event('crossedFeet', this.since.crossed, 100 * this._vis([LM.L_ANK, LM.R_ANK]));
+        }
+        this.cue('crossed', "Don't cross your feet", t);
+      } else if (!crossedFor) this.crossEventOpen = false;
       if (this.held('narrow', narrow, t) > 1500) this.cue('narrow', 'Widen your stance', t);
       if (this.held('wide', wide, t) > 1500) this.cue('wide', 'Tighten up your stance', t);
     }
@@ -240,6 +309,10 @@ export class FormAnalyzer {
     // --- Blade (not squared up) ---------------------------------------------
     const bladed = bladeAngle(world) >= BLADE_MIN_DEG;
     if (bladed) r.bladeOk++;
+    if (Math.abs(world[LM.L_SH].z - world[LM.R_SH].z) > 0.03) {
+      r.depthFrames++;
+      if (world[LM.L_SH].z < world[LM.R_SH].z) r.leftCloser++;
+    }
     if (this.held('squared', !bladed, t) > 2500) this.cue('squared', 'Turn your lead shoulder, stay bladed', t);
 
     // --- Footwork: hip centre movement in the image -------------------------
@@ -255,6 +328,11 @@ export class FormAnalyzer {
     if (this.held('headStill', !headMoving, t) > 9000) this.cue('head', 'Move your head, slip after you punch', t);
 
     return this.snapshot(world, image);
+  }
+
+  _vis(idx) {
+    if (!this.image) return 1;
+    return idx.reduce((a, i) => a + (this.image[i]?.visibility ?? 1), 0) / idx.length;
   }
 
   _trailRange(trail, p, windowMs) {
@@ -287,11 +365,12 @@ export class FormAnalyzer {
         h.state = 'punch';
         h.start = h.prev || w;
         h.startT = t;
-        h.peakExt = 0; h.peakAngle = 0; h.maxNoseD = noseD; h.maxRise = 0; h.maxLat = 0;
+        h.peakExt = 0; h.peakAngle = 0; h.maxNoseD = noseD; h.maxRise = 0; h.maxLat = 0; h.peakSpeed = 0;
         h.rearDropped = false;
       }
     }
     if (h.state === 'punch') {
+      h.peakSpeed = Math.max(h.peakSpeed, h.speed);
       h.peakExt = Math.max(h.peakExt, dist3(sh, w) / (h.armLen || 1));
       h.peakAngle = Math.max(h.peakAngle, angleDeg(sh, el, w));
       h.maxNoseD = Math.max(h.maxNoseD, noseD);
@@ -312,11 +391,12 @@ export class FormAnalyzer {
     }
     // Hand return: back in guard near the face.
     if (h.returnSince != null && h.state === 'idle') {
-      if (w.y <= shMidY + 0.06 && noseD < 0.38) {
-        if (this.active) this.round.returnTimes.push(t - h.returnSince);
-        h.returnSince = null;
-      } else if (t - h.returnSince > 1500) {
-        if (this.active) this.round.returnTimes.push(1500);
+      const done = w.y <= shMidY + 0.06 && noseD < 0.38 ? t - h.returnSince : t - h.returnSince > 1500 ? 1500 : null;
+      if (done != null) {
+        if (this.active) {
+          this.round.returnTimes.push(done);
+          this.round[role === 'lead' ? 'returnLead' : 'returnRear'].push(done);
+        }
         h.returnSince = null;
       }
     }
@@ -326,10 +406,19 @@ export class FormAnalyzer {
   }
 
   _registerPunch(role, h, t) {
-    let kind;
-    if (h.peakAngle >= 145 && h.peakExt >= 0.8) kind = 'straight';
-    else if (h.maxRise > 0.12 && h.maxRise > h.maxLat) kind = 'uppercut';
-    else kind = 'hook';
+    let kind, margin;
+    if (h.peakAngle >= 145 && h.peakExt >= 0.8) {
+      kind = 'straight';
+      margin = Math.min(1, (h.peakAngle - 135) / 35);
+    } else if (h.maxRise > 0.12 && h.maxRise > h.maxLat) {
+      kind = 'uppercut';
+      margin = Math.min(1, 0.4 + (h.maxRise - h.maxLat) / 0.15);
+    } else {
+      kind = 'hook';
+      margin = Math.min(1, 0.4 + Math.max(0, 145 - h.peakAngle) / 50);
+    }
+    const vis = this._vis([h.sh, h.el, h.wr]);
+    const conf = 100 * vis * (0.55 + 0.45 * Math.min(1, h.peakSpeed / (this.vTh * 1.8))) * (0.6 + 0.4 * Math.max(0, margin));
     const type =
       kind === 'straight' ? (role === 'lead' ? 'jab' : 'cross')
         : kind === 'hook' ? (role === 'lead' ? 'leadHook' : 'rearHook')
@@ -337,6 +426,8 @@ export class FormAnalyzer {
     h.returnSince = t;
     if (!this.active) return;
     this.round.punches[type]++;
+    this.round.punchLog.push({ t, type });
+    this.event('punch', t, conf, { type });
     if (role === 'lead') {
       this.round.leadPunches++;
       if (h.rearDropped) {
@@ -344,7 +435,7 @@ export class FormAnalyzer {
         this.cue('rearDrop', `Keep your ${this.rearName} hand home when you jab`, t);
       }
     }
-    this.onPunch(type);
+    this.onPunch(type, { t, conf });
   }
 
   snapshot() {
