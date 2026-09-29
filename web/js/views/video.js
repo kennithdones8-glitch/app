@@ -149,29 +149,37 @@ async function analyse(file, video, opts, el, app) {
 
     // Find people in the first frames; with more than one, ask the boxer to tap themselves.
     status.textContent = 'Finding you in the video…';
-    let first = [];
-    for (let i = 0; i < 8 && first.length === 0 && !cancelled; i++) {
+    // Look through up to 5 s: people may walk into shot late, or one may be missed on a single frame.
+    // Keep the frame showing the most people; stop as soon as two are seen.
+    let first = [], colors = [];
+    for (let i = 0; i < 90 && !cancelled && !video.ended; i++) {
       await nextFrame(video);
-      try { first = detectVideoFrame(lm, video)?.landmarks || []; } catch { first = []; }
+      let found = [];
+      try { found = detectVideoFrame(lm, video)?.landmarks || []; } catch { found = []; }
+      if (found.length > first.length) { first = found; colors = sampleColors(video, found); }
+      if (first.length > 1 || (first.length === 1 && video.currentTime > 1.5) || video.currentTime > 5) break;
     }
+    if (cancelled) throw new Error('cancelled');
     if (first.length > 1) {
       drawPeople(overlay, video, first, -1);
       status.innerHTML = '<b>Tap yourself</b> in the video to start.';
       stage.classList.add('pick');
       stage.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const colors = sampleColors(video, first);
+      // 'click' rather than 'pointerdown' so scrolling past the video with a finger doesn't pick anyone.
       const i = await new Promise((resolve) => {
-        stage.addEventListener('pointerdown', (e) => {
+        stage.addEventListener('click', (e) => {
           const r = overlay.getBoundingClientRect();
           resolve(personAt(first, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height));
         }, { once: true });
+        $('#vidCancel', el).addEventListener('click', () => resolve(-1), { once: true });
       });
       stage.classList.remove('pick');
+      if (cancelled || i < 0) throw new Error('cancelled');
       tracker.lockOn(first[i], colors[i]);
       who = 'tap';
       drawPeople(overlay, video, first, i);
     } else if (first.length === 1) {
-      tracker.lockOn(first[0], sampleColors(video, first)[0]);
+      tracker.lockOn(first[0], colors[0]);
     }
 
     analyzer.startRound();
