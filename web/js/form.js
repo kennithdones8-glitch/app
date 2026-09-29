@@ -98,19 +98,23 @@ export function feetCrossed(world) {
 export function facing(world) {
   const le = world[LM.L_EAR], re = world[LM.R_EAR], nose = world[LM.NOSE];
   if (!le || !re) return null;
+  // The nose sits in front of the ears in the direction the boxer faces. This is stable from any
+  // camera angle (the ear-line normal alone was ~90° off on real side-on pad footage).
+  const ox = nose.x - (le.x + re.x) / 2, oz = nose.z - (le.z + re.z) / 2;
+  const ol = Math.hypot(ox, oz);
+  if (ol >= 0.03) return { x: ox / ol, z: oz / ol };
+  // Fallbacks: the ear-line normal, then shoulders → nose.
   const ex = le.x - re.x, ez = le.z - re.z;
   const len = Math.hypot(ex, ez);
-  if (len < 0.03) {
-    // Ears overlap when filmed exactly side-on: use shoulders → nose instead.
-    const l = world[LM.L_SH], r = world[LM.R_SH];
-    const nx = nose.x - (l.x + r.x) / 2, nz = nose.z - (l.z + r.z) / 2;
-    const nl = Math.hypot(nx, nz);
-    return nl > 0.03 ? { x: nx / nl, z: nz / nl } : null;
+  if (len >= 0.03) {
+    let fx = -ez / len, fz = ex / len;
+    if (fx * ox + fz * oz < 0) { fx = -fx; fz = -fz; }
+    return { x: fx, z: fz };
   }
-  let fx = -ez / len, fz = ex / len;
-  const ox = nose.x - (le.x + re.x) / 2, oz = nose.z - (le.z + re.z) / 2;
-  if (fx * ox + fz * oz < 0) { fx = -fx; fz = -fz; }
-  return { x: fx, z: fz };
+  const l = world[LM.L_SH], r = world[LM.R_SH];
+  const nx = nose.x - (l.x + r.x) / 2, nz = nose.z - (l.z + r.z) / 2;
+  const nl = Math.hypot(nx, nz);
+  return nl > 0.03 ? { x: nx / nl, z: nz / nl } : null;
 }
 
 // How far the shoulders are turned away from the face direction (0° = squared up).
@@ -516,7 +520,8 @@ export class FormAnalyzer {
       margin = Math.min(1, 0.4 + Math.max(0, 145 - h.peakAngle) / 50);
     }
     const vis = this._vis([h.sh, h.el, h.wr]);
-    const conf = 100 * vis * (0.55 + 0.45 * Math.min(1, h.peakSpeed / (this.vTh * 1.8))) * (0.6 + 0.4 * Math.max(0, margin));
+    // Visibility counts for half: side-on the far arm is partly hidden even on clean punches.
+    const conf = 100 * (0.5 + 0.5 * vis) * (0.55 + 0.45 * Math.min(1, h.peakSpeed / (this.vTh * 1.8))) * (0.6 + 0.4 * Math.max(0, margin));
     const type =
       kind === 'straight' ? (role === 'lead' ? 'jab' : 'cross')
         : kind === 'hook' ? (role === 'lead' ? 'leadHook' : 'rearHook')

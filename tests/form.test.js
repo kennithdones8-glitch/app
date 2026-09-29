@@ -225,3 +225,19 @@ test('punches are classified correctly from a side-on camera', () => {
   an.endRound();
   assert.deepEqual(punches, ['jab', 'cross', 'leadHook']);
 });
+
+test('facing is right on real side-on pad footage landmarks', async () => {
+  const { facing, leadSide } = await import('../web/js/form.js');
+  // World landmarks MediaPipe produced for a boxer facing left in a real pad-work frame.
+  const w = Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0 }));
+  Object.assign(w, {
+    [LM.NOSE]: { x: -0.306, y: -0.563, z: -0.069 },
+    [LM.L_EAR]: { x: -0.196, y: -0.593, z: -0.155 }, [LM.R_EAR]: { x: -0.206, y: -0.628, z: -0.01 },
+    [LM.L_SH]: { x: -0.135, y: -0.448, z: -0.215 }, [LM.R_SH]: { x: -0.156, y: -0.498, z: 0.087 },
+    [LM.L_HIP]: { x: 0.012, y: 0.002, z: -0.11 }, [LM.R_HIP]: { x: -0.013, y: -0.003, z: 0.111 },
+    [LM.L_ANK]: { x: -0.236, y: 0.662, z: -0.104 }, [LM.R_ANK]: { x: 0.11, y: 0.543, z: 0.442 },
+  });
+  const f = facing(w);
+  assert.ok(f.x < -0.9, `facing ${JSON.stringify(f)}`);
+  assert.equal(leadSide(w), 'L'); // orthodox, left foot forward
+});
