@@ -92,3 +92,74 @@ test('a hook-heavy drilled combo with a wrong face estimate still reads right af
   const after = calibrateFromCombo(an.events, PAD, an.cal);
   assert.ok(after.agree >= after.matched * 0.95, `${after.agree}/${after.matched}`);
 });
+
+// ---------------------------------------------------------------------------
+// End to end through FormAnalyzer.update: a boxer whose face estimate is 90° off (as on the real
+// pad clip) still gets straights, hooks and stance right once a few punches have been thrown.
+import { LM } from '../web/js/form.js';
+
+function guard() {
+  const w = Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0 }));
+  const set = (i, x, y, z) => { w[i] = { x, y, z }; };
+  // Forward is -z (toward the camera). The face landmarks are corrupted so the nose sits to the
+  // boxer's side of the ears: facing() then points along -x, 90° off.
+  set(LM.NOSE, -0.1, -0.62, 0.02);
+  set(LM.L_EAR, 0, -0.63, 0.03);
+  set(LM.R_EAR, 0, -0.63, 0.01);
+  set(LM.L_SH, 0.18, -0.45, -0.05);
+  set(LM.R_SH, -0.15, -0.45, 0.08);
+  set(LM.L_EL, 0.2, -0.2, -0.12);
+  set(LM.R_EL, -0.17, -0.2, 0.0);
+  set(LM.L_WR, 0.12, -0.55, -0.25);
+  set(LM.R_WR, -0.08, -0.55, -0.15);
+  set(LM.L_HIP, 0.1, 0, 0);
+  set(LM.R_HIP, -0.1, 0, 0);
+  set(LM.L_ANK, 0.2, 0.85, -0.2);
+  set(LM.R_ANK, -0.2, 0.85, 0.2);
+  return w;
+}
+const lerp3 = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
+function moveHand(wr, el, points, elbows) {
+  // points: wrist waypoints after the guard position; returns frames out and back.
+  const g = guard();
+  const out = [];
+  let prevW = g[wr], prevE = g[el];
+  points.forEach((p, k) => {
+    for (let i = 1; i <= 2; i++) out.push({ [wr]: lerp3(prevW, p, i / 2), [el]: lerp3(prevE, elbows[k], i / 2) });
+    prevW = p; prevE = elbows[k];
+  });
+  for (let i = 1; i <= 6; i++) out.push({ [wr]: lerp3(prevW, g[wr], i / 6), [el]: lerp3(prevE, g[el], i / 6) });
+  return out.map((o) => { const w = guard(); for (const [k, v] of Object.entries(o)) w[k] = v; return w; });
+}
+// Pad-length straights: the mitt stops the arm before it locks out (elbow ~120°).
+const JAB = () => moveHand(LM.L_WR, LM.L_EL, [{ x: 0.13, y: -0.52, z: -0.36 }, { x: 0.14, y: -0.5, z: -0.47 }], [{ x: 0.2, y: -0.3, z: -0.16 }, { x: 0.22, y: -0.33, z: -0.2 }]);
+const CROSS = () => moveHand(LM.R_WR, LM.R_EL, [{ x: -0.04, y: -0.52, z: -0.28 }, { x: 0.0, y: -0.5, z: -0.42 }], [{ x: -0.16, y: -0.28, z: -0.06 }, { x: -0.16, y: -0.32, z: -0.12 }]);
+// Lead hook: swings out to the lead side, then across in front of the face.
+const HOOK = () => moveHand(LM.L_WR, LM.L_EL, [{ x: 0.38, y: -0.52, z: -0.3 }, { x: 0.12, y: -0.52, z: -0.45 }], [{ x: 0.4, y: -0.47, z: -0.05 }, { x: 0.36, y: -0.48, z: -0.2 }]);
+
+test('end to end: wrong face direction, straights and hooks still read right, stance too', () => {
+  const got = [];
+  const an = new FormAnalyzer({ onPunch: (type) => got.push(type) });
+  an.startRound();
+  let t = 0;
+  const run = (frames) => { for (const w of frames) { an.update(w, w.map((p) => ({ x: 0.5 + p.x * 0.3, y: 0.5 + p.y * 0.3, visibility: 0.99 })), t); t += 33; } };
+  // One warm-up reach: the analyser learns arm length from the first punch it sees.
+  run(JAB()); run(Array.from({ length: 12 }, guard));
+  got.length = 0;
+  const want = [];
+  for (let r = 0; r < 6; r++) {
+    for (const [f, name] of [[JAB, 'jab'], [CROSS, 'cross'], [HOOK, 'leadHook'], [CROSS, 'cross']]) {
+      run(f()); want.push(name);
+      run(Array.from({ length: 12 }, guard));
+    }
+  }
+  const m = an.endRound();
+  assert.equal(got.length, want.length, `punches seen: ${got.join(',')}`);
+  const liveRight = got.slice(8).filter((x, i) => x === want[i + 8]).length;
+  assert.ok(liveRight >= (want.length - 8) * 0.9, `live after warm-up: ${got.slice(8).join(',')}`);
+  an.reclassify();
+  const all = an.events.filter((e) => e.kind === 'punch').map((e) => e.type).slice(-want.length);
+  const right = all.filter((x, i) => x === want[i]).length;
+  assert.ok(right >= want.length * 0.95, `after re-read ${right}/${want.length}: ${all.join(',')}`);
+  assert.ok(m.leftLeadPct > 50, `orthodox from the learned axis: ${m.leftLeadPct}%`);
+});

@@ -210,8 +210,8 @@ export function bladeAngle(world) {
 
 // Which side leads, 'L' (orthodox), 'R' (southpaw) or null. Stance is defined by the lead foot
 // (the one further toward where the boxer faces); shoulders are the fallback.
-export function leadSide(world) {
-  const f = facing(world);
+export function leadSide(world, forward = null) {
+  const f = forward || facing(world);
   const along = (a, b) => (f ? (a.x - b.x) * f.x + (a.z - b.z) * f.z : b.z - a.z);
   const feet = along(world[LM.L_ANK], world[LM.R_ANK]);
   if (Math.abs(feet) > 0.08) return feet > 0 ? 'L' : 'R';
@@ -421,6 +421,7 @@ export class FormAnalyzer {
     this.lastSeen = null;
     this.events = []; // detections with confidence, used for video review
     this.recent = []; // recent punch measurements, for learning which way is forward
+    this.learnedAxis = null;
     this.roundNo = 0;
     // Raw measurements behind each punch decision, for tuning thresholds to a real boxer.
     this.calib = { vTh: Math.round(this.vTh * 100) / 100, punches: [], rejected: [], nearMiss: [], frames: 0, tracked: 0 };
@@ -549,7 +550,7 @@ export class FormAnalyzer {
     // --- Blade (not squared up) ---------------------------------------------
     const bladed = bladeAngle(world) >= BLADE_MIN_DEG;
     if (bladed) r.bladeOk++;
-    const lead = leadSide(world);
+    const lead = leadSide(world, this.learnedAxis);
     if (lead) {
       r.depthFrames++;
       if (lead === 'L') r.leftCloser++;
@@ -664,7 +665,7 @@ export class FormAnalyzer {
 
   // Forward axis: learned from recent punches once there are enough, else the face direction.
   axis() {
-    return refineAxis(this.recent, this.cal) || this.face || { x: 0, z: -1 };
+    return this.learnedAxis || this.face || { x: 0, z: -1 };
   }
 
   _registerPunch(role, h, t) {
@@ -673,6 +674,7 @@ export class FormAnalyzer {
     const { kind, margin, fwd, lat } = classifyPunch(feats, axis, this.cal);
     this.recent.push({ ...feats, disp: h.peakDisp });
     if (this.recent.length > 24) this.recent.shift();
+    this.learnedAxis = refineAxis(this.recent, this.cal); // also used for which foot leads
     const vis = this._vis([h.sh, h.el, h.wr]);
     // Visibility counts for half: side-on the far arm is partly hidden even on clean punches.
     const conf = PUNCH_CONF(vis, h.peakSpeed, this.vTh, margin);

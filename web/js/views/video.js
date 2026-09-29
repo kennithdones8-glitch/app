@@ -262,16 +262,32 @@ async function analyse(file, video, opts, el, app) {
     // Drilled a known combo: check the camera against it and learn this boxer's straight/hook boundary.
     let comboCheck = null;
     if (opts.drill) {
-      comboCheck = calibrateFromCombo(analyzer.events.filter((e) => e.kind === 'punch' && e.f), opts.drill.tokens, app.state.profile.punchCal);
+      const punchEvents = () => analyzer.events.filter((e) => e.kind === 'punch' && e.f);
+      const prior = app.state.profile.punchCal || null;
+      // 1) How the camera did on its own; this also pins forward from the known straights.
+      comboCheck = calibrateFromCombo(punchEvents(), opts.drill.tokens, prior);
       comboCheck.combo = comboLabel(opts.drill.tokens);
-      if (comboCheck.ratio != null) {
-        app.state.profile.punchCal = { ratio: comboCheck.ratio, n: comboCheck.n, updated: new Date().toISOString() };
-        app.persist();
-        analyzer.cal = app.state.profile.punchCal;
+      // 2) Re-read with the combo as a guide (forward pinned), current straight/hook boundary.
+      analyzer.reclassify();
+      comboCheck.guided = calibrateFromCombo(punchEvents(), opts.drill.tokens, prior).agree;
+      // 3) Try the learned boundary; keep it only if the clip lined up well and it reads better.
+      const lined = comboCheck.matched >= 0.6 * comboCheck.total;
+      if (comboCheck.ratio != null && lined) {
+        const cal = { ratio: comboCheck.ratio, n: comboCheck.n, updated: new Date().toISOString() };
+        analyzer.cal = cal;
         analyzer.reclassify();
-        const after = calibrateFromCombo(analyzer.events.filter((e) => e.kind === 'punch' && e.f), opts.drill.tokens, app.state.profile.punchCal);
-        comboCheck.agreeAfter = after.agree;
+        const tuned = calibrateFromCombo(punchEvents(), opts.drill.tokens, cal).agree;
+        if (tuned > comboCheck.guided) {
+          comboCheck.tuned = tuned;
+          comboCheck.saved = true;
+          app.state.profile.punchCal = cal;
+          app.persist();
+        } else {
+          analyzer.cal = prior;
+          analyzer.reclassify();
+        }
       }
+      if (!lined) comboCheck.poorFit = true;
     }
     job = {
       done: true, url, type: opts.type, roundSec: opts.roundSec || Math.round(durMs / 1000), durMs,
@@ -288,6 +304,16 @@ async function analyse(file, video, opts, el, app) {
     if (err.message !== 'cancelled') toast(err.message || 'Video analysis failed.');
     app.rerender();
   }
+}
+
+function comboCheckHTML(c) {
+  if (!c.total) return `<li>Combo check (${esc(c.combo)}): no punches detected to check.</li>`;
+  const p = (n) => pctOf(n, c.matched);
+  const final = c.tuned ?? c.guided ?? c.agree;
+  return `<li>Combo check (${esc(c.combo)}): ${c.matched} of ${c.total} punches lined up with it.
+    On its own the camera read ${p(c.agree)}% of those as the right punch; using your combo as a guide, ${p(final)}%.
+    ${c.saved ? 'It learned how your straights and hooks look on camera and will use that from now on.' : ''}
+    ${c.poorFit ? "Most punches didn't line up with this combo, so nothing was learned. Was it the right combo, thrown on repeat?" : ''}</li>`;
 }
 
 function renderReview(el, app) {
@@ -307,7 +333,7 @@ function renderReview(el, app) {
         <li>Body found in ${j.tracked}% of ${j.frames ?? ''} frames analysed${j.tracked < 70 ? ' — low; results are less reliable' : ''}${j.multi ? ` · ${j.multi}% had 2 people (following the person you tapped)` : ''}</li>
         <li>Stance detected: ${esc(stanceTxt)}</li>
         <li>${punches.length} punches detected, average confidence ${avgConf ?? '–'}%</li>
-        ${j.comboCheck ? `<li>Combo check (${esc(j.comboCheck.combo)}): ${j.comboCheck.matched} of ${j.comboCheck.total} punches lined up with it. The camera read ${pctOf(j.comboCheck.agreeAfter ?? j.comboCheck.agree, j.comboCheck.matched)}% of those as the right punch type${j.comboCheck.agreeAfter != null ? ` after learning from this video (was ${pctOf(j.comboCheck.agree, j.comboCheck.matched)}%)` : ''}.</li>` : ''}
+        ${j.comboCheck ? comboCheckHTML(j.comboCheck) : ''}
         <li>${others.filter((e) => e.kind === 'guardDrop').length} guard drops · ${others.filter((e) => e.kind === 'crossedFeet').length} crossed-feet moments</li>
       </ul>
       <p class="muted small">Computer vision isn't perfect. Tap a time to jump there, fix the punch type, or untick anything that's wrong. Low-confidence detections start unticked.</p>
