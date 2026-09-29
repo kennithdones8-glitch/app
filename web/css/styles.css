@@ -57,6 +57,7 @@
 
 /* ---------- Base ---------- */
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
@@ -479,3 +480,5 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
   .cue.flash { animation: none; }
   .btn { transition: none; }
 }
+.vid-stage { position: relative; width: 100%; margin: 0 auto 12px; border-radius: 12px; overflow: hidden; background: #000; }
+.vid-stage video, .vid-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }

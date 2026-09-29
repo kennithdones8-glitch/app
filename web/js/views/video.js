@@ -1,6 +1,6 @@
 // Video intelligence: analyse an uploaded shadowboxing/sparring/bag video on-device,
 // show every detection with a confidence score, let the boxer correct it, then save.
-import { FormAnalyzer, combineRounds, sequencesFrom, comboStats, PUNCH_NAMES } from '../form.js';
+import { FormAnalyzer, combineRounds, sequencesFrom, comboStats, PUNCH_NAMES, choosePose, hipCenter } from '../form.js';
 import { ALL_TYPES } from '../coach.js';
 import { $, $$, esc, opt, toast } from '../ui.js';
 import { newId } from '../store.js';
@@ -14,18 +14,20 @@ export function renderVideo(el, app) {
   el.innerHTML = `
     <section class="card">
       <h2>Analyse a video</h2>
-      <p class="muted small">Pick a shadowboxing, bag or sparring video. It's analysed on your phone and never uploaded. Works best with only you in frame, full body visible, facing the camera.</p>
+      <p class="muted small">Shadowboxing, pads, bag or sparring. It's analysed on your phone and never uploaded. Best results: whole body in frame, camera still, filmed from the front or a 45° angle.</p>
       <div class="msg" style="margin:0 0 12px">📋 Want Claude to review it? After saving, open the session in <b>Log</b> and tap <b>Copy report for coach</b>, then paste it into your chat. Only the measurements are shared, never the video.</div>
       <form id="vidForm" class="form">
         <label>Video<input type="file" name="file" accept="video/*" required></label>
-        <label>Type<select name="type">${['shadow', 'bag', 'sparring', 'mitts'].map((t) => opt(t, 'shadow', ALL_TYPES[t])).join('')}</select></label>
+        <label>Type<select name="type">${['shadow', 'mitts', 'bag', 'sparring'].map((t) => opt(t, 'shadow', ALL_TYPES[t])).join('')}</select></label>
+        <label>Which one is you?<select name="who">${opt('auto', 'auto', "I'm alone / closest to camera")}${opt('left', '', 'The person on the left')}${opt('right', '', 'The person on the right')}</select></label>
         <div class="row2">
-          <label>Rounds of<select name="roundSec">${opt(0, 180, 'Whole video')}${opt(120, 180, '2 min')}${opt(180, 180, '3 min')}</select></label>
+          <label>Rounds of<select name="roundSec">${opt(0, 0, 'Whole video')}${opt(120, 0, '2 min')}${opt(180, 0, '3 min')}</select></label>
           <label>Detail<select name="fps">${opt(10, 15, 'Fast')}${opt(15, 15, 'Normal')}${opt(24, 15, 'Precise')}</select></label>
         </div>
         <button class="btn primary block" type="submit">Analyse</button>
       </form>
       <div id="vidProgress" hidden>
+        <div class="vid-stage" id="vidStage"><canvas id="vidOverlay"></canvas></div>
         <div class="bar"><div id="vidBar" style="width:0%"></div></div>
         <p class="small muted" id="vidStatus">Loading…</p>
         <button class="btn ghost" id="vidCancel" type="button">Cancel</button>
@@ -34,66 +36,144 @@ export function renderVideo(el, app) {
   $('#vidForm', el).addEventListener('submit', (e) => {
     e.preventDefault();
     const f = e.target;
-    analyse(f.file.files[0], { type: f.type.value, roundSec: +f.roundSec.value, fps: +f.fps.value, stance: app.state.profile.stance, sensitivity: app.state.profile.sensitivity }, el, app);
+    const file = f.file.files[0];
+    if (!file) return;
+    // Create and start the video inside the tap so iPhone allows playback.
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.preload = 'auto';
+    video.src = URL.createObjectURL(file);
+    video.play().then(() => video.pause()).catch(() => {});
+    analyse(file, video, {
+      type: f.type.value, who: f.who.value, roundSec: +f.roundSec.value, fps: +f.fps.value,
+      stance: app.state.profile.stance, sensitivity: app.state.profile.sensitivity,
+    }, el, app);
   });
 }
 
-async function analyse(file, opts, el, app) {
-  if (!file) return;
+const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
+
+function drawPeople(canvas, video, people, chosen) {
+  if (canvas.width !== video.videoWidth) { canvas.width = video.videoWidth; canvas.height = video.videoHeight; }
+  const g = canvas.getContext('2d');
+  g.clearRect(0, 0, canvas.width, canvas.height);
+  people.forEach((pts, i) => {
+    g.strokeStyle = i === chosen ? '#ff4655' : 'rgba(255,255,255,0.45)';
+    g.lineWidth = Math.max(3, canvas.width / 160);
+    for (const [a, b] of BONES) {
+      g.beginPath();
+      g.moveTo(pts[a].x * canvas.width, pts[a].y * canvas.height);
+      g.lineTo(pts[b].x * canvas.width, pts[b].y * canvas.height);
+      g.stroke();
+    }
+  });
+}
+
+async function analyse(file, video, opts, el, app) {
   $('#vidForm', el).hidden = true;
   $('#vidProgress', el).hidden = false;
   const status = $('#vidStatus', el);
+  const stage = $('#vidStage', el);
+  const overlay = $('#vidOverlay', el);
+  stage.prepend(video);
   let cancelled = false;
-  $('#vidCancel', el).addEventListener('click', () => { cancelled = true; });
-  const url = URL.createObjectURL(file);
-  const video = document.createElement('video');
-  video.muted = true;
-  video.playsInline = true;
-  video.preload = 'auto';
-  video.src = url;
+  $('#vidCancel', el).addEventListener('click', () => { cancelled = true; video.pause(); });
+  const url = video.src;
   try {
-    await new Promise((res, rej) => { video.onloadeddata = res; video.onerror = () => rej(new Error('Could not read that video.')); });
+    if (video.readyState < 2) {
+      await new Promise((res, rej) => {
+        video.addEventListener('loadeddata', res, { once: true });
+        video.addEventListener('error', () => rej(new Error('Could not read that video. Try a shorter clip or record in "Most Compatible" format.')), { once: true });
+      });
+    }
+    stage.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+    stage.style.width = `min(100%, ${Math.round((380 * video.videoWidth) / video.videoHeight)}px)`;
     status.textContent = 'Loading pose model…';
-    const { getLandmarker } = await import('../pose.js');
-    const lm = await getLandmarker();
-    const analyzer = new FormAnalyzer({ stance: opts.stance, sensitivity: opts.sensitivity });
+    const { getVideoLandmarker, detectVideoFrame } = await import('../pose.js');
+    const lm = await getVideoLandmarker();
+    const analyzer = new FormAnalyzer({ stance: opts.stance, sensitivity: opts.sensitivity, minVis: 0.3 });
     const durMs = video.duration * 1000;
     const roundMs = opts.roundSec ? opts.roundSec * 1000 : durMs + 1;
     const rounds = [];
-    const step = 1000 / opts.fps;
-    let roundEnd = roundMs;
-    let visFrames = 0, frames = 0;
+    let roundEnd = roundMs, frames = 0, tracked = 0, multi = 0, prevHip = null, lastT = -1;
+
     analyzer.startRound();
-    for (let t = 0; t < durMs; t += step) {
-      if (cancelled) throw new Error('cancelled');
-      if (t >= roundEnd) {
+
+    const processFrame = (t) => {
+      if (t <= lastT) return;
+      lastT = t;
+      while (t >= roundEnd) {
         rounds.push(analyzer.endRound());
         analyzer.startRound();
         roundEnd += roundMs;
       }
-      video.currentTime = t / 1000;
-      await new Promise((res) => { video.onseeked = res; });
       let r = null;
-      try { r = lm.detectForVideo(video, Math.round(t) + 1); } catch { r = null; }
-      const image = r?.landmarks?.[0] || null;
+      try { r = detectVideoFrame(lm, video); } catch { r = null; }
+      const people = r?.landmarks || [];
+      const idx = choosePose(people, opts.who, prevHip);
+      const image = idx >= 0 ? people[idx] : null;
+      const world = idx >= 0 ? r.worldLandmarks?.[idx] : null;
+      if (image) { prevHip = hipCenter(image); tracked++; }
+      if (people.length > 1) multi++;
       frames++;
-      if (image) visFrames++;
-      analyzer.update(r?.worldLandmarks?.[0] || null, image, t);
-      if (frames % 10 === 0) {
-        $('#vidBar', el).style.width = `${(t / durMs) * 100}%`;
-        status.textContent = `Analysing ${fmtT(t)} / ${fmtT(durMs)} · ${analyzer.events.filter((e) => e.kind === 'punch').length} punches so far`;
-        await new Promise((res) => setTimeout(res, 0));
+      analyzer.update(world || null, image, t);
+      drawPeople(overlay, video, people, idx);
+      if (frames % 5 === 0) {
+        $('#vidBar', el).style.width = `${Math.min(100, (t / durMs) * 100)}%`;
+        status.textContent = `Analysing ${fmtT(t)} / ${fmtT(durMs)} · ${analyzer.events.filter((e) => e.kind === 'punch').length} punches · body found in ${Math.round((tracked / frames) * 100)}% of frames`;
+      }
+    };
+
+    if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+      // Play the video; on each shown frame we want, pause, analyse, then resume. Reliable on
+      // iPhone, and no frames are lost however slow the phone is.
+      const gap = 1000 / opts.fps - 5;
+      await new Promise((resolve, reject) => {
+        let gotFrame = false;
+        const onFrame = (now, meta) => {
+          if (cancelled) return reject(new Error('cancelled'));
+          gotFrame = true;
+          const t = meta.mediaTime * 1000;
+          if (t - lastT >= gap) {
+            video.pause();
+            processFrame(t);
+          }
+          if (video.ended || t >= durMs - 40) return resolve();
+          video.requestVideoFrameCallback(onFrame);
+          if (video.paused) video.play().catch(() => {});
+        };
+        video.addEventListener('ended', resolve, { once: true });
+        video.requestVideoFrameCallback(onFrame);
+        video.currentTime = 0;
+        video.play().catch(() => reject(new Error('The video would not play. Tap Analyse again.')));
+        setTimeout(() => { if (!gotFrame && !cancelled) reject(new Error('The video did not start playing. Tap Analyse again.')); }, 15000);
+        $('#vidCancel', el).addEventListener('click', () => reject(new Error('cancelled')));
+      });
+    } else {
+      // Fallback: step through the video frame by frame.
+      const step = 1000 / opts.fps;
+      for (let t = 0; t < durMs; t += step) {
+        if (cancelled) throw new Error('cancelled');
+        video.currentTime = t / 1000;
+        await new Promise((res) => video.addEventListener('seeked', res, { once: true }));
+        processFrame(t);
+        if (frames % 5 === 0) await new Promise((res) => setTimeout(res, 0));
       }
     }
     rounds.push(analyzer.endRound());
+    video.pause();
     job = {
       done: true, url, type: opts.type, roundSec: opts.roundSec || Math.round(durMs / 1000), durMs,
       rounds, events: analyzer.events.map((e, i) => ({ ...e, i, keep: e.conf >= 50, fix: e.type })),
-      calib: analyzer.calib,
-      tracked: frames ? Math.round((visFrames / frames) * 100) : 0, date: new Date(file.lastModified || Date.now()).toISOString(),
+      calib: { ...analyzer.calib, who: opts.who, multi: frames ? Math.round((multi / frames) * 100) : 0 },
+      frames, tracked: frames ? Math.round((tracked / frames) * 100) : 0, multi: frames ? Math.round((multi / frames) * 100) : 0,
+      date: new Date(file.lastModified || Date.now()).toISOString(),
     };
     app.rerender();
   } catch (err) {
+    video.pause();
     URL.revokeObjectURL(url);
     if (err.message !== 'cancelled') toast(err.message || 'Video analysis failed.');
     app.rerender();
@@ -114,7 +194,7 @@ function renderReview(el, app) {
       <h2>Video review</h2>
       <video id="vidPreview" src="${j.url}" controls playsinline muted class="vid-preview"></video>
       <ul class="small">
-        <li>Body tracked in ${j.tracked}% of frames${j.tracked < 70 ? ' — low; results are less reliable' : ''}</li>
+        <li>Body found in ${j.tracked}% of ${j.frames ?? ''} frames analysed${j.tracked < 70 ? ' — low; results are less reliable' : ''}${j.multi ? ` · ${j.multi}% had 2 people (tracking you by your choice)` : ''}</li>
         <li>Stance detected: ${esc(stanceTxt)}</li>
         <li>${punches.length} punches detected, average confidence ${avgConf ?? '–'}%</li>
         <li>${others.filter((e) => e.kind === 'guardDrop').length} guard drops · ${others.filter((e) => e.kind === 'crossedFeet').length} crossed-feet moments</li>
@@ -122,7 +202,9 @@ function renderReview(el, app) {
       <p class="muted small">Computer vision isn't perfect. Tap a time to jump there, fix the punch type, or untick anything that's wrong. Low-confidence detections start unticked.</p>
       <label class="switch"><input type="checkbox" id="uncertain" ${uncertainOnly ? 'checked' : ''}> <span>Only show uncertain (&lt;70%)</span></label>
     </section>
+    ${j.tracked < 30 ? `<section class="card"><div class="msg behind"><b>I could barely see you in this video.</b> Try: whole body in frame (head to feet), steadier camera, better light, or pick "Which one is you" if someone else is in the shot. You can also use Fast/Normal detail on long clips.</div></section>` : ''}
     <section class="card">
+      ${shown.length ? '' : '<p class="muted small" style="margin:0">No detections to review.</p>'}
       <ul class="events">${shown.map((e) => `
         <li class="${e.keep ? '' : 'off'}">
           <input type="checkbox" data-keep="${e.i}" ${e.keep ? 'checked' : ''} aria-label="Keep detection">
