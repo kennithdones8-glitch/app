@@ -2,7 +2,7 @@ name: Test and deploy to GitHub Pages
 
 on:
   push:
-    branches: [main, claude/boxing-workout-tracker-j5sr6x]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -27,7 +27,7 @@ jobs:
 
   deploy:
     needs: test
-    if: github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

@@ -15,10 +15,11 @@ export function renderVideo(el, app) {
     <section class="card">
       <h2>Analyse a video</h2>
       <p class="muted small">Pick a shadowboxing, bag or sparring video. It's analysed on your phone and never uploaded. Works best with only you in frame, full body visible, facing the camera.</p>
+      <div class="msg" style="margin:0 0 12px">📋 Want Claude to review it? After saving, open the session in <b>Log</b> and tap <b>Copy report for coach</b>, then paste it into your chat. Only the measurements are shared, never the video.</div>
       <form id="vidForm" class="form">
         <label>Video<input type="file" name="file" accept="video/*" required></label>
-        <div class="row3">
-          <label>Type<select name="type">${['shadow', 'bag', 'sparring', 'mitts'].map((t) => opt(t, 'shadow', ALL_TYPES[t])).join('')}</select></label>
+        <label>Type<select name="type">${['shadow', 'bag', 'sparring', 'mitts'].map((t) => opt(t, 'shadow', ALL_TYPES[t])).join('')}</select></label>
+        <div class="row2">
           <label>Rounds of<select name="roundSec">${opt(0, 180, 'Whole video')}${opt(120, 180, '2 min')}${opt(180, 180, '3 min')}</select></label>
           <label>Detail<select name="fps">${opt(10, 15, 'Fast')}${opt(15, 15, 'Normal')}${opt(24, 15, 'Precise')}</select></label>
         </div>
@@ -88,6 +89,7 @@ async function analyse(file, opts, el, app) {
     job = {
       done: true, url, type: opts.type, roundSec: opts.roundSec || Math.round(durMs / 1000), durMs,
       rounds, events: analyzer.events.map((e, i) => ({ ...e, i, keep: e.conf >= 50, fix: e.type })),
+      calib: analyzer.calib,
       tracked: frames ? Math.round((visFrames / frames) * 100) : 0, date: new Date(file.lastModified || Date.now()).toISOString(),
     };
     app.rerender();
@@ -178,6 +180,8 @@ export function buildSession(j) {
     punches: { total: form.totalPunches, perRound: rounds.map((r) => r.totalPunches), byType: form.punches },
     form: form.perRound.some((r) => r.frames > 30) ? form : null,
     corrections: j.events.filter((e) => !e.keep || (e.kind === 'punch' && e.fix !== e.type)).length,
+    // Your corrections are the ground truth: [detected type, corrected type or 0 if rejected, confidence].
+    calib: { ...j.calib, fixes: j.events.filter((e) => e.kind === 'punch' && (!e.keep || e.fix !== e.type)).slice(0, 200).map((e) => [e.type, e.keep ? e.fix : 0, e.conf]) },
     rpe: 7, notes: '',
   };
 }

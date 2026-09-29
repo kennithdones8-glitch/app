@@ -18,6 +18,7 @@ import { recoveryStatus, readinessOf, baselineHr } from './recovery.js';
 import { fatigueMap } from './analysis.js';
 import { $, $$, esc, fmtDate, shortDate, toast, scoreClass, scoreChip, subnav, subOf, pageHead } from './ui.js';
 import { reviewFieldsHTML, bindReview, readReview } from './views/review.js';
+import { buildReport, reportSize } from './report.js';
 import { renderBoxer } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
 import { renderVideo } from './views/video.js';
@@ -612,6 +613,7 @@ function finishSession() {
     intensity: l.intensity.length ? Math.round(l.intensity.reduce((a, b) => a + b, 0) / l.intensity.length) : null,
     form: l.formRounds.some((r) => r.frames > 30) ? combineRounds(l.formRounds) : null,
     constraints: constraints.length ? constraints : undefined,
+    calib: l.analyzer?.calib.frames ? l.analyzer.calib : undefined,
     rpe: 7, notes: '',
   };
   teardownLive();
@@ -726,7 +728,10 @@ function renderSummary(session) {
         <div class="rpe-scale"><span>Easy</span><span>Max effort</span></div>
         <label>Notes (how you felt, what clicked)<textarea name="notes" rows="3" maxlength="1000"></textarea></label>
         <button class="btn primary block big" type="submit">Save session</button>
-        <button class="btn ghost block" type="button" id="discard">Discard</button>
+        <div class="row2" style="margin-top:0">
+          <button class="btn ghost" type="button" id="copyReport">Copy report for coach</button>
+          <button class="btn ghost" type="button" id="discard">Discard</button>
+        </div>
       </form>
     </section>`;
   const f = $('#saveForm');
@@ -734,6 +739,12 @@ function renderSummary(session) {
   f.rpe.addEventListener('input', () => { $('#rpeOut').textContent = f.rpe.value; });
   $('#discard').addEventListener('click', () => {
     if (confirm('Discard this session?')) { location.hash = '#home'; route(); }
+  });
+  $('#copyReport').addEventListener('click', () => {
+    readReview(f, session, state);
+    session.rpe = +f.rpe.value;
+    session.notes = f.notes.value.trim();
+    copyReport(session);
   });
   f.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -745,6 +756,38 @@ function renderSummary(session) {
     route();
     toast('Saved. The model has been updated.');
   });
+}
+
+// Copies a text report to paste into a chat. Falls back to a selectable text box.
+async function copyReport(session) {
+  const text = buildReport(session, state);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(`Report copied (${reportSize(text)}). Paste it into your chat with Claude.`);
+    return;
+  } catch { /* fall through to manual copy */ }
+  let d = $('#reportDlg');
+  if (!d) {
+    d = document.createElement('dialog');
+    d.id = 'reportDlg';
+    document.body.appendChild(d);
+  }
+  d.innerHTML = `
+    <div class="dialog-body">
+      <h2>Coach report</h2>
+      <p class="muted small">Select all and copy, then paste it into your chat with Claude. It contains measurements only, no video.</p>
+      <textarea readonly rows="10" style="font-size:12px">${esc(text)}</textarea>
+      <div class="row2">
+        ${navigator.share ? '<button class="btn ghost" data-share>Share…</button>' : '<span></span>'}
+        <button class="btn primary" data-close>Done</button>
+      </div>
+    </div>`;
+  d.querySelector('[data-close]').addEventListener('click', () => d.close());
+  d.querySelector('[data-share]')?.addEventListener('click', () => navigator.share({ title: 'BoxCoach report', text }).catch(() => {}));
+  d.showModal();
+  const ta = d.querySelector('textarea');
+  ta.focus();
+  ta.select();
 }
 
 function saveSession(session) {
@@ -1036,12 +1079,14 @@ function openDetail(id) {
       <div class="eyebrow">${fmtDate(s.date)}</div>
       <h2>${ALL_TYPES[s.type] || esc(s.type)}</h2>
       ${sessionDetailHTML(s, s.feedback)}
+      ${s.type in BOXING_TYPES ? '<button class="btn ghost block" data-report>Copy report for coach</button>' : ''}
       <div class="row2">
         <button class="btn danger" data-del>Delete</button>
         <button class="btn primary" data-close>Close</button>
       </div>
     </div>`;
   d.querySelector('[data-close]').addEventListener('click', () => d.close());
+  d.querySelector('[data-report]')?.addEventListener('click', () => { d.close(); copyReport(s); });
   d.querySelector('[data-del]').addEventListener('click', () => {
     if (!confirm('Delete this session? The coach will recalculate everything.')) return;
     state.sessions = state.sessions.filter((x) => x.id !== id);
