@@ -27,6 +27,33 @@ export async function getLandmarker() {
   return landmarkerPromise;
 }
 
+// Separate instance for video files: up to 2 people (pads/sparring), and its own timestamp
+// clock so it never conflicts with the live camera (MediaPipe needs increasing timestamps).
+let videoLandmarkerPromise = null;
+let videoLastTs = 0;
+
+export async function getVideoLandmarker() {
+  if (!videoLandmarkerPromise) {
+    videoLandmarkerPromise = (async () => {
+      const { FilesetResolver, PoseLandmarker } = await import(`${BASE}/vision_bundle.mjs`);
+      const fileset = await FilesetResolver.forVisionTasks(`${BASE}/wasm`);
+      const opts = (delegate) => ({ baseOptions: { modelAssetPath: MODEL, delegate }, runningMode: 'VIDEO', numPoses: 2 });
+      try {
+        return await PoseLandmarker.createFromOptions(fileset, opts('GPU'));
+      } catch {
+        return await PoseLandmarker.createFromOptions(fileset, opts('CPU'));
+      }
+    })();
+    videoLandmarkerPromise.catch(() => { videoLandmarkerPromise = null; });
+  }
+  return videoLandmarkerPromise;
+}
+
+export function detectVideoFrame(lm, source) {
+  videoLastTs = Math.max(videoLastTs + 1, Math.round(performance.now()));
+  return lm.detectForVideo(source, videoLastTs);
+}
+
 const BONES = [
   [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
   [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28],

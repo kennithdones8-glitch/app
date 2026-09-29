@@ -7,6 +7,8 @@ function pose(over = {}) {
   const w = Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0 }));
   const set = (i, x, y, z) => { w[i] = { x, y, z }; };
   set(LM.NOSE, 0, -0.62, -0.05);
+  set(LM.L_EAR, 0.07, -0.63, 0.02);
+  set(LM.R_EAR, -0.07, -0.63, 0.02);
   set(LM.L_SH, 0.18, -0.45, -0.05);
   set(LM.R_SH, -0.15, -0.45, 0.08);
   set(LM.L_EL, 0.2, -0.2, -0.12);
@@ -156,4 +158,53 @@ test('punch events carry confidence and per-hand return times', () => {
   assert.equal(m.rearReturnMs, null);
   assert.equal(m.leftLeadPct, 100); // orthodox: left shoulder closer to camera
   assert.deepEqual(m.sequences, { 1: 1 });
+});
+
+test('choosePose picks the boxer among several people and stays locked on', async () => {
+  const { choosePose } = await import('../web/js/form.js');
+  const person = (x, scale = 1) => {
+    const pts = Array.from({ length: 33 }, () => ({ x, y: 0.5 }));
+    pts[LM.NOSE] = { x, y: 0.5 - 0.3 * scale };
+    pts[LM.L_SH] = { x: x + 0.03, y: 0.5 - 0.22 * scale }; pts[LM.R_SH] = { x: x - 0.03, y: 0.5 - 0.22 * scale };
+    pts[LM.L_HIP] = { x: x + 0.02, y: 0.5 }; pts[LM.R_HIP] = { x: x - 0.02, y: 0.5 };
+    pts[LM.L_ANK] = { x: x + 0.04, y: 0.5 + 0.3 * scale }; pts[LM.R_ANK] = { x: x - 0.04, y: 0.5 + 0.3 * scale };
+    return pts;
+  };
+  const people = [person(0.3, 1.2), person(0.7, 1)];
+  assert.equal(choosePose(people, 'auto'), 0); // bigger = closer
+  assert.equal(choosePose(people, 'right'), 1);
+  assert.equal(choosePose(people, 'left'), 0);
+  // Locked on to the right person even if the order swaps.
+  assert.equal(choosePose([people[1], people[0]], 'left', { x: 0.7, y: 0.5 }), 0);
+  assert.equal(choosePose([], 'auto'), -1);
+});
+
+test('stance and blade work from a side-on camera too', async () => {
+  const { bladeAngle, leadSide } = await import('../web/js/form.js');
+  // Rotate the standard front-facing boxer 90° so the camera sees them side-on.
+  const rot = (w) => w.map((p) => ({ x: -p.z, y: p.y, z: p.x }));
+  const front = pose();
+  const side = rot(front);
+  assert.equal(leadSide(front), 'L');
+  assert.equal(leadSide(side), 'L');
+  assert.ok(Math.abs(bladeAngle(front) - bladeAngle(side)) < 0.5);
+  assert.ok(bladeAngle(side) > 12);
+  const squared = rot(pose({ [LM.L_SH]: { z: 0 }, [LM.R_SH]: { z: 0 } }));
+  assert.ok(bladeAngle(squared) < 5);
+});
+
+test('stance is found side-on even when the ears overlap', async () => {
+  const { leadSide } = await import('../web/js/form.js');
+  // Boxer facing left in the image, ears stacked in depth.
+  const w = pose({
+    [LM.NOSE]: { x: -0.12, y: -0.62, z: 0 },
+    [LM.L_EAR]: { x: -0.02, y: -0.63, z: 0.01 }, [LM.R_EAR]: { x: -0.02, y: -0.63, z: -0.01 },
+    [LM.L_SH]: { x: -0.1, y: -0.45, z: 0.02 }, [LM.R_SH]: { x: 0.1, y: -0.45, z: -0.02 },
+    [LM.L_ANK]: { x: -0.25, y: 0.85, z: 0 }, [LM.R_ANK]: { x: 0.2, y: 0.85, z: 0.05 },
+  });
+  assert.equal(leadSide(w), 'L');
+  // Squared shoulders but left foot forward: still orthodox (stance is the feet).
+  w[LM.L_SH] = { x: 0, y: -0.45, z: -0.15 };
+  w[LM.R_SH] = { x: 0, y: -0.45, z: 0.15 };
+  assert.equal(leadSide(w), 'L');
 });

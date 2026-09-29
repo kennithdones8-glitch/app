@@ -7,6 +7,7 @@
 
 export const LM = {
   NOSE: 0,
+  L_EAR: 7, R_EAR: 8,
   L_SH: 11, R_SH: 12,
   L_EL: 13, R_EL: 14,
   L_WR: 15, R_WR: 16,
@@ -47,6 +48,31 @@ export function angleDeg(a, b, c) {
   return (Math.acos(Math.max(-1, Math.min(1, dot / m))) * 180) / Math.PI;
 }
 
+// Pick which detected person is the boxer when more than one is in frame (pads, sparring).
+// `prefer`: 'auto' (largest/closest), 'left' or 'right' as seen in the video. Once locked on,
+// stay with the person nearest the previous position.
+export function choosePose(people, prefer = 'auto', prev = null) {
+  if (!people?.length) return -1;
+  const info = people.map((pts, i) => {
+    const hx = (pts[LM.L_HIP].x + pts[LM.R_HIP].x) / 2;
+    const hy = (pts[LM.L_HIP].y + pts[LM.R_HIP].y) / 2;
+    const top = Math.min(pts[LM.NOSE].y, pts[LM.L_SH].y, pts[LM.R_SH].y);
+    const bottom = Math.max(pts[LM.L_ANK].y, pts[LM.R_ANK].y, hy);
+    return { i, hx, hy, size: bottom - top };
+  });
+  if (prev) {
+    const near = info.map((p) => ({ ...p, d: Math.hypot(p.hx - prev.x, p.hy - prev.y) })).sort((a, b) => a.d - b.d)[0];
+    if (near.d < 0.2) return near.i;
+  }
+  if (prefer === 'left') return info.sort((a, b) => a.hx - b.hx)[0].i;
+  if (prefer === 'right') return info.sort((a, b) => b.hx - a.hx)[0].i;
+  return info.sort((a, b) => b.size - a.size)[0].i;
+}
+
+export function hipCenter(pts) {
+  return { x: (pts[LM.L_HIP].x + pts[LM.R_HIP].x) / 2, y: (pts[LM.L_HIP].y + pts[LM.R_HIP].y) / 2 };
+}
+
 export function stanceRatio(world) {
   const la = world[LM.L_ANK], ra = world[LM.R_ANK];
   const sw = dist3(world[LM.L_SH], world[LM.R_SH]) || 1;
@@ -64,9 +90,47 @@ export function feetCrossed(world) {
   return d < -0.02;
 }
 
+// Direction the boxer's face points, in the ground plane (x, z). Taken from the ear line so it
+// works whatever angle the camera films from (front, 45°, side-on).
+export function facing(world) {
+  const le = world[LM.L_EAR], re = world[LM.R_EAR], nose = world[LM.NOSE];
+  if (!le || !re) return null;
+  const ex = le.x - re.x, ez = le.z - re.z;
+  const len = Math.hypot(ex, ez);
+  if (len < 0.03) {
+    // Ears overlap when filmed exactly side-on: use shoulders → nose instead.
+    const l = world[LM.L_SH], r = world[LM.R_SH];
+    const nx = nose.x - (l.x + r.x) / 2, nz = nose.z - (l.z + r.z) / 2;
+    const nl = Math.hypot(nx, nz);
+    return nl > 0.03 ? { x: nx / nl, z: nz / nl } : null;
+  }
+  let fx = -ez / len, fz = ex / len;
+  const ox = nose.x - (le.x + re.x) / 2, oz = nose.z - (le.z + re.z) / 2;
+  if (fx * ox + fz * oz < 0) { fx = -fx; fz = -fz; }
+  return { x: fx, z: fz };
+}
+
+// How far the shoulders are turned away from the face direction (0° = squared up).
 export function bladeAngle(world) {
   const l = world[LM.L_SH], r = world[LM.R_SH];
-  return (Math.atan2(Math.abs(l.z - r.z), Math.abs(l.x - r.x)) * 180) / Math.PI;
+  const sx = l.x - r.x, sz = l.z - r.z;
+  const le = world[LM.L_EAR], re = world[LM.R_EAR];
+  const ex = le ? le.x - re.x : 0, ez = le ? le.z - re.z : 0;
+  const sl = Math.hypot(sx, sz), el = Math.hypot(ex, ez);
+  if (el < 0.03 || !sl) return (Math.atan2(Math.abs(sz), Math.abs(sx)) * 180) / Math.PI;
+  const cos = Math.min(1, Math.abs(sx * ex + sz * ez) / (sl * el));
+  return (Math.acos(cos) * 180) / Math.PI;
+}
+
+// Which side leads, 'L' (orthodox), 'R' (southpaw) or null. Stance is defined by the lead foot
+// (the one further toward where the boxer faces); shoulders are the fallback.
+export function leadSide(world) {
+  const f = facing(world);
+  const along = (a, b) => (f ? (a.x - b.x) * f.x + (a.z - b.z) * f.z : b.z - a.z);
+  const feet = along(world[LM.L_ANK], world[LM.R_ANK]);
+  if (Math.abs(feet) > 0.08) return feet > 0 ? 'L' : 'R';
+  const sh = along(world[LM.L_SH], world[LM.R_SH]);
+  return Math.abs(sh) > 0.03 ? (sh > 0 ? 'L' : 'R') : null;
 }
 
 function emptyRound() {
@@ -172,8 +236,9 @@ export function combineRounds(rounds) {
 }
 
 export class FormAnalyzer {
-  constructor({ stance = 'orthodox', sensitivity = 1, onCue = () => {}, onPunch = () => {} } = {}) {
+  constructor({ stance = 'orthodox', sensitivity = 1, onCue = () => {}, onPunch = () => {}, minVis = 0.5 } = {}) {
     this.stance = stance;
+    this.minVis = minVis; // video filmed side-on hides the far arm, so video analysis accepts lower visibility
     this.vTh = 1.6 / Math.max(0.3, sensitivity); // wrist speed (m/s) that starts a punch
     this.onCue = onCue;
     this.onPunch = onPunch;
@@ -248,7 +313,7 @@ export class FormAnalyzer {
       if (this.active && this.held('nobody', true, t) > 3000) this.cue('visibility', 'Step back so I can see your whole body', t);
       return null;
     }
-    const visible = REQUIRED.every((i) => (image[i]?.visibility ?? 1) > 0.5);
+    const visible = REQUIRED.every((i) => (image[i]?.visibility ?? 1) > this.minVis);
     if (this.active) {
       this.calib.frames++;
       if (visible) this.calib.tracked++;
@@ -317,9 +382,10 @@ export class FormAnalyzer {
     // --- Blade (not squared up) ---------------------------------------------
     const bladed = bladeAngle(world) >= BLADE_MIN_DEG;
     if (bladed) r.bladeOk++;
-    if (Math.abs(world[LM.L_SH].z - world[LM.R_SH].z) > 0.03) {
+    const lead = leadSide(world);
+    if (lead) {
       r.depthFrames++;
-      if (world[LM.L_SH].z < world[LM.R_SH].z) r.leftCloser++;
+      if (lead === 'L') r.leftCloser++;
     }
     if (this.held('squared', !bladed, t) > 2500) this.cue('squared', 'Turn your lead shoulder, stay bladed', t);
 
@@ -329,8 +395,8 @@ export class FormAnalyzer {
     if (moving) r.moving++;
     if (this.held('static', !moving, t) > 7000) this.cue('static', 'Move your feet', t);
 
-    // --- Head movement: nose lateral offset from hip centre ------------------
-    const head = { x: nose.x, y: 0, t };
+    // --- Head movement: nose off the hip line in the ground plane (camera-angle independent)
+    const head = { x: nose.x, y: nose.z, t };
     const headMoving = this._trailRange(this.headTrail, head, 2000) > 0.07;
     if (headMoving) r.headMoving++;
     if (this.held('headStill', !headMoving, t) > 9000) this.cue('head', 'Move your head, slip after you punch', t);
