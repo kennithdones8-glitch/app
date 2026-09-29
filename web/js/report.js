@@ -1,6 +1,7 @@
 // Compact text report of a session that the boxer can paste into a chat with their coach (or Claude).
 // No video, no images — just the measurements, so it is small and private.
 import { fatigueMap } from './analysis.js';
+import { sessionStream, sessionCombos, comboText } from './combos.js';
 
 const r = (x) => (x == null ? null : Math.round(x * 10) / 10);
 const FORM_KEYS = ['guard', 'stance', 'blade', 'footwork', 'head', 'handReturnMs', 'leadReturnMs', 'rearReturnMs',
@@ -11,6 +12,7 @@ export function buildReport(session, state = {}, version = null) {
   const f = session.form;
   const rounds = (f?.perRound || []).filter((x) => x.frames > 30);
   const fm = fatigueMap(session, state.profile);
+  const mine = sessionCombos(session, state.combos || []).mine;
   const topSeq = Object.entries(f?.sequences || {}).sort((a, b) => b[1] - a[1]).slice(0, 12);
   const data = {
     v: 1,
@@ -28,6 +30,10 @@ export function buildReport(session, state = {}, version = null) {
     form: f ? Object.fromEntries(FORM_KEYS.map((k) => [k, r(f[k])]).filter(([, v]) => v != null)) : undefined,
     perRound: rounds.length ? { keys: ROUND_KEYS, rows: rounds.map((x) => ROUND_KEYS.map((k) => r(x[k]))) } : undefined,
     combos: topSeq.length ? Object.fromEntries(topSeq) : undefined,
+    // Punch order with gaps: '-' same combination, '~' after a pause of up to 1.6 s, ' ' new exchange.
+    stream: f ? sessionStream(session).slice(0, 2500) || undefined : undefined,
+    myCombos: mine.length ? Object.fromEntries(mine.map((m) => [comboText(m.combo.tokens), m.close ? [m.exact, m.close] : m.exact])) : undefined,
+    calls: session.comboCalls?.length ? session.comboCalls.slice(0, 120) : undefined,
     fatigue: fm ? fm.conclusion : undefined,
     constraints: session.constraints?.map((c) => [c.key, c.opponent || null, c.compliance]),
     hits: session.hits,

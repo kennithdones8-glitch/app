@@ -1,6 +1,6 @@
 // Video intelligence: analyse an uploaded shadowboxing/sparring/bag video on-device,
 // show every detection with a confidence score, let the boxer correct it, then save.
-import { FormAnalyzer, combineRounds, sequencesFrom, comboStats, PUNCH_NAMES, choosePose, hipCenter } from '../form.js';
+import { FormAnalyzer, combineRounds, sequencesFrom, streamFrom, comboStats, PUNCH_NAMES, choosePose, PersonTracker, personAt } from '../form.js';
 import { ALL_TYPES } from '../coach.js';
 import { $, $$, esc, opt, toast } from '../ui.js';
 import { newId } from '../store.js';
@@ -19,7 +19,7 @@ export function renderVideo(el, app) {
       <form id="vidForm" class="form">
         <label>Video<input type="file" name="file" accept="video/*" required></label>
         <label>Type<select name="type">${['shadow', 'mitts', 'bag', 'sparring'].map((t) => opt(t, 'shadow', ALL_TYPES[t])).join('')}</select></label>
-        <label>Which one is you?<select name="who">${opt('auto', 'auto', "I'm alone / closest to camera")}${opt('left', '', 'The person on the left')}${opt('right', '', 'The person on the right')}</select></label>
+        <p class="muted small" style="margin:0">Someone else in the video (pads, sparring)? You'll tap yourself before the analysis starts, and it follows you even when you move around or swap sides.</p>
         <div class="row2">
           <label>Rounds of<select name="roundSec">${opt(0, 0, 'Whole video')}${opt(120, 0, '2 min')}${opt(180, 0, '3 min')}</select></label>
           <label>Detail<select name="fps">${opt(10, 15, 'Fast')}${opt(15, 15, 'Normal')}${opt(24, 15, 'Precise')}</select></label>
@@ -47,9 +47,55 @@ export function renderVideo(el, app) {
     video.src = URL.createObjectURL(file);
     video.play().then(() => video.pause()).catch(() => {});
     analyse(file, video, {
-      type: f.type.value, who: f.who.value, roundSec: +f.roundSec.value, fps: +f.fps.value,
+      type: f.type.value, roundSec: +f.roundSec.value, fps: +f.fps.value,
       stance: app.state.profile.stance, sensitivity: app.state.profile.sensitivity,
     }, el, app);
+  });
+}
+
+// Average clothing colour over each person's torso: the tracker's main identity cue.
+const sampler = document.createElement('canvas');
+function sampleColors(video, people) {
+  if (!people.length || !video.videoWidth) return [];
+  const w = 96, h = Math.round((96 * video.videoHeight) / video.videoWidth);
+  sampler.width = w;
+  sampler.height = h;
+  const g = sampler.getContext('2d', { willReadFrequently: true });
+  try {
+    g.drawImage(video, 0, 0, w, h);
+    const data = g.getImageData(0, 0, w, h).data;
+    return people.map((pts) => {
+      const xs = [pts[11].x, pts[12].x, pts[23].x, pts[24].x], ys = [pts[11].y, pts[12].y, pts[23].y, pts[24].y];
+      let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+      const hw = Math.max(0.02, (x1 - x0) * 0.3), hh = Math.max(0.03, (y1 - y0) * 0.3);
+      x0 = cx - hw; x1 = cx + hw; y0 = cy - hh; y1 = cy + hh;
+      let r = 0, gr = 0, b = 0, n = 0;
+      for (let i = 0; i < 5; i++) {
+        for (let j = 0; j < 5; j++) {
+          const px = Math.round((x0 + ((x1 - x0) * i) / 4) * (w - 1)), py = Math.round((y0 + ((y1 - y0) * j) / 4) * (h - 1));
+          if (px < 0 || py < 0 || px >= w || py >= h) continue;
+          const k = (py * w + px) * 4;
+          r += data[k]; gr += data[k + 1]; b += data[k + 2]; n++;
+        }
+      }
+      return n ? [r / n, gr / n, b / n] : null;
+    });
+  } catch {
+    return [];
+  }
+}
+
+// Waits for the next decoded frame (play, then pause on the first frame shown).
+function nextFrame(video) {
+  return new Promise((res) => {
+    if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) {
+      video.addEventListener('seeked', () => res(), { once: true });
+      video.currentTime = Math.min(video.duration, video.currentTime + 0.2);
+      return;
+    }
+    video.requestVideoFrameCallback(() => { video.pause(); res(); });
+    video.play().catch(() => res());
   });
 }
 
@@ -97,7 +143,44 @@ async function analyse(file, video, opts, el, app) {
     const durMs = video.duration * 1000;
     const roundMs = opts.roundSec ? opts.roundSec * 1000 : durMs + 1;
     const rounds = [];
-    let roundEnd = roundMs, frames = 0, tracked = 0, multi = 0, prevHip = null, lastT = -1;
+    let roundEnd = roundMs, frames = 0, tracked = 0, multi = 0, lastT = -1;
+    const tracker = new PersonTracker();
+    let who = 'auto';
+
+    // Find people in the first frames; with more than one, ask the boxer to tap themselves.
+    status.textContent = 'Finding you in the video…';
+    // Look through up to 5 s: people may walk into shot late, or one may be missed on a single frame.
+    // Keep the frame showing the most people; stop as soon as two are seen.
+    let first = [], colors = [];
+    for (let i = 0; i < 90 && !cancelled && !video.ended; i++) {
+      await nextFrame(video);
+      let found = [];
+      try { found = detectVideoFrame(lm, video)?.landmarks || []; } catch { found = []; }
+      if (found.length > first.length) { first = found; colors = sampleColors(video, found); }
+      if (first.length > 1 || (first.length === 1 && video.currentTime > 1.5) || video.currentTime > 5) break;
+    }
+    if (cancelled) throw new Error('cancelled');
+    if (first.length > 1) {
+      drawPeople(overlay, video, first, -1);
+      status.innerHTML = '<b>Tap yourself</b> in the video to start.';
+      stage.classList.add('pick');
+      stage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // 'click' rather than 'pointerdown' so scrolling past the video with a finger doesn't pick anyone.
+      const i = await new Promise((resolve) => {
+        stage.addEventListener('click', (e) => {
+          const r = overlay.getBoundingClientRect();
+          resolve(personAt(first, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height));
+        }, { once: true });
+        $('#vidCancel', el).addEventListener('click', () => resolve(-1), { once: true });
+      });
+      stage.classList.remove('pick');
+      if (cancelled || i < 0) throw new Error('cancelled');
+      tracker.lockOn(first[i], colors[i]);
+      who = 'tap';
+      drawPeople(overlay, video, first, i);
+    } else if (first.length === 1) {
+      tracker.lockOn(first[0], colors[0]);
+    }
 
     analyzer.startRound();
 
@@ -112,10 +195,15 @@ async function analyse(file, video, opts, el, app) {
       let r = null;
       try { r = detectVideoFrame(lm, video); } catch { r = null; }
       const people = r?.landmarks || [];
-      const idx = choosePose(people, opts.who, prevHip);
+      let idx = -1;
+      if (tracker.locked) idx = tracker.pick(people, sampleColors(video, people), t);
+      else if (people.length) {
+        idx = choosePose(people, 'auto');
+        tracker.lockOn(people[idx], sampleColors(video, people)[idx]);
+      }
       const image = idx >= 0 ? people[idx] : null;
       const world = idx >= 0 ? r.worldLandmarks?.[idx] : null;
-      if (image) { prevHip = hipCenter(image); tracked++; }
+      if (image) tracked++;
       if (people.length > 1) multi++;
       frames++;
       analyzer.update(world || null, image, t);
@@ -167,7 +255,7 @@ async function analyse(file, video, opts, el, app) {
     job = {
       done: true, url, type: opts.type, roundSec: opts.roundSec || Math.round(durMs / 1000), durMs,
       rounds, events: analyzer.events.map((e, i) => ({ ...e, i, keep: e.conf >= 50, fix: e.type })),
-      calib: { ...analyzer.calib, who: opts.who, multi: frames ? Math.round((multi / frames) * 100) : 0 },
+      calib: { ...analyzer.calib, who, multi: frames ? Math.round((multi / frames) * 100) : 0 },
       frames, tracked: frames ? Math.round((tracked / frames) * 100) : 0, multi: frames ? Math.round((multi / frames) * 100) : 0,
       date: new Date(file.lastModified || Date.now()).toISOString(),
     };
@@ -194,7 +282,7 @@ function renderReview(el, app) {
       <h2>Video review</h2>
       <video id="vidPreview" src="${j.url}" controls playsinline muted class="vid-preview"></video>
       <ul class="small">
-        <li>Body found in ${j.tracked}% of ${j.frames ?? ''} frames analysed${j.tracked < 70 ? ' — low; results are less reliable' : ''}${j.multi ? ` · ${j.multi}% had 2 people (tracking you by your choice)` : ''}</li>
+        <li>Body found in ${j.tracked}% of ${j.frames ?? ''} frames analysed${j.tracked < 70 ? ' — low; results are less reliable' : ''}${j.multi ? ` · ${j.multi}% had 2 people (following the person you tapped)` : ''}</li>
         <li>Stance detected: ${esc(stanceTxt)}</li>
         <li>${punches.length} punches detected, average confidence ${avgConf ?? '–'}%</li>
         <li>${others.filter((e) => e.kind === 'guardDrop').length} guard drops · ${others.filter((e) => e.kind === 'crossedFeet').length} crossed-feet moments</li>
@@ -202,7 +290,7 @@ function renderReview(el, app) {
       <p class="muted small">Computer vision isn't perfect. Tap a time to jump there, fix the punch type, or untick anything that's wrong. Low-confidence detections start unticked.</p>
       <label class="switch"><input type="checkbox" id="uncertain" ${uncertainOnly ? 'checked' : ''}> <span>Only show uncertain (&lt;70%)</span></label>
     </section>
-    ${j.tracked < 30 ? `<section class="card"><div class="msg behind"><b>I could barely see you in this video.</b> Try: whole body in frame (head to feet), steadier camera, better light, or pick "Which one is you" if someone else is in the shot. You can also use Fast/Normal detail on long clips.</div></section>` : ''}
+    ${j.tracked < 30 ? `<section class="card"><div class="msg behind"><b>I could barely see you in this video.</b> Try: whole body in frame (head to feet), steadier camera, better light, or re-run and tap yourself carefully if someone else is in the shot. You can also use Fast/Normal detail on long clips.</div></section>` : ''}
     <section class="card">
       ${shown.length ? '' : '<p class="muted small" style="margin:0">No detections to review.</p>'}
       <ul class="events">${shown.map((e) => `
@@ -252,8 +340,9 @@ export function buildSession(j) {
     const kept = j.events.filter((e) => e.kind === 'punch' && e.round === idx + 1 && e.keep);
     const punches = { jab: 0, cross: 0, leadHook: 0, rearHook: 0, leadUppercut: 0, rearUppercut: 0 };
     for (const e of kept) punches[e.fix]++;
-    const sequences = sequencesFrom(kept.map((e) => ({ t: e.t, type: e.fix })));
-    return { ...r, punches, totalPunches: kept.length, sequences, ...comboStats(sequences) };
+    const log = kept.map((e) => ({ t: e.t, type: e.fix }));
+    const sequences = sequencesFrom(log);
+    return { ...r, punches, totalPunches: kept.length, sequences, stream: streamFrom(log), ...comboStats(sequences) };
   });
   const form = combineRounds(rounds);
   return {
