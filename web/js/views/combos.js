@@ -60,7 +60,7 @@ export function renderCombos(el, app) {
     $('#cbBody', el).classList.toggle('on', bodyNext);
   };
   const push = (t) => {
-    if (building.length >= 12) return toast('That is a long one: 12 moves max.');
+    if (building.length >= 24) return toast('That is a long one: 24 moves max.');
     building.push(t);
     show();
   };

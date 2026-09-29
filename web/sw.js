@@ -1,10 +1,10 @@
 // Offline support: cache the app shell, and cache the pose model/runtime after first use.
-const CACHE = 'boxcoach-v11';
+const CACHE = 'boxcoach-v12';
 const SHELL = [
   './', 'index.html', 'css/styles.css', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png',
   'js/app.js', 'js/audio.js', 'js/chart.js', 'js/coach.js', 'js/form.js', 'js/motion.js', 'js/plan.js', 'js/pose.js', 'js/store.js', 'js/timer.js',
   'js/ui.js', 'js/library.js', 'js/skills.js', 'js/analysis.js', 'js/recovery.js', 'js/hypotheses.js', 'js/engine.js', 'js/report.js',
-  'js/views/review.js', 'js/views/boxer.js', 'js/views/coach.js', 'js/views/video.js', 'js/views/combos.js', 'js/combos.js',
+  'js/views/review.js', 'js/views/boxer.js', 'js/views/coach.js', 'js/views/video.js', 'js/views/combos.js', 'js/combos.js', 'js/calibrate.js',
 ];
 const RUNTIME_HOSTS = ['cdn.jsdelivr.net', 'storage.googleapis.com'];
 

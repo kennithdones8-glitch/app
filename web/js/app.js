@@ -36,7 +36,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.29-8';
+export const APP_VERSION = '2026.09.29-9';
 
 const app = {
   version: APP_VERSION,
@@ -404,6 +404,7 @@ async function startSession(plan) {
     live.analyzer = new FormAnalyzer({
       stance: state.profile.stance,
       sensitivity: state.profile.sensitivity,
+      cal: state.profile.punchCal || null,
       onCue: (key, text) => {
         if (!state.settings.cues) return;
         showCue(text);

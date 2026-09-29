@@ -7,10 +7,10 @@ export { streamFrom };
 export const PUNCH_WORDS = { 1: 'Jab', 2: 'Cross', 3: 'Hook', 4: 'Rear hook', 5: 'Uppercut', 6: 'Rear uppercut' };
 export const DEFENSE = ['slip', 'roll', 'pull', 'pivot', 'step out', 'feint'];
 
-// Quick adds. The last two are from your pad round.
+// Quick adds. The last three are from your pad round (the last one is the whole round).
 export const STARTERS = [
   '1-2', '1-1-2', '1-2-3', '1-2-3-2', '2-3-2', '1-6-3-2', '3b-3', '1-2 slip 2', '1-2 roll 3-2', '5-2-3',
-  '1-3-2 roll 2-3', '3b roll 6-3-2 roll 2',
+  '1-3-2 roll 2-3', '3b roll 6-3-2 roll 2', '1-3-2 roll 2-3 1 3b roll 6-3-2 roll 2',
 ];
 
 export const isPunch = (t) => /^[1-6]b?$/.test(t);
