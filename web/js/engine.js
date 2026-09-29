@@ -2,7 +2,7 @@
 import { SKILLS, HIT_REASONS, CONSTRAINTS, OPPONENTS } from './library.js';
 import { INSIGHTS } from './coach.js';
 import { extractEvidence, skillReport, ratingAt } from './skills.js';
-import { decayFindings, hitAnalysis, medAnalysis, opponentExposure, transferScores, hitShare } from './analysis.js';
+import { decayFindings, hitAnalysis, medAnalysis, opponentExposure, transferScores, hitShare, leadHandName } from './analysis.js';
 import { recoveryStatus } from './recovery.js';
 import { activeInterventions, proposeHypotheses } from './hypotheses.js';
 import { phaseFor } from './plan.js';
@@ -90,9 +90,11 @@ export function rankProblems(ctx, state) {
       add({ key: `hit:${h.key}`, label: r.name, objective: HIT_OBJECTIVE[h.key], score: 3 + h.pct / 10, why: [`${h.pct}% of your defensive failures in the last ${ctx.hits.sessions} sessions: ${r.name.toLowerCase()}.`], constraint: r.constraint, skills: r.skills, source: 'measured' });
     }
   }
+  const lead = leadHandName(state.profile);
+  const dimLabel = { technique: 'Technique', defense: 'Defense', footwork: 'Footwork', leadReturn: `${lead[0].toUpperCase()}${lead.slice(1)}-hand recovery`, rearReturn: `${lead === 'left' ? 'Right' : 'Left'}-hand recovery` };
   for (const f of ctx.decay) {
     add({
-      key: `${f.kind}:${f.dim}`, label: f.kind === 'fatigue' ? `${f.dim} under fatigue` : `${f.dim} (technical)`,
+      key: `${f.kind}:${f.dim}`, label: f.kind === 'fatigue' ? `${dimLabel[f.dim]} under fatigue` : `${dimLabel[f.dim]} (technical)`,
       objective: f.kind === 'fatigue' ? (f.dim === 'technique' ? 'Hold technique in the late rounds' : `Improve ${f.dim === 'footwork' ? 'footwork' : 'defense'} under fatigue`) : `Rebuild your ${f.dim === 'defense' ? 'defense' : f.dim} fresh`,
       score: f.kind === 'fatigue' ? 4.5 + f.sessions * 0.3 : 4, why: [f.text], advice: f.advice,
       constraint: DIM_CONSTRAINT[f.dim] || 'guardRecovery', skills: DIM_SKILLS[f.dim] || ['defense'], source: 'measured',
@@ -192,11 +194,12 @@ export function aiObservations(ctx, state) {
 export function memoryTrace(obs, state, ctx) {
   const tag = (obs.tags || [])[0];
   if (!tag) return null;
-  const related = (state.observations || []).filter((o) => (o.tags || []).includes(tag)).sort((a, b) => a.date.localeCompare(b.date));
+  // Only human notes (coach/self) count as repeats; AI observations are derived, not independent.
+  const related = (state.observations || []).filter((o) => o.source !== 'ai' && (o.tags || []).includes(tag)).sort((a, b) => a.date.localeCompare(b.date));
   const since = related[0]?.date || obs.date;
   const month = new Date(since).toLocaleDateString(undefined, { month: 'long' });
   const bits = [];
-  if (related.length > 1) bits.push(`Recurring since ${month} (${related.length} notes).`);
+  if (related.length > 1) bits.push(obs.kind === 'positive' ? `Noted ${related.length} times since ${month}.` : `Recurring since ${month} (${related.length} notes).`);
   if (tag.startsWith('hit:')) {
     const key = tag.slice(4);
     const series = (state.sessions || []).filter((s) => s.date >= since && s.hits).map((s) => hitShare(s, key)).filter((x) => x != null);

@@ -65,8 +65,12 @@ export function extractEvidence(state) {
       if (rounds.length >= 3) {
         const dims = rounds.map((r) => roundDims(r, s, profile));
         const first = rounds[0].totalPunches, last = rounds[rounds.length - 1].totalPunches;
-        const tEarly = mean(dims.slice(0, 2).map((x) => x.technique)), tLate = mean(dims.slice(-2).map((x) => x.technique));
-        add('conditioning', mean([first ? Math.min(100, (last / first) * 100) : null, tEarly ? Math.min(100, (tLate / tEarly) * 100) : null]), 1, d, src, 'output and technique held late', s.id);
+        const held = (k) => {
+          const e = mean(dims.slice(0, 2).map((x) => x[k])), l = mean(dims.slice(-2).map((x) => x[k]));
+          return e ? Math.min(100, (l / e) * 100) : null;
+        };
+        // Conditioning = keeping output, technique AND defense when tired.
+        add('conditioning', mean([first ? Math.min(100, (last / first) * 100) : null, held('technique'), held('defense'), held('defense')]), 1, d, src, 'output, technique and defense held late', s.id);
       }
     } else if ((s.punches?.perRound || []).length >= 3) {
       const pr = s.punches.perRound;

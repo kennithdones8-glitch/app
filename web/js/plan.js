@@ -127,7 +127,7 @@ export function recentLoad(sessions, now = new Date()) {
 
 // `fromDay` (0 = Mon) is the first day to schedule; earlier days keep `keep` items (from the
 // previous version of this week's plan) so rebuilding mid-week never rewrites the past.
-export function buildWeek({ profile = {}, memory = {}, sessions = [], weights = [], gymDays = [], lastWeek = null, now = new Date(), fromDay = 0, keep = [], recovery = null }) {
+export function buildWeek({ profile = {}, memory = {}, sessions = [], weights = [], gymDays = [], lastWeek = null, now = new Date(), fromDay = 0, keep = [], recovery = null, interventions = [] }) {
   const start = weekStart(now);
   const deload = recovery?.status === 'deload';
   const basePhase = phaseFor(profile, now);
@@ -203,6 +203,13 @@ export function buildWeek({ profile = {}, memory = {}, sessions = [], weights = 
     }
   }
 
+  // Running experiments change the prescription (e.g. defense drills straight after conditioning).
+  const after = interventions.filter((iv) => iv.planBlock);
+  if (after.length) {
+    for (const k of ['fightSim', 'bagVolume', 'intervals']) {
+      T[k] = { ...T[k], detail: `${T[k].detail} Then: ${after[0].planBlock.toLowerCase()} while tired (hypothesis #${after[0].n}).` };
+    }
+  }
   const items = past.map((i) => ({ ...i }));
   byDay.forEach((kinds, day) => {
     kinds.forEach((kind, i) => {

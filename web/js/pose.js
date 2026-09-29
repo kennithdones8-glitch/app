@@ -6,7 +6,7 @@ const MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/p
 
 let landmarkerPromise = null;
 
-async function getLandmarker() {
+export async function getLandmarker() {
   if (!landmarkerPromise) {
     landmarkerPromise = (async () => {
       const { FilesetResolver, PoseLandmarker } = await import(`${BASE}/vision_bundle.mjs`);
