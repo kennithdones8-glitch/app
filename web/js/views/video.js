@@ -228,9 +228,10 @@ function renderReview(el, app) {
   }));
   $$('[data-keep]', el).forEach((c) => c.addEventListener('change', () => {
     j.events[+c.dataset.keep].keep = c.checked;
+    j.events[+c.dataset.keep].edited = true;
     c.closest('li').classList.toggle('off', !c.checked);
   }));
-  $$('[data-fix]', el).forEach((s) => s.addEventListener('change', () => { j.events[+s.dataset.fix].fix = s.value; }));
+  $$('[data-fix]', el).forEach((s) => s.addEventListener('change', () => { j.events[+s.dataset.fix].fix = s.value; j.events[+s.dataset.fix].edited = true; }));
   $('#vidDiscard', el).addEventListener('click', () => {
     if (!confirm('Discard this analysis?')) return;
     URL.revokeObjectURL(j.url);
@@ -261,9 +262,14 @@ export function buildSession(j) {
     workSec: Math.round(j.durMs / 1000), totalSec: Math.round(j.durMs / 1000),
     punches: { total: form.totalPunches, perRound: rounds.map((r) => r.totalPunches), byType: form.punches },
     form: form.perRound.some((r) => r.frames > 30) ? form : null,
-    corrections: j.events.filter((e) => !e.keep || (e.kind === 'punch' && e.fix !== e.type)).length,
-    // Your corrections are the ground truth: [detected type, corrected type or 0 if rejected, confidence].
-    calib: { ...j.calib, fixes: j.events.filter((e) => e.kind === 'punch' && (!e.keep || e.fix !== e.type)).slice(0, 200).map((e) => [e.type, e.keep ? e.fix : 0, e.conf]) },
+    // Only the boxer's own edits count as corrections (low-confidence detections start unticked).
+    corrections: j.events.filter((e) => e.edited && (!e.keep || (e.kind === 'punch' && e.fix !== e.type))).length,
+    // Ground truth: [detected type, corrected type or 0 if rejected, confidence, 1 = you confirmed it].
+    calib: {
+      ...j.calib,
+      autoUnticked: j.events.filter((e) => e.kind === 'punch' && !e.edited && !e.keep).length,
+      fixes: j.events.filter((e) => e.kind === 'punch' && e.edited).slice(0, 200).map((e) => [e.type, e.keep ? e.fix : 0, e.conf, e.keep && e.fix === e.type ? 1 : 0]),
+    },
     rpe: 7, notes: '',
   };
 }

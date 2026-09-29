@@ -208,3 +208,20 @@ test('stance is found side-on even when the ears overlap', async () => {
   w[LM.R_SH] = { x: 0, y: -0.45, z: 0.15 };
   assert.equal(leadSide(w), 'L');
 });
+
+test('punches are classified correctly from a side-on camera', () => {
+  // Same jab and lead hook as the front-on test, but the boxer is filmed from the side.
+  const rot = (w) => w.map((p) => ({ x: -p.z, y: p.y, z: p.x }));
+  const punches = [];
+  const an = new FormAnalyzer({ onPunch: (p) => punches.push(p) });
+  an.startRound();
+  let t = feed(an, still(10).map(rot), 0);
+  t = feed(an, punch(LM.L_WR, LM.L_EL, { x: 0.16, y: -0.49, z: -0.61 }, { x: 0.17, y: -0.47, z: -0.33 }).map(rot), t);
+  t = feed(an, still(15).map(rot), t);
+  t = feed(an, punch(LM.R_WR, LM.R_EL, { x: 0.02, y: -0.5, z: -0.5 }, { x: -0.1, y: -0.45, z: -0.2 }).map(rot), t);
+  t = feed(an, still(15).map(rot), t);
+  t = feed(an, punch(LM.L_WR, LM.L_EL, { x: 0.5, y: -0.5, z: -0.35 }, { x: 0.42, y: -0.42, z: -0.02 }, 4, 6).map(rot), t);
+  feed(an, still(15).map(rot), t);
+  an.endRound();
+  assert.deepEqual(punches, ['jab', 'cross', 'leadHook']);
+});
