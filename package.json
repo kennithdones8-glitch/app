@@ -1,0 +1,11 @@
+{
+  "name": "boxcoach",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Boxing workout tracker and form coach (installable web app)",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "start": "python3 -m http.server 8080 --directory web"
+  }
+}

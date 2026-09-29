@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111214">
+  <meta name="description" content="Boxing coach: round timer, punch counter, form and footwork feedback that learns your habits.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="BoxCoach">
+  <title>BoxCoach</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="icon.svg" alt="" width="26" height="26">BoxCoach</div>
+    <div id="streak" class="streak"></div>
+  </header>
+
+  <main id="view" tabindex="-1"></main>
+
+  <nav class="tabs" aria-label="Main">
+    <a href="#home" data-tab="home"><span class="ico">🏠</span>Home</a>
+    <a href="#train" data-tab="train"><span class="ico">🥊</span>Train</a>
+    <a href="#log" data-tab="log"><span class="ico">📓</span>Log</a>
+    <a href="#progress" data-tab="progress"><span class="ico">📈</span>Progress</a>
+    <a href="#coach" data-tab="coach"><span class="ico">🧠</span>Coach</a>
+  </nav>
+
+  <!-- Live session overlay -->
+  <section id="live" class="live" hidden>
+    <div class="live-top">
+      <div id="liveRound" class="live-round">Get ready</div>
+      <div id="livePhase" class="phase-pill">PREP</div>
+    </div>
+    <div id="liveClock" class="clock">0:10</div>
+    <div class="cam" id="camBox" hidden>
+      <video id="camVideo" playsinline muted></video>
+      <canvas id="camCanvas"></canvas>
+      <div id="camStatus" class="cam-status">Starting camera…</div>
+      <button id="flipCam" class="cam-flip" type="button" aria-label="Switch camera">⟲</button>
+    </div>
+    <div id="liveCombo" class="combo"></div>
+    <div id="liveCue" class="cue" aria-live="polite"></div>
+    <div class="live-stats">
+      <div><b id="livePunches">0</b><span>punches</span></div>
+      <div><b id="livePpm">–</b><span>per min</span></div>
+      <div><b id="liveGuard">–</b><span>guard</span></div>
+      <div><b id="liveStance">–</b><span>stance</span></div>
+    </div>
+    <button id="tapCount" class="tap-count" type="button" hidden>Tap per punch</button>
+    <div class="live-controls">
+      <button id="livePause" class="btn ghost" type="button">Pause</button>
+      <button id="liveSkip" class="btn ghost" type="button">Skip</button>
+      <button id="liveEnd" class="btn danger" type="button">End</button>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
