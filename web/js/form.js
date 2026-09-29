@@ -21,7 +21,9 @@ export const PUNCH_NAMES = {
   leadUppercut: 'Lead uppercut', rearUppercut: 'Rear uppercut',
 };
 
-const REQUIRED = [LM.NOSE, LM.L_SH, LM.R_SH, LM.L_WR, LM.R_WR, LM.L_HIP, LM.R_HIP];
+// Head, shoulders and hips must be visible; each hand is checked on its own (filmed side-on,
+// the far hand is often hidden without the rest of the body being lost).
+const REQUIRED = [LM.NOSE, LM.L_SH, LM.R_SH, LM.L_HIP, LM.R_HIP];
 
 // Stance width (ankle distance / shoulder width) considered good.
 export const STANCE_MIN = 0.9;
@@ -32,6 +34,7 @@ const CUE_COOLDOWN_MS = 7000;
 const GLOBAL_CUE_GAP_MS = 2500;
 
 const r2 = (x) => Math.round(x * 100) / 100;
+const norm2 = (v) => { const l = Math.hypot(v.x, v.z) || 1; return { x: v.x / l, z: v.z / l }; };
 
 export function dist3(a, b) {
   const dx = a.x - b.x, dy = a.y - b.y, dz = (a.z || 0) - (b.z || 0);
@@ -329,6 +332,8 @@ export class FormAnalyzer {
 
     // --- Punch tracking per hand -------------------------------------------
     this.image = image;
+    const f = facing(world);
+    if (f) this.face = this.face ? norm2({ x: this.face.x * 0.7 + f.x * 0.3, z: this.face.z * 0.7 + f.z * 0.3 }) : f;
     for (const role of ['lead', 'rear']) this._trackHand(role, world, nose, t);
 
     if (!this.active) return this.snapshot(world, image);
@@ -340,6 +345,7 @@ export class FormAnalyzer {
       const h = this.hands[role];
       const recovering = h.returnSince != null && t - h.returnSince < 700;
       if (h.state !== 'idle' || recovering) { eligible = false; continue; }
+      if ((image[h.wr]?.visibility ?? 1) < this.minVis) continue; // hidden hand: don't judge it
       if (world[h.wr].y > shMidY + 0.06) bothUp = false;
     }
     if (eligible) {
@@ -433,6 +439,7 @@ export class FormAnalyzer {
     }
     const away = noseD > h.prevNoseD;
     const shMidY = (world[LM.L_SH].y + world[LM.R_SH].y) / 2;
+    const handSeen = (this.image?.[h.wr]?.visibility ?? 1) >= this.minVis * 0.7;
 
     if (h.state === 'idle') {
       // Near-misses: fast hand movements that stayed under the punch threshold.
@@ -441,12 +448,12 @@ export class FormAnalyzer {
         this._calibPush('nearMiss', [role === 'lead' ? 'L' : 'R', r2(h.nearPeak)]);
         h.nearPeak = 0;
       }
-      if (h.speed > this.vTh && away && t - h.lastEnd > 180) {
+      if (h.speed > this.vTh && away && handSeen && t - h.lastEnd > 180) {
         h.nearPeak = 0;
         h.state = 'punch';
         h.start = h.prev || w;
         h.startT = t;
-        h.peakExt = 0; h.peakAngle = 0; h.maxNoseD = noseD; h.maxRise = 0; h.maxLat = 0; h.peakSpeed = 0;
+        h.peakExt = 0; h.peakAngle = 0; h.maxNoseD = noseD; h.maxRise = 0; h.maxLat = 0; h.maxFwd = 0; h.peakSpeed = 0;
         h.rearDropped = false;
       }
     }
@@ -456,7 +463,11 @@ export class FormAnalyzer {
       h.peakAngle = Math.max(h.peakAngle, angleDeg(sh, el, w));
       h.maxNoseD = Math.max(h.maxNoseD, noseD);
       h.maxRise = Math.max(h.maxRise, h.start.y - w.y);
-      h.maxLat = Math.max(h.maxLat, Math.abs(w.x - h.start.x));
+      // Forward vs sideways relative to where the boxer faces, so it works from any camera angle.
+      const dx = w.x - h.start.x, dz = w.z - h.start.z;
+      const fc = this.face || { x: 0, z: -1 };
+      h.maxFwd = Math.max(h.maxFwd, dx * fc.x + dz * fc.z);
+      h.maxLat = Math.max(h.maxLat, Math.abs(dx * -fc.z + dz * fc.x));
       if (role === 'lead' && this.active && !h.rearDropped) {
         const rear = world[this.hands.rear.wr];
         if (rear.y > shMidY + 0.1) h.rearDropped = true;
@@ -467,7 +478,10 @@ export class FormAnalyzer {
         h.state = 'idle';
         h.lastEnd = t;
         const travel = h.maxNoseD - dist3(h.start, nose);
-        if (travel > 0.1 || h.peakExt > 0.85) this._registerPunch(role, h, t);
+        // Short, fast punches count too (on pads the mitt meets the punch early); impossible
+        // speeds are tracking glitches.
+        const real = h.peakSpeed < 6.5 && (travel > 0.1 || h.peakExt > 0.85 || (h.peakSpeed > 2 && h.peakExt > 0.65));
+        if (real) this._registerPunch(role, h, t);
         else this._calibPush('rejected', [role === 'lead' ? 'L' : 'R', r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(travel)]);
       }
     }
@@ -489,10 +503,12 @@ export class FormAnalyzer {
 
   _registerPunch(role, h, t) {
     let kind, margin;
-    if (h.peakAngle >= 145 && h.peakExt >= 0.8) {
+    const fwd = h.maxFwd || 0;
+    const straightish = h.peakAngle >= 125 && h.peakExt >= 0.7 && fwd > 1.4 * h.maxLat && h.maxRise < 0.15;
+    if ((h.peakAngle >= 145 && h.peakExt >= 0.8) || straightish) {
       kind = 'straight';
-      margin = Math.min(1, (h.peakAngle - 135) / 35);
-    } else if (h.maxRise > 0.12 && h.maxRise > h.maxLat) {
+      margin = Math.min(1, Math.max((h.peakAngle - 135) / 35, straightish ? 0.5 + (fwd - 1.4 * h.maxLat) / 0.3 : 0));
+    } else if (h.maxRise > 0.12 && h.maxRise > h.maxLat && h.maxRise > fwd * 0.7) {
       kind = 'uppercut';
       margin = Math.min(1, 0.4 + (h.maxRise - h.maxLat) / 0.15);
     } else {
@@ -510,7 +526,7 @@ export class FormAnalyzer {
     this.round.punches[type]++;
     this.round.punchLog.push({ t, type });
     this.event('punch', t, conf, { type });
-    this._calibPush('punches', [PUNCH_DIGIT[type], r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(h.maxRise), r2(h.maxLat), Math.round(conf)]);
+    this._calibPush('punches', [PUNCH_DIGIT[type], r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(h.maxRise), r2(h.maxLat), Math.round(conf), r2(h.maxFwd || 0)]);
     if (role === 'lead') {
       this.round.leadPunches++;
       if (h.rearDropped) {
