@@ -16,6 +16,9 @@ It's an installable web app (PWA): no app store, it works offline after the firs
 | **Session feedback** | Scores, what went well, what to fix, round-by-round table, punch mix, drills for next time, effort (RPE) and notes |
 | **Coach memory** | Tracks rolling averages per skill, spots habits that repeat across sessions, tells you when you've fixed one, keeps personal records and a streak, and picks **today's focus** |
 | **Suggested workout** | Adds a round when you finished with gas left, backs off after a brutal session, and scales combo difficulty with experience |
+| **Weekly plan** | Tap your gym days each week and the coach fills the other days for a competing pro: a fight-pace bag simulation at your fight format, technique shadowboxing on your weak spot, fight-pace interval runs, strength, easy roadwork and rest. It keeps hard days apart, ticks sessions off as you log them, moves missed key sessions later in the week, trims volume after a rough week, and backs off when your effort ratings run high |
+| **Fight phases** | Optional fight date: the plan runs build → fight camp → sharpen → taper toward it |
+| **Weight** | Log your morning weight to get the 7-day average, weekly rate and distance to target. It warns you when you're losing more than 1% a week, and adds easy roadwork when you're behind |
 | **Workout log** | Log runs, strength, jump rope, and sessions done without the app, so all your training is in one place |
 | **Progress** | Charts for overall score, punches/min, guard, stance, footwork and weekly minutes |
 | **Backup** | Export/import your data as JSON |
@@ -28,7 +31,7 @@ The camera and motion sensors only work over **https**, so the app has to be hos
 2. Push to `main` (or re-run the "Test and deploy to GitHub Pages" workflow). The workflow runs the tests and publishes the `web/` folder.
 3. Open `https://<your-username>.github.io/<repo-name>/` on your phone.
 4. **Add to Home Screen**. iPhone: Safari → Share → *Add to Home Screen*. Android: Chrome → ⋮ → *Install app*.
-5. Open it, set your stance and level under **Coach**, and start training.
+5. Under **Coach**, check your stance, fight format and target weight. Then tap this week's gym days under **Plan**.
 
 ## Getting good camera readings
 
@@ -53,6 +56,7 @@ npm test    # unit tests for pose analysis, punch detection, coach logic and sto
 | `web/js/form.js` | Pose → punches, guard, stance, footwork, cues |
 | `web/js/motion.js` | Accelerometer punch detector |
 | `web/js/coach.js` | Scoring, feedback, habit memory, focus, workout suggestions, combos |
+| `web/js/plan.js` | Weekly plan, fight phases, rescheduling, weight trend |
 | `web/js/app.js` | UI and live session flow |
 | `web/js/pose.js` | Camera plus MediaPipe pose landmarker |
 | `web/js/store.js` | Local storage, export and import |

@@ -9,6 +9,9 @@ import { requestMotionPermission, startMotion, motionSupported } from './motion.
 import { RoundTimer, fmt } from './timer.js';
 import * as audio from './audio.js';
 import { lineChart } from './chart.js';
+import {
+  DAY_NAMES, buildWeek, planStatus, rebalance, weekCompletion, weekKey, weightStats, localDay,
+} from './plan.js';
 
 let state = store.load();
 const $ = (s, r = document) => r.querySelector(s);
@@ -43,7 +46,7 @@ function scoreChip(label, v, target) {
 // ---------------------------------------------------------------------------
 // Routing
 
-const routes = { home: renderHome, train: renderTrain, log: renderLog, progress: renderProgress, coach: renderCoach };
+const routes = { home: renderHome, plan: renderPlan, train: renderTrain, log: renderLog, progress: renderProgress, coach: renderCoach };
 
 function route() {
   const name = (location.hash.slice(1) || 'home').split('/')[0];
@@ -74,6 +77,11 @@ function renderHome() {
   const focus = memory.focus?.area;
   const habits = Object.entries(memory.insights).filter(([, v]) => v.count >= 2).sort((a, b) => b[1].count - a[1].count);
   const last = sessions[sessions.length - 1];
+  const plan = currentPlan();
+  const status = planStatus(plan, sessions);
+  const today = localDay(new Date());
+  const todays = plan.items.filter((i) => i.date === today && !i.moved);
+  const ws = weightStats(state.weights, profile);
 
   view.innerHTML = `
     ${!sessions.length ? `
@@ -81,14 +89,20 @@ function renderHome() {
         <h1>Welcome${profile.name ? `, ${esc(profile.name)}` : ''} 👊</h1>
         <p>I'm your pocket boxing coach. Prop your phone up, train, and I'll watch your guard, stance and footwork, count your punches, and remember your habits so every session builds on the last.</p>
         <ol class="steps">
-          <li>Set your stance and level in <a href="#coach">Coach</a>.</li>
-          <li>Start a session below — camera mode gives the most feedback.</li>
-          <li>Log your other training (runs, strength) in <a href="#log">Log</a>.</li>
+          <li>Check your fight format and target weight in <a href="#coach">Coach</a>.</li>
+          <li>Tap your gym days for this week in <a href="#plan">Plan</a>. I'll build the rest of the week around them.</li>
+          <li>Train, then log gym sessions, runs and strength in <a href="#log">Log</a>.</li>
         </ol>
       </section>` : ''}
 
+    <section class="card today-card">
+      <div class="eyebrow">Today · ${esc(plan.phase.name)}</div>
+      ${todays.map((it) => planItemHTML(it, status[it.id] === 'today' ? '' : status[it.id])).join('')}
+      <a class="small" href="#plan">Full week →</a>
+    </section>
+
     <section class="card coach-card">
-      <div class="eyebrow">Today's focus</div>
+      <div class="eyebrow">Technique focus</div>
       ${focus ? `
         <h2>${AREAS[focus]}</h2>
         <p class="muted">Your ${AREAS[focus].toLowerCase()} score is averaging <b>${memory.ema[focus]}</b> (target ${TARGETS[focus]}).</p>
@@ -96,12 +110,25 @@ function renderHome() {
         : `<h2>Build your baseline</h2><p class="muted">Do a camera session and I'll find what to work on first.</p>`}
     </section>
 
+    ${todays.some((i) => i.preset) ? '' : `
     <section class="card">
-      <div class="eyebrow">Suggested workout</div>
+      <div class="eyebrow">Extra session?</div>
       <h2>${sug.rounds} × ${fmt(sug.roundSec)} ${ALL_TYPES[sug.type]}</h2>
       <p class="muted">${esc(sug.reason)}</p>
       <button class="btn primary block" data-action="start-suggested">Start this workout</button>
-    </section>
+    </section>`}
+
+    ${ws ? `
+    <section class="card">
+      <div class="eyebrow">Weight</div>
+      <div class="stats4">
+        <div><b>${ws.latest.value}</b><span>latest ${esc(profile.unit)}</span></div>
+        <div><b>${ws.avg7}</b><span>7-day avg</span></div>
+        <div><b>${ws.weeklyChange != null ? (ws.weeklyChange > 0 ? '+' : '') + ws.weeklyChange : '–'}</b><span>per week</span></div>
+        <div><b>${ws.toTarget != null ? ws.toTarget : '–'}</b><span>to target</span></div>
+      </div>
+      <a class="small" href="#plan">Log weight →</a>
+    </section>` : ''}
 
     <section class="card">
       <div class="eyebrow">This week</div>
@@ -153,6 +180,7 @@ function renderTrain() {
       <h1>Train</h1>
       <div class="chips">
         <button class="chip" data-preset="suggested">Suggested</button>
+        <button class="chip" data-preset="fight">Fight sim ${state.profile.fight.rounds}×${fmt(state.profile.fight.roundSec)}</button>
         <button class="chip" data-preset="3x2">Beginner 3×2</button>
         <button class="chip" data-preset="6x3">Amateur 6×3</button>
         <button class="chip" data-preset="12x3">Pro 12×3</button>
@@ -218,6 +246,7 @@ function renderTrain() {
     const p = b.dataset.preset;
     const presets = {
       suggested: { type: sug.type, rounds: sug.rounds, roundSec: sug.roundSec, restSec: sug.restSec, comboLevel: sug.comboLevel },
+      fight: { type: 'bag', ...state.profile.fight, comboLevel: 3 },
       '3x2': { rounds: 3, roundSec: 120, restSec: 60 },
       '6x3': { rounds: 6, roundSec: 180, restSec: 60 },
       '12x3': { rounds: 12, roundSec: 180, restSec: 60 },
@@ -594,6 +623,143 @@ function rebuildMemory() {
 }
 
 // ---------------------------------------------------------------------------
+// Weekly plan
+
+const LOG_TYPE = { gym: 'sparring', intervals: 'run', easyRun: 'run', strength: 'strength', mobility: 'mobility', fightSim: 'bag', bagVolume: 'bag', shadowTech: 'shadow' };
+const STATUS_LABEL = { done: '✓ done', missed: 'missed', moved: 'moved', today: 'today' };
+
+function currentPlan() {
+  const key = weekKey();
+  if (!state.plans[key]) {
+    const prev = state.plans[weekKey(new Date(Date.now() - 7 * 86400000))];
+    state.plans[key] = buildWeek({
+      profile: state.profile, memory: state.memory, sessions: state.sessions, weights: state.weights,
+      gymDays: prev?.gymDays || [], lastWeek: prev ? weekCompletion(prev, state.sessions) : null, fromDay: todayIndex(),
+    });
+    // Keep ~8 weeks of plans.
+    for (const k of Object.keys(state.plans).sort().slice(0, -8)) delete state.plans[k];
+    persist();
+  }
+  const { plan, moves } = rebalance(state.plans[key], state.sessions);
+  if (moves.length) {
+    state.plans[key] = plan;
+    persist();
+    const m = moves[0];
+    toast(`Missed ${m.title.split(' ·')[0].toLowerCase()} — moved it to ${DAY_NAMES[(new Date(m.to + 'T12:00:00').getDay() + 6) % 7]}.`);
+  }
+  return state.plans[key];
+}
+
+function rebuildPlan(gymDays) {
+  const key = weekKey();
+  const prev = state.plans[weekKey(new Date(Date.now() - 7 * 86400000))];
+  state.plans[key] = buildWeek({
+    profile: state.profile, memory: state.memory, sessions: state.sessions, weights: state.weights,
+    gymDays, lastWeek: prev ? weekCompletion(prev, state.sessions) : null,
+    fromDay: todayIndex(), keep: state.plans[key]?.items || [],
+  });
+  persist();
+}
+
+function todayIndex() {
+  return (new Date().getDay() + 6) % 7;
+}
+
+function planItemHTML(it, st) {
+  const canStart = it.preset && st !== 'done' && st !== 'moved' && st !== 'missed';
+  const canLog = it.kind !== 'rest' && st !== 'done' && st !== 'moved';
+  return `
+    <div class="plan-item ${st || ''}">
+      <div>
+        <b><span class="load ${it.load}"></span>${esc(it.title)}</b>${STATUS_LABEL[st] ? `<span class="st ${st}">${STATUS_LABEL[st]}</span>` : ''}
+        <p>${esc(it.detail)}${it.rescheduled ? ` <i>(moved from ${DAY_NAMES[(new Date(it.from + 'T12:00:00').getDay() + 6) % 7]})</i>` : ''}</p>
+      </div>
+      ${canStart ? `<button class="btn primary" data-action="start-item" data-id="${it.id}">Start</button>`
+        : canLog ? `<a class="btn ghost" href="#log/${LOG_TYPE[it.kind] || 'conditioning'}">Log</a>` : ''}
+    </div>`;
+}
+
+function renderPlan() {
+  const plan = currentPlan();
+  const status = planStatus(plan, state.sessions);
+  const comp = weekCompletion(plan, state.sessions);
+  const today = localDay(new Date());
+  const days = DAY_NAMES.map((name, d) => ({ name, d, items: plan.items.filter((i) => i.day === d) }));
+  const { profile } = state;
+  const ws = weightStats(state.weights, profile);
+
+  view.innerHTML = `
+    <section class="card">
+      <div class="eyebrow">Week of ${fmtDate(plan.week + 'T12:00:00')}</div>
+      <h1>${esc(plan.phase.name)}${plan.phase.days != null ? ` · ${plan.phase.days} days out` : ''}</h1>
+      <p class="muted small">${esc(plan.phase.note)} Fight format: ${profile.fight.rounds} × ${fmt(profile.fight.roundSec)}.</p>
+      <p class="small"><b>${comp.done}/${comp.planned}</b> sessions done</p>
+      <div class="bar"><div style="width:${comp.planned ? (comp.done / comp.planned) * 100 : 0}%"></div></div>
+      <h3>Gym days this week</h3>
+      <div class="daychips">${DAY_NAMES.map((n, d) => `<button type="button" data-gym="${d}" class="${plan.gymDays.includes(d) ? 'on' : ''}" aria-pressed="${plan.gymDays.includes(d)}">${n}</button>`).join('')}</div>
+      <p class="muted small">Tap the days you'll be at the gym. I'll rebuild the rest of the week around them.</p>
+      ${plan.notes.length ? `<ul class="plan-notes">${plan.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+      <div class="legend"><span><span class="load hard"></span>hard</span><span><span class="load moderate"></span>moderate</span><span><span class="load easy"></span>easy</span></div>
+    </section>
+
+    ${days.map(({ name, d, items }) => {
+      const date = items[0]?.date;
+      const cls = date === today ? 'today' : date < today ? 'past' : '';
+      return `<section class="card day ${cls}">
+        <div class="day-head"><b>${name} ${date ? new Date(date + 'T12:00:00').getDate() : ''}</b>${date === today ? '<span class="st today">today</span>' : ''}</div>
+        ${items.length ? items.map((it) => planItemHTML(it, status[it.id] === 'today' ? '' : status[it.id])).join('') : '<p class="muted small">Before this plan started.</p>'}
+      </section>`;
+    }).join('')}
+
+    <section class="card">
+      <h2>Weight</h2>
+      ${ws ? `
+        <div class="stats4">
+          <div><b>${ws.latest.value}</b><span>latest</span></div>
+          <div><b>${ws.avg7}</b><span>7-day avg</span></div>
+          <div><b>${ws.weeklyChange != null ? (ws.weeklyChange > 0 ? '+' : '') + ws.weeklyChange : '–'}</b><span>${esc(profile.unit)}/week</span></div>
+          <div><b>${ws.toTarget != null ? ws.toTarget : '–'}</b><span>to target</span></div>
+        </div>
+        <div class="msg ${ws.status}">${esc(ws.message)}</div>
+        <div id="c-weight"></div>` : '<p class="muted small">Log your morning weight to see your trend.</p>'}
+      ${profile.targetWeight ? '' : '<p class="muted small">Set a target weight in <a href="#coach">Coach</a>.</p>'}
+      <form id="weightForm" class="weight-row">
+        <label class="form-label">Today's weight (${esc(profile.unit)})
+          <input type="number" name="w" step="0.1" min="20" max="400" inputmode="decimal" required value="${state.weights.find((w) => w.date === today)?.value ?? ''}">
+        </label>
+        <button class="btn primary" type="submit">Save</button>
+      </form>
+    </section>`;
+
+  view.querySelectorAll('[data-gym]').forEach((b) => b.addEventListener('click', () => {
+    const d = +b.dataset.gym;
+    const gym = plan.gymDays.includes(d) ? plan.gymDays.filter((x) => x !== d) : [...plan.gymDays, d];
+    rebuildPlan(gym);
+    renderPlan();
+  }));
+
+  if (ws) {
+    const pts = [...state.weights].sort((a, b) => a.date.localeCompare(b.date)).slice(-30)
+      .map((w) => ({ x: shortDate(w.date + 'T12:00:00'), y: w.value }));
+    const vals = pts.map((p) => p.y).concat(profile.targetWeight ? [profile.targetWeight] : []);
+    lineChart($('#c-weight'), pts, {
+      min: Math.floor(Math.min(...vals) - 1), max: Math.ceil(Math.max(...vals) + 1),
+      unit: ` ${profile.unit}`, target: profile.targetWeight, label: 'Bodyweight',
+    });
+  }
+
+  $('#weightForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const value = Math.round(+e.target.w.value * 10) / 10;
+    if (!(value > 0)) return;
+    state.weights = state.weights.filter((w) => w.date !== today).concat({ date: today, value });
+    persist();
+    toast('Weight saved.');
+    renderPlan();
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Log
 
 function renderLog() {
@@ -632,6 +798,11 @@ function renderLog() {
     <dialog id="detail"></dialog>`;
 
   const mf = $('#manual');
+  const pre = location.hash.split('/')[1];
+  if (pre && pre in ALL_TYPES) {
+    mf.type.value = pre;
+    mf.closest('details').open = true;
+  }
   const toggleBoxing = () => { mf.querySelector('.boxing-only').hidden = !(mf.type.value in BOXING_TYPES); };
   mf.type.addEventListener('change', toggleBoxing);
   toggleBoxing();
@@ -758,7 +929,18 @@ function renderCoach() {
           <label>Stance<select name="stance">${opt('orthodox', profile.stance, 'Orthodox')}${opt('southpaw', profile.stance, 'Southpaw')}</select></label>
           <label>Level<select name="level">${opt('beginner', profile.level, 'Beginner')}${opt('intermediate', profile.level, 'Intermediate')}${opt('advanced', profile.level, 'Advanced')}</select></label>
         </div>
-        <label>Training days per week goal<input type="number" name="weeklyGoal" min="1" max="7" value="${profile.weeklyGoal}"></label>
+        <label>Goal<select name="goal">${opt('compete', profile.goal, 'Compete')}${opt('technique', profile.goal, 'Technique')}${opt('fitness', profile.goal, 'Fitness')}${opt('self-defence', profile.goal, 'Self-defence')}</select></label>
+        <div class="row2">
+          <label>Fight rounds<select name="fightRounds">${[3, 4, 5, 6, 8, 10, 12].map((n) => `<option value="${n}" ${n === profile.fight.rounds ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+          <label>Round length<select name="fightRoundSec">${[120, 180].map((n) => `<option value="${n}" ${n === profile.fight.roundSec ? 'selected' : ''}>${n / 60} min</option>`).join('')}</select></label>
+        </div>
+        <label>Fight date (optional)<input type="date" name="fightDate" value="${esc(profile.fightDate)}"></label>
+        <p class="muted small">Set a date and the plan runs build → camp → sharpen → taper toward it.</p>
+        <div class="row2">
+          <label>Target weight<input type="number" name="targetWeight" step="0.1" min="0" inputmode="decimal" value="${profile.targetWeight ?? ''}" placeholder="e.g. 72.5"></label>
+          <label>Units<select name="unit">${opt('kg', profile.unit, 'kg')}${opt('lb', profile.unit, 'lb')}</select></label>
+        </div>
+        <label>Training days per week<input type="number" name="weeklyGoal" min="1" max="7" value="${profile.weeklyGoal}"></label>
         <label><span>Punch detection sensitivity <b id="sensOut">${profile.sensitivity}</b></span>
           <input type="range" name="sensitivity" min="0.5" max="2" step="0.1" value="${profile.sensitivity}"></label>
         <p class="muted small">Raise it if punches are missed, lower it if it counts too many.</p>
@@ -802,7 +984,11 @@ function renderCoach() {
       ...profile,
       name: f.name.value.trim(), stance: f.stance.value, level: f.level.value,
       weeklyGoal: Math.min(7, Math.max(1, +f.weeklyGoal.value || 3)), sensitivity: +f.sensitivity.value,
+      goal: f.goal.value,
+      fight: { rounds: +f.fightRounds.value, roundSec: +f.fightRoundSec.value, restSec: 60 },
+      fightDate: f.fightDate.value, targetWeight: +f.targetWeight.value > 0 ? +f.targetWeight.value : null, unit: f.unit.value,
     };
+    rebuildPlan(currentPlan().gymDays);
     state.settings = { ...settings, voice: f.voice.checked, cues: f.cues.checked, comboInterval: +f.comboInterval.value };
     persist();
     toast('Saved.');
@@ -841,6 +1027,13 @@ function renderCoach() {
 view.addEventListener('click', (e) => {
   const a = e.target.closest('[data-action]');
   if (!a) return;
+  if (a.dataset.action === 'start-item') {
+    const it = currentPlan().items.find((x) => x.id === a.dataset.id);
+    if (it?.preset) {
+      const tracking = it.preset.tracking === 'motion' && !motionSupported() ? state.settings.tracking : it.preset.tracking;
+      startSession({ combos: state.settings.combos, focus: state.memory.focus?.area || null, ...it.preset, tracking });
+    }
+  }
   if (a.dataset.action === 'start-suggested') {
     const sug = suggestWorkout(state.sessions, state.memory, state.profile);
     startSession({

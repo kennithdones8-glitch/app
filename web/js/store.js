@@ -6,10 +6,15 @@ const KEY = 'boxcoach.v1';
 export function defaultState() {
   return {
     version: 1,
-    profile: { name: '', stance: 'orthodox', level: 'beginner', weeklyGoal: 3, sensitivity: 1 },
+    profile: {
+      name: '', stance: 'orthodox', level: 'advanced', goal: 'compete', weeklyGoal: 6, sensitivity: 1,
+      fight: { rounds: 6, roundSec: 180, restSec: 60 }, fightDate: '', targetWeight: null, unit: 'kg',
+    },
     settings: { voice: true, combos: true, comboInterval: 6, tracking: 'camera', cues: true },
     sessions: [],
     memory: emptyMemory(),
+    weights: [],
+    plans: {},
   };
 }
 
@@ -17,10 +22,12 @@ function merge(base, data) {
   return {
     ...base,
     ...data,
-    profile: { ...base.profile, ...(data.profile || {}) },
+    profile: { ...base.profile, ...(data.profile || {}), fight: { ...base.profile.fight, ...(data.profile?.fight || {}) } },
     settings: { ...base.settings, ...(data.settings || {}) },
     memory: { ...base.memory, ...(data.memory || {}) },
     sessions: Array.isArray(data.sessions) ? data.sessions : [],
+    weights: Array.isArray(data.weights) ? data.weights : [],
+    plans: data.plans && typeof data.plans === 'object' ? data.plans : {},
   };
 }
 
