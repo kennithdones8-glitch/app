@@ -230,6 +230,9 @@ function emptyRound() {
 }
 
 // Punch numbers used by boxers: 1 jab, 2 cross, 3 lead hook, 4 rear hook, 5 lead uppercut, 6 rear uppercut.
+const PUNCH_TYPE = {
+  straight: { lead: 'jab', rear: 'cross' }, hook: { lead: 'leadHook', rear: 'rearHook' }, uppercut: { lead: 'leadUppercut', rear: 'rearUppercut' },
+};
 export const PUNCH_DIGIT = { jab: 1, cross: 2, leadHook: 3, rearHook: 4, leadUppercut: 5, rearUppercut: 6 };
 
 // Groups punches thrown within `gapMs` of each other into combinations, e.g. {"1-2": 4, "1-2-3": 2}.
@@ -339,8 +342,64 @@ export function combineRounds(rounds) {
   return out;
 }
 
+// Forward / sideways travel of a punch path relative to an axis in the ground plane.
+function travel(path, axis) {
+  let fwd = 0, lat = 0;
+  for (const [dx, dz] of path) {
+    fwd = Math.max(fwd, dx * axis.x + dz * axis.z);
+    lat = Math.max(lat, Math.abs(dx * -axis.z + dz * axis.x));
+  }
+  return { fwd, lat };
+}
+
+// Straight, hook or uppercut from a punch's measurements and the forward axis.
+// p: { angle, ext, rise, path: [[dx, dz], ...] } in metres / degrees.
+// cal.ratio: how much more forward than sideways travel makes a straight (learned per boxer and
+// camera from a drilled combo; pads stop the arm early, so straights aren't always locked out).
+export const DEFAULT_STRAIGHT_RATIO = 1.8;
+export function classifyPunch(p, axis, cal = null) {
+  const { fwd, lat } = travel(p.path || [], axis);
+  const T = cal?.ratio ?? DEFAULT_STRAIGHT_RATIO;
+  const straightish = p.rise < 0.15 && p.ext >= 0.55 && fwd > 0.08 && fwd >= T * lat;
+  if ((p.angle >= 145 && p.ext >= 0.8 && p.rise < 0.15) || straightish) {
+    const byDir = straightish ? 0.5 + (fwd / Math.max(lat, 0.01) - T) / (2 * T) : 0;
+    return { kind: 'straight', fwd, lat, margin: Math.min(1, Math.max((p.angle - 135) / 35, byDir)) };
+  }
+  if (p.rise > 0.12 && p.rise > lat && p.rise > fwd * 0.7) {
+    return { kind: 'uppercut', fwd, lat, margin: Math.min(1, 0.4 + (p.rise - lat) / 0.15) };
+  }
+  return { kind: 'hook', fwd, lat, margin: Math.min(1, 0.4 + Math.max(0, 145 - p.angle) / 50, 0.3 + (T - fwd / Math.max(lat, 0.01)) / T) };
+}
+
+// The direction punches travel, from where each punch ended up relative to where it started.
+// Jabs, crosses and hooks all land in front of you; hooks only swing out on the way. This is
+// independent of the camera angle and of the face, which may be hidden (filmed from behind).
+export function punchAxis(disps, min = 4) {
+  let x = 0, z = 0;
+  for (const [dx, dz] of disps) { x += dx; z += dz; }
+  const l = Math.hypot(x, z);
+  return disps.length >= min && l > 0.05 ? { x: x / l, z: z / l } : null;
+}
+
+// Hooks lean the average toward one side when one hand throws more of them (e.g. lots of lead
+// hooks, no rear hooks). Straights point dead ahead, so re-estimate from the punches that read as
+// straight, a few times over.
+export function refineAxis(feats, cal = null) {
+  let axis = punchAxis(feats.map((f) => f.disp));
+  for (let i = 0; axis && i < 3; i++) {
+    const straight = feats.filter((f) => classifyPunch(f, axis, cal).kind === 'straight');
+    const next = punchAxis(straight.map((f) => f.disp), 3);
+    if (!next) break;
+    axis = next;
+  }
+  return axis;
+}
+
+const PUNCH_CONF = (vis, speed, vTh, margin) => 100 * (0.5 + 0.5 * vis) * (0.55 + 0.45 * Math.min(1, speed / (vTh * 1.8))) * (0.6 + 0.4 * Math.max(0, margin));
+
 export class FormAnalyzer {
-  constructor({ stance = 'orthodox', sensitivity = 1, onCue = () => {}, onPunch = () => {}, minVis = 0.5 } = {}) {
+  constructor({ stance = 'orthodox', sensitivity = 1, onCue = () => {}, onPunch = () => {}, minVis = 0.5, cal = null } = {}) {
+    this.cal = cal; // per-boxer punch calibration, see calibrateFromCombo
     this.stance = stance;
     this.minVis = minVis; // video filmed side-on hides the far arm, so video analysis accepts lower visibility
     this.vTh = 1.6 / Math.max(0.3, sensitivity); // wrist speed (m/s) that starts a punch
@@ -361,6 +420,7 @@ export class FormAnalyzer {
     this.lastAnyCue = -Infinity;
     this.lastSeen = null;
     this.events = []; // detections with confidence, used for video review
+    this.recent = []; // recent punch measurements, for learning which way is forward
     this.roundNo = 0;
     // Raw measurements behind each punch decision, for tuning thresholds to a real boxer.
     this.calib = { vTh: Math.round(this.vTh * 100) / 100, punches: [], rejected: [], nearMiss: [], frames: 0, tracked: 0 };
@@ -555,20 +615,20 @@ export class FormAnalyzer {
         h.start = h.prev || w;
         h.startT = t;
         h.peakExt = 0; h.peakAngle = 0; h.maxNoseD = noseD; h.maxRise = 0; h.maxLat = 0; h.maxFwd = 0; h.peakSpeed = 0;
+        h.path = []; h.peakDisp = [0, 0];
         h.rearDropped = false;
       }
     }
     if (h.state === 'punch') {
       h.peakSpeed = Math.max(h.peakSpeed, h.speed);
-      h.peakExt = Math.max(h.peakExt, dist3(sh, w) / (h.armLen || 1));
+      const ext = dist3(sh, w) / (h.armLen || 1);
+      if (ext > h.peakExt) h.peakDisp = [w.x - h.start.x, w.z - h.start.z];
+      h.peakExt = Math.max(h.peakExt, ext);
       h.peakAngle = Math.max(h.peakAngle, angleDeg(sh, el, w));
       h.maxNoseD = Math.max(h.maxNoseD, noseD);
       h.maxRise = Math.max(h.maxRise, h.start.y - w.y);
       // Forward vs sideways relative to where the boxer faces, so it works from any camera angle.
-      const dx = w.x - h.start.x, dz = w.z - h.start.z;
-      const fc = this.face || { x: 0, z: -1 };
-      h.maxFwd = Math.max(h.maxFwd, dx * fc.x + dz * fc.z);
-      h.maxLat = Math.max(h.maxLat, Math.abs(dx * -fc.z + dz * fc.x));
+      h.path.push([w.x - h.start.x, w.z - h.start.z]);
       if (role === 'lead' && this.active && !h.rearDropped) {
         const rear = world[this.hands.rear.wr];
         if (rear.y > shMidY + 0.1) h.rearDropped = true;
@@ -602,33 +662,32 @@ export class FormAnalyzer {
     h.prevNoseD = noseD;
   }
 
+  // Forward axis: learned from recent punches once there are enough, else the face direction.
+  axis() {
+    return refineAxis(this.recent, this.cal) || this.face || { x: 0, z: -1 };
+  }
+
   _registerPunch(role, h, t) {
-    let kind, margin;
-    const fwd = h.maxFwd || 0;
-    const straightish = h.peakAngle >= 125 && h.peakExt >= 0.7 && fwd > 1.4 * h.maxLat && h.maxRise < 0.15;
-    if ((h.peakAngle >= 145 && h.peakExt >= 0.8) || straightish) {
-      kind = 'straight';
-      margin = Math.min(1, Math.max((h.peakAngle - 135) / 35, straightish ? 0.5 + (fwd - 1.4 * h.maxLat) / 0.3 : 0));
-    } else if (h.maxRise > 0.12 && h.maxRise > h.maxLat && h.maxRise > fwd * 0.7) {
-      kind = 'uppercut';
-      margin = Math.min(1, 0.4 + (h.maxRise - h.maxLat) / 0.15);
-    } else {
-      kind = 'hook';
-      margin = Math.min(1, 0.4 + Math.max(0, 145 - h.peakAngle) / 50);
-    }
+    const feats = { angle: h.peakAngle, ext: h.peakExt, rise: h.maxRise, path: h.path };
+    const axis = this.axis();
+    const { kind, margin, fwd, lat } = classifyPunch(feats, axis, this.cal);
+    this.recent.push({ ...feats, disp: h.peakDisp });
+    if (this.recent.length > 24) this.recent.shift();
     const vis = this._vis([h.sh, h.el, h.wr]);
     // Visibility counts for half: side-on the far arm is partly hidden even on clean punches.
-    const conf = 100 * (0.5 + 0.5 * vis) * (0.55 + 0.45 * Math.min(1, h.peakSpeed / (this.vTh * 1.8))) * (0.6 + 0.4 * Math.max(0, margin));
-    const type =
-      kind === 'straight' ? (role === 'lead' ? 'jab' : 'cross')
-        : kind === 'hook' ? (role === 'lead' ? 'leadHook' : 'rearHook')
-          : role === 'lead' ? 'leadUppercut' : 'rearUppercut';
+    const conf = PUNCH_CONF(vis, h.peakSpeed, this.vTh, margin);
+    const type = PUNCH_TYPE[kind][role];
     h.returnSince = t;
     if (!this.active) return;
     this.round.punches[type]++;
     this.round.punchLog.push({ t, type });
-    this.event('punch', t, conf, { type });
-    this._calibPush('punches', [PUNCH_DIGIT[type], r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(h.maxRise), r2(h.maxLat), Math.round(conf), r2(h.maxFwd || 0)]);
+    const r3 = (x) => Math.round(x * 1000) / 1000;
+    this.event('punch', t, conf, {
+      type, role, vis, speed: h.peakSpeed,
+      f: { angle: h.peakAngle, ext: h.peakExt, rise: h.maxRise, path: h.path.map(([a, b]) => [r3(a), r3(b)]), disp: h.peakDisp.map(r3) },
+      face: this.face ? [r3(this.face.x), r3(this.face.z)] : null,
+    });
+    this._calibPush('punches', [PUNCH_DIGIT[type], r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(h.maxRise), r2(lat), Math.round(conf), r2(fwd)]);
     if (role === 'lead') {
       this.round.leadPunches++;
       if (h.rearDropped) {
@@ -637,6 +696,36 @@ export class FormAnalyzer {
       }
     }
     this.onPunch(type, { t, conf });
+  }
+
+  // After a whole video: re-read every punch against the forward axis learned from the punches
+  // around it (both directions in time), so early punches get the same treatment as later ones.
+  // Updates event types and confidences and the calibration rows; returns how many changed.
+  reclassify(window = 12) {
+    const punches = this.events.filter((e) => e.kind === 'punch' && e.f);
+    let changed = 0, faceDev = [];
+    punches.forEach((e, i) => {
+      // A drilled combo pins the axis from punches known to be straights (see calibrate.js).
+      const axis = e.axisFixed || refineAxis(punches.slice(Math.max(0, i - window), i + window + 1).map((x) => x.f), this.cal);
+      if (!axis) return;
+      if (e.face) faceDev.push((Math.acos(Math.max(-1, Math.min(1, e.face[0] * axis.x + e.face[1] * axis.z))) * 180) / Math.PI);
+      const c = classifyPunch(e.f, axis, this.cal);
+      e.axis = axis;
+      const type = PUNCH_TYPE[c.kind][e.role];
+      if (type !== e.type) changed++;
+      e.type = type;
+      e.conf = Math.round(PUNCH_CONF(e.vis, e.speed, this.vTh, c.margin));
+      e.fwd = c.fwd;
+      e.lat = c.lat;
+    });
+    // Keep calibration rows in step with the final decisions.
+    this.calib.punches = punches.slice(0, 300).map((e) => [PUNCH_DIGIT[e.type], r2(e.speed), r2(e.f.ext), Math.round(e.f.angle), r2(e.f.rise), r2(e.lat ?? 0), e.conf, r2(e.fwd ?? 0)]);
+    // Raw ground-plane vectors (camera frame) so the axis maths can be checked from a report.
+    this.calib.vec = punches.slice(0, 100).map((e) => [e.role === 'lead' ? 'L' : 'R', ...e.f.disp.map(r2), ...(e.face || [0, 0]).map(r2), ...e.f.path.flat().map(r2)]);
+    faceDev.sort((a, b) => a - b);
+    this.calib.faceDev = faceDev.length ? Math.round(faceDev[Math.floor(faceDev.length / 2)]) : null;
+    this.calib.reclassified = changed;
+    return changed;
   }
 
   _calibPush(list, row) {

@@ -4,9 +4,12 @@ import { FormAnalyzer, combineRounds, sequencesFrom, streamFrom, comboStats, PUN
 import { ALL_TYPES } from '../coach.js';
 import { $, $$, esc, opt, toast } from '../ui.js';
 import { newId } from '../store.js';
+import { comboLabel } from '../combos.js';
+import { calibrateFromCombo } from '../calibrate.js';
 
 let job = null; // { analyzer, events, rounds, meta } after analysis
 
+const pctOf = (n, d) => (d ? Math.round((n / d) * 100) : 0);
 const fmtT = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
 
 export function renderVideo(el, app) {
@@ -20,6 +23,8 @@ export function renderVideo(el, app) {
         <label>Video<input type="file" name="file" accept="video/*" required></label>
         <label>Type<select name="type">${['shadow', 'mitts', 'bag', 'sparring'].map((t) => opt(t, 'shadow', ALL_TYPES[t])).join('')}</select></label>
         <p class="muted small" style="margin:0">Someone else in the video (pads, sparring)? You'll tap yourself before the analysis starts, and it follows you even when you move around or swap sides.</p>
+        ${app.state.combos.length ? `<label>Drilling one combo on repeat? (optional)<select name="drill">${opt('', '', 'No / mixed punches')}${app.state.combos.map((c) => opt(c.id, '', comboLabel(c.tokens))).join('')}</select></label>
+        <p class="muted small" style="margin:0">Pick it and the camera checks itself against what you threw, and learns to read your straights and hooks better next time. Save the whole sequence you repeated as one combo in Train → Combos.</p>` : ''}
         <div class="row2">
           <label>Rounds of<select name="roundSec">${opt(0, 0, 'Whole video')}${opt(120, 0, '2 min')}${opt(180, 0, '3 min')}</select></label>
           <label>Detail<select name="fps">${opt(10, 15, 'Fast')}${opt(15, 15, 'Normal')}${opt(24, 15, 'Precise')}</select></label>
@@ -48,6 +53,7 @@ export function renderVideo(el, app) {
     video.play().then(() => video.pause()).catch(() => {});
     analyse(file, video, {
       type: f.type.value, roundSec: +f.roundSec.value, fps: +f.fps.value,
+      drill: app.state.combos.find((c) => c.id === f.drill?.value) || null,
       stance: app.state.profile.stance, sensitivity: app.state.profile.sensitivity,
     }, el, app);
   });
@@ -139,7 +145,7 @@ async function analyse(file, video, opts, el, app) {
     status.textContent = 'Loading pose model…';
     const { getVideoLandmarker, detectVideoFrame } = await import('../pose.js');
     const lm = await getVideoLandmarker();
-    const analyzer = new FormAnalyzer({ stance: opts.stance, sensitivity: opts.sensitivity, minVis: 0.3 });
+    const analyzer = new FormAnalyzer({ stance: opts.stance, sensitivity: opts.sensitivity, minVis: 0.3, cal: app.state.profile.punchCal || null });
     const durMs = video.duration * 1000;
     const roundMs = opts.roundSec ? opts.roundSec * 1000 : durMs + 1;
     const rounds = [];
@@ -252,10 +258,26 @@ async function analyse(file, video, opts, el, app) {
     }
     rounds.push(analyzer.endRound());
     video.pause();
+    analyzer.reclassify();
+    // Drilled a known combo: check the camera against it and learn this boxer's straight/hook boundary.
+    let comboCheck = null;
+    if (opts.drill) {
+      comboCheck = calibrateFromCombo(analyzer.events.filter((e) => e.kind === 'punch' && e.f), opts.drill.tokens, app.state.profile.punchCal);
+      comboCheck.combo = comboLabel(opts.drill.tokens);
+      if (comboCheck.ratio != null) {
+        app.state.profile.punchCal = { ratio: comboCheck.ratio, n: comboCheck.n, updated: new Date().toISOString() };
+        app.persist();
+        analyzer.cal = app.state.profile.punchCal;
+        analyzer.reclassify();
+        const after = calibrateFromCombo(analyzer.events.filter((e) => e.kind === 'punch' && e.f), opts.drill.tokens, app.state.profile.punchCal);
+        comboCheck.agreeAfter = after.agree;
+      }
+    }
     job = {
       done: true, url, type: opts.type, roundSec: opts.roundSec || Math.round(durMs / 1000), durMs,
       rounds, events: analyzer.events.map((e, i) => ({ ...e, i, keep: e.conf >= 50, fix: e.type })),
-      calib: { ...analyzer.calib, who, multi: frames ? Math.round((multi / frames) * 100) : 0 },
+      calib: { ...analyzer.calib, who, multi: frames ? Math.round((multi / frames) * 100) : 0, comboCheck: comboCheck || undefined, cal: analyzer.cal || undefined },
+      comboCheck,
       frames, tracked: frames ? Math.round((tracked / frames) * 100) : 0, multi: frames ? Math.round((multi / frames) * 100) : 0,
       date: new Date(file.lastModified || Date.now()).toISOString(),
     };
@@ -285,6 +307,7 @@ function renderReview(el, app) {
         <li>Body found in ${j.tracked}% of ${j.frames ?? ''} frames analysed${j.tracked < 70 ? ' — low; results are less reliable' : ''}${j.multi ? ` · ${j.multi}% had 2 people (following the person you tapped)` : ''}</li>
         <li>Stance detected: ${esc(stanceTxt)}</li>
         <li>${punches.length} punches detected, average confidence ${avgConf ?? '–'}%</li>
+        ${j.comboCheck ? `<li>Combo check (${esc(j.comboCheck.combo)}): ${j.comboCheck.matched} of ${j.comboCheck.total} punches lined up with it. The camera read ${pctOf(j.comboCheck.agreeAfter ?? j.comboCheck.agree, j.comboCheck.matched)}% of those as the right punch type${j.comboCheck.agreeAfter != null ? ` after learning from this video (was ${pctOf(j.comboCheck.agree, j.comboCheck.matched)}%)` : ''}.</li>` : ''}
         <li>${others.filter((e) => e.kind === 'guardDrop').length} guard drops · ${others.filter((e) => e.kind === 'crossedFeet').length} crossed-feet moments</li>
       </ul>
       <p class="muted small">Computer vision isn't perfect. Tap a time to jump there, fix the punch type, or untick anything that's wrong. Low-confidence detections start unticked.</p>
