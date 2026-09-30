@@ -37,7 +37,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.30-3';
+export const APP_VERSION = '2026.09.30-4';
 
 const app = {
   version: APP_VERSION,
@@ -771,6 +771,7 @@ function sessionDetailHTML(s, fb) {
     ${s.form?.comboShare != null ? `<p class="small muted">${s.form.comboShare}% of punches thrown in combinations · average combo ${s.form.avgComboLen ?? '–'} punches</p>` : ''}
     ${combosHTML(s)}
     ${roundsTable(s)}
+    ${s.form?.headPerMin != null ? `<p class="small muted">Head movement: ${s.form.headPerMin} slips, rolls or pulls per minute</p>` : ''}
     ${s.form?.handReturnMs != null ? `<p class="small muted">Hand return: lead ${s.form.leadReturnMs ?? '–'} ms · rear ${s.form.rearReturnMs ?? '–'} ms · rear hand dropped on ${s.form.rearDropPct ?? 0}% of lead punches</p>` : ''}
     ${s.intensity ? `<p class="small muted">Average punch intensity: ${s.intensity} m/s²</p>` : ''}
     ${s.notes ? `<p class="notes">${esc(s.notes)}</p>` : ''}`;

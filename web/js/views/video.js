@@ -319,7 +319,7 @@ async function analyse(file, video, opts, el, app) {
           app.state.profile.punchCal = cal;
           app.persist();
         } else {
-          analyzer.cal = prior;
+          analyzer.cal = trustedCal(prior); // never fall back to an unproven setting
           analyzer.reclassify();
         }
       }
