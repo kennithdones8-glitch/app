@@ -563,7 +563,6 @@ export class FormAnalyzer {
       }
     }
     const r = this.round;
-    const shMidY = (world[LM.L_SH].y + world[LM.R_SH].y) / 2;
     const nose = world[LM.NOSE];
 
     // --- Punch tracking per hand -------------------------------------------
@@ -582,7 +581,7 @@ export class FormAnalyzer {
       const recovering = h.returnSince != null && t - h.returnSince < 700;
       if (h.state !== 'idle' || recovering) { eligible = false; continue; }
       if ((image[h.wr]?.visibility ?? 1) < this.minVis) continue; // hidden hand: don't judge it
-      if (world[h.wr].y > shMidY + 0.06) bothUp = false;
+      if (this._below(world, world[h.wr]) > 0.06) bothUp = false;
     }
     if (eligible) {
       r.guardEligible++;
@@ -688,6 +687,12 @@ export class FormAnalyzer {
     return this.snapshot(world, image);
   }
 
+  // How far a point sits below shoulder height, measured along the body's up (metres).
+  _below(world, p) {
+    const sy = { x: (world[LM.L_SH].x + world[LM.R_SH].x) / 2, y: (world[LM.L_SH].y + world[LM.R_SH].y) / 2, z: (world[LM.L_SH].z + world[LM.R_SH].z) / 2 };
+    return -dot3({ x: p.x - sy.x, y: p.y - sy.y, z: p.z - sy.z }, this.up);
+  }
+
   _vis(idx) {
     if (!this.image) return 1;
     return idx.reduce((a, i) => a + (this.image[i]?.visibility ?? 1), 0) / idx.length;
@@ -716,7 +721,6 @@ export class FormAnalyzer {
       h.speed = h.speed * 0.4 + inst * 0.6;
     }
     const away = noseD > h.prevNoseD;
-    const shMidY = (world[LM.L_SH].y + world[LM.R_SH].y) / 2;
     const handSeen = (this.image?.[h.wr]?.visibility ?? 1) >= this.minVis * 0.7;
 
     if (h.state === 'idle') {
@@ -760,7 +764,7 @@ export class FormAnalyzer {
       if (rearSeen) h.rearSeen = true;
       if (role === 'lead' && this.active && !h.rearDropped && rearSeen) {
         const rear = world[this.hands.rear.wr];
-        if (rear.y > shMidY + 0.1) h.rearDropped = true;
+        if (this._below(world, rear) > 0.1) h.rearDropped = true;
       }
       const retracting = noseD < h.maxNoseD - 0.04;
       const slowed = h.speed < this.vTh * 0.5;
@@ -777,7 +781,7 @@ export class FormAnalyzer {
     }
     // Hand return: back in guard near the face.
     if (h.returnSince != null && h.state === 'idle') {
-      const done = w.y <= shMidY + 0.06 && noseD < 0.38 ? t - h.returnSince : t - h.returnSince > 1500 ? 1500 : null;
+      const done = this._below(world, w) <= 0.06 && noseD < 0.38 ? t - h.returnSince : t - h.returnSince > 1500 ? 1500 : null;
       if (done != null) {
         if (this.active) {
           this.round.returnTimes.push(done);
