@@ -820,7 +820,10 @@ export class FormAnalyzer {
         const travel = h.maxNoseD - dist3(h.start, nose);
         // Short, fast punches count too (on pads the mitt meets the punch early); impossible
         // speeds are tracking glitches.
-        const real = h.peakSpeed < 6.5 && (travel > 0.1 || h.peakExt > 0.85 || (h.peakSpeed > 2 && h.peakExt > 0.65));
+        // Over 6.5 m/s is usually a tracking glitch, but a fast, fully extended straight is real:
+        // a sharp jab measured over 30 ms reaches 7-10 m/s (these were being thrown away).
+        const fastStraight = h.peakSpeed < 11 && h.peakExt >= 0.9 && h.peakAngle >= 140 && travel >= 0.15;
+        const real = (h.peakSpeed < 6.5 || fastStraight) && (travel > 0.1 || h.peakExt > 0.85 || (h.peakSpeed > 2 && h.peakExt > 0.65));
         if (real) this._registerPunch(role, h, t);
         else this._calibPush('rejected', [role === 'lead' ? 'L' : 'R', r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(travel)]);
       }

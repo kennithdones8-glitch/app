@@ -283,6 +283,25 @@ test('hand wobble starts no more false punches at 60 fps than at 30 fps', () => 
   assert.ok(at60 <= Math.max(3, at30 * 1.5), `30 fps: ${at30}, 60 fps: ${at60}`);
 });
 
+test('a sharp, fast jab counts; a fast jump of a bent arm is still a glitch', () => {
+  const run = (frames) => {
+    const an = new FormAnalyzer();
+    an.startRound();
+    let t = 0;
+    for (const w of [...still(20), ...frames, ...still(20)]) { an.update(w, image(w), t); t += 16; } // 60 fps
+    an.endRound();
+    return an.calib;
+  };
+  // Jab: fist travels ~45 cm to full extension in ~50 ms (about 9 m/s), then back.
+  const jab = punch(LM.L_WR, LM.L_EL, { x: 0.16, y: -0.49, z: -0.7 }, { x: 0.17, y: -0.47, z: -0.38 }, 3, 8);
+  const c = run(jab);
+  assert.deepEqual(c.punches.map((p) => p[0]), [1], `rejected: ${JSON.stringify(c.rejected)}`);
+  assert.ok(c.punches[0][1] > 6.5, `fast enough to test the cap: ${c.punches[0][1]} m/s`);
+  // Glitch: the wrist teleports 50 cm sideways with the elbow still bent, and back.
+  const glitch = [pose({ [LM.R_WR]: { x: -0.6, y: -0.5, z: -0.15 } }), pose({ [LM.R_WR]: { x: -0.6, y: -0.5, z: -0.15 } })];
+  assert.equal(run(glitch).punches.length, 0);
+});
+
 test('punches are classified correctly from a side-on camera', () => {
   // Same jab and lead hook as the front-on test, but the boxer is filmed from the side.
   const rot = (w) => w.map((p) => ({ x: -p.z, y: p.y, z: p.x }));
