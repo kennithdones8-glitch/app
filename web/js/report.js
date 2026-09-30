@@ -39,6 +39,9 @@ export function buildReport(session, state = {}, version = null) {
     hits: session.hits,
     positives: session.positives,
     corrections: session.corrections,
+    coach: session.coach ? { root: session.coach.root, level: session.coach.level, drill: session.coach.drill, eval: session.coach.eval ? [session.coach.eval.metric, session.coach.eval.value, session.coach.eval.target, session.coach.eval.pass] : undefined } : undefined,
+    adjustments: session.adjustments,
+    benchmark: session.benchmark || undefined,
     calib: session.calib,
     notes: session.notes || undefined,
   };

@@ -101,7 +101,8 @@ test('live adjuster: switch when fatigue wrecks form, simplify when struggling, 
   const simp = adjustNextRound({ form: { frames: 200, guard: 84 }, first, calls, coach, comboLevel: 3 });
   assert.equal(simp.action, 'simplify');
   assert.equal(simp.maxLen, 2);
-  assert.match(simp.say, /1 of 4 called combos/);
+  assert.deepEqual([simp.why.exact, simp.why.called], [1, 4]);
+  assert.ok(simp.say.split(' ').length <= 8, `short: "${simp.say}"`);
   const clean = adjustNextRound({ form: { frames: 200, guard: 86 }, first, calls: calls.map((c) => [c[0], 'exact']), coach, comboLevel: 2 });
   assert.equal(clean.action, 'progress');
   assert.equal(clean.comboLevel, 3);

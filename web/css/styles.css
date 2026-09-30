@@ -556,3 +556,9 @@ details.options.card > summary.rowbtn { padding: 0; box-shadow: none; margin: 0;
 .subnav::-webkit-scrollbar { display: none; }
 details.weak > summary::after { content: '›'; margin-left: 8px; font-size: 1.3rem; color: var(--muted); }
 details.weak[open] > summary::after { transform: rotate(90deg); }
+.fb-line { margin: 10px 0 0; font-size: 0.95rem; font-weight: 600; }
+.fb-line.good { color: var(--good); }
+.fb-line.bad { color: var(--ink); }
+details.more { margin-top: 10px; }
+details.card-lite > summary { list-style: none; padding: 4px 0 10px; }
+details.card-lite > summary::-webkit-details-marker { display: none; }

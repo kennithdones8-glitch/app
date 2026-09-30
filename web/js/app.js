@@ -40,7 +40,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.30-11';
+export const APP_VERSION = '2026.09.30-12';
 
 const app = {
   version: APP_VERSION,
@@ -534,23 +534,18 @@ function closeRound() {
 function roundReport(n) {
   const punches = live.perRound[live.perRound.length - 1];
   const f = live.formRounds[live.formRounds.length - 1];
+  // Short: which round, and the one thing to fix (the rest is on the summary afterwards).
   const bits = [`Round ${n} done.`];
-  if (live.tracking !== 'none' && punches != null) bits.push(`${punches} punches.`);
-  const rp = roundPlan(n);
-  const auto = rp && f && CONSTRAINTS[rp.constraint]?.auto?.(f);
-  if (auto != null && f?.frames > 30) bits.push(`${CONSTRAINTS[rp.constraint].name}: ${auto} percent.`);
   if (f && f.frames > 30) {
     const issues = [];
-    if (f.guard != null && f.guard < TARGETS.guard) issues.push([TARGETS.guard - f.guard, `Guard was up ${f.guard} percent. Keep your hands home.`]);
-    if (f.crossedPct >= 5) issues.push([20, 'You crossed your feet. Step with the near foot.']);
-    if (f.stance != null && f.stance < TARGETS.stance) issues.push([TARGETS.stance - f.stance, 'Hold your stance width when you move.']);
-    if (f.footwork != null && f.footwork < 30) issues.push([15, 'Move your feet more.']);
-    if (f.head != null && f.head < 25) issues.push([12, 'Move your head after you punch.']);
+    if (f.guard != null && f.guard < TARGETS.guard) issues.push([TARGETS.guard - f.guard, 'Hands up.']);
+    if (f.crossedPct >= 5) issues.push([20, "Don't cross your feet."]);
+    if (f.stance != null && f.stance < TARGETS.stance) issues.push([TARGETS.stance - f.stance, 'Hold your stance.']);
+    if (f.footwork != null && f.footwork < 30) issues.push([15, 'Move your feet.']);
+    if (f.head != null && f.head < 25) issues.push([12, 'Move your head.']);
     issues.sort((a, b) => b[0] - a[0]);
-    bits.push(issues.length ? issues[0][1] : 'Good form that round.');
+    bits.push(issues.length ? issues[0][1] : 'Good round.');
   }
-  const next = roundPlan(n + 1);
-  if (next) bits.push(`Next round: ${CONSTRAINTS[next.constraint].name}.`);
   return bits.join(' ');
 }
 
@@ -809,10 +804,13 @@ function sessionDetailHTML(s, fb) {
     </div>
     ${s.source === 'video' ? `<p class="small muted">From video analysis${s.corrections ? ` · ${s.corrections} detections corrected by you` : ''}.</p>` : ''}
     ${s.form?.sidePct >= 60 ? '<p class="small muted">Filmed side-on: blade and stance width need a front view, so they weren\'t measured this time.</p>' : ''}
+    ${fb?.wins[0] ? `<p class="fb-line good">✓ ${esc(fb.wins[0])}</p>` : ''}
+    ${fb?.fixes[0] ? `<p class="fb-line bad">→ ${esc(fb.fixes[0])}</p>` : ''}
+    <details class="howto more"><summary class="small">More detail</summary>
     ${areaChips ? `<h3>Breakdown</h3><div class="scores">${areaChips}</div>` : ''}
     ${fb ? `
-      ${fb.wins.length ? `<h3>What went well</h3><ul class="fb good">${fb.wins.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
-      ${fb.fixes.length ? `<h3>Work on</h3><ul class="fb bad">${fb.fixes.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
+      ${fb.wins.length > 1 ? `<h3>What went well</h3><ul class="fb good">${fb.wins.slice(1).map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
+      ${fb.fixes.length > 1 ? `<h3>Also work on</h3><ul class="fb bad">${fb.fixes.slice(1).map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
       ${fb.drills.length ? `<h3>Drills for next time</h3><ul class="fb">${fb.drills.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}` : ''}
     ${fatigueTable(s)}
     ${(s.constraints || []).length ? `<h3>Constraint rounds</h3><ul class="small">${s.constraints.map((c) => `<li>R${c.round} ${esc(CONSTRAINTS[c.key]?.name || c.key)}${c.opponent ? ` vs ${esc(OPPONENTS[c.opponent].name.toLowerCase())}` : ''}: ${c.compliance != null ? `${c.compliance}%${c.auto ? ' (camera)' : ''}` : 'not rated'}</li>`).join('')}</ul>` : ''}
@@ -825,6 +823,7 @@ function sessionDetailHTML(s, fb) {
     ${s.form?.headPerMin != null ? `<p class="small muted">Head movement: ${s.form.headPerMin} slips, rolls or pulls per minute</p>` : ''}
     ${s.form?.handReturnMs != null ? `<p class="small muted">Hand return: lead ${s.form.leadReturnMs ?? '–'} ms · rear ${s.form.rearReturnMs ?? '–'} ms · rear hand dropped on ${s.form.rearDropPct ?? 0}% of lead punches</p>` : ''}
     ${s.intensity ? `<p class="small muted">Average punch intensity: ${s.intensity} m/s²</p>` : ''}
+    </details>
     ${s.notes ? `<p class="notes">${esc(s.notes)}</p>` : ''}`;
 }
 
@@ -835,10 +834,9 @@ function coachedHTML(session) {
   if (!ev) return '';
   const l = state.coach?.levels?.[ev.root] || { level: 1, pass: 0, fail: 0 };
   const next = ev.pass == null ? '' : ev.pass
-    ? (l.pass + 1 >= 2 && ev.level < 4 ? ` Next session: level ${ev.level + 1}, ${drillFor(ev.root, ev.level + 1).name}.` : ' One more pass like this and the drill levels up.')
-    : (l.fail + 1 >= 2 && ev.level > 1 ? ` Next session: back to ${drillFor(ev.root, ev.level - 1).name} to rebuild it.` : ' Same level next time.');
-  const adj = (session.adjustments || []).map(([r, a]) => `after R${r}: ${a}`).join(', ');
-  return `<div class="pr ${ev.pass === false ? 'warn' : ''}">🎯 ${esc(session.coach.drill)} (level ${ev.level}): ${esc(ev.text)}${esc(next)}${adj ? `<br><span class="small">Adjusted live ${esc(adj)}.</span>` : ''}</div>`;
+    ? (l.pass + 1 >= 2 && ev.level < 4 ? ' · Level up next time.' : ' · One more pass to level up.')
+    : (l.fail + 1 >= 2 && ev.level > 1 ? ' · Easier drill next time.' : '');
+  return `<div class="pr ${ev.pass === false ? 'warn' : ''}">🎯 ${esc(session.coach.drill)}: ${esc(ev.text)}${esc(next)}</div>`;
 }
 
 function renderSummary(session) {
@@ -857,7 +855,7 @@ function renderSummary(session) {
     </section>
     <section class="card">
       <form id="saveForm" class="form">
-        ${reviewFieldsHTML(session, state)}
+        ${(() => { const r = reviewFieldsHTML(session, state); return r.trim() ? `<details class="options card-lite"><summary class="rowbtn"><b>Rate your rounds</b><span>Optional · helps the coach learn</span><span class="chev">›</span></summary>${r}</details>` : ''; })()}
         <label><span>How hard was that? <b id="rpeOut">7</b>/10</span>
           <input type="range" name="rpe" min="1" max="10" value="7">
         </label>
