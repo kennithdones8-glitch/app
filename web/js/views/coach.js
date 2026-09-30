@@ -6,6 +6,13 @@ import { startHypothesis, evaluateHypothesis } from '../hypotheses.js';
 import * as store from '../store.js';
 import { $, $$, esc, shortDate, subnav, subOf, toast, opt, scoreClass, pageHead } from '../ui.js';
 import { aiKey, aiModel, setAi, AI_MODELS } from '../aicheck.js';
+import { personalFor } from '../personal.js';
+
+const taughtText = (p) => {
+  const m = personalFor(p);
+  if (!m) return `You've labelled ${p.punchLabels.length} punches; at 20 it starts learning your style.`;
+  return m.use ? `Reading punches your way, from ${m.n} you labelled (${Math.round(m.acc * 100)}% right vs ${Math.round(m.baseAcc * 100)}% built-in).` : `${m.n} punches labelled (${Math.round(m.acc * 100)}% vs ${Math.round(m.baseAcc * 100)}% built-in). Label a few more and it takes over.`;
+};
 
 const SUBS = [['memory', 'Memory'], ['hypotheses', 'Tests'], ['priorities', 'Priorities'], ['iq', 'Fight IQ']];
 
@@ -320,8 +327,10 @@ function settings(el, app) {
         <label><span>Punch detection sensitivity <b id="sensOut">${profile.sensitivity}</b></span>
           <input type="range" name="sensitivity" min="0.5" max="2" step="0.1" value="${profile.sensitivity}"></label>
         ${profile.punchCal?.acc >= 0.6 ? `<p class="small muted" style="margin:0">Punch reading tuned to you from ${profile.punchCal.n} punches (drilled-combo videos, ${Math.round(profile.punchCal.acc * 100)}% right). <button type="button" class="linkbtn" id="resetCal">Reset</button></p>` : ''}
+        ${profile.punchLabels?.length ? `<p class="small muted" style="margin:0">${taughtText(profile)} <button type="button" class="linkbtn" id="resetLabels">Forget my labels</button></p>` : ''}
         <label class="switch"><input type="checkbox" name="voice" ${st.voice ? 'checked' : ''}> <span>Voice coaching</span></label>
         <label class="switch"><input type="checkbox" name="cues" ${st.cues ? 'checked' : ''}> <span>Live form cues ("Hands up!")</span></label>
+        <label class="switch"><input type="checkbox" name="combos" ${st.combos ? 'checked' : ''}> <span>Call out combos</span></label>
         <label>Combo call every<select name="comboInterval">${[4, 5, 6, 8, 10, 15].map((s) => opt(s, st.comboInterval, `${s} seconds`)).join('')}</select></label>
         <button class="btn primary block" type="submit">Save</button>
       </form>
@@ -378,7 +387,7 @@ function settings(el, app) {
       fightDate: f.fightDate.value, opponentStyle: f.opponentStyle.value,
       targetWeight: target, unit: f.unit.value,
     };
-    app.state.settings = { ...st, voice: f.voice.checked, cues: f.cues.checked, comboInterval: +f.comboInterval.value };
+    app.state.settings = { ...st, voice: f.voice.checked, cues: f.cues.checked, combos: f.combos.checked, comboInterval: +f.comboInterval.value };
     app.rebuildPlan();
     app.persist();
     toast('Saved.');
@@ -429,6 +438,12 @@ function settings(el, app) {
     } catch (err) {
       toast(err.message || 'Import failed.');
     }
+  });
+  $('#resetLabels', el)?.addEventListener('click', () => {
+    if (!confirm('Forget every punch you labelled?')) return;
+    delete app.state.profile.punchLabels;
+    app.persist();
+    app.rerender();
   });
   $('#resetCal', el)?.addEventListener('click', () => {
     if (!confirm('Forget what the camera learned about your punches?')) return;

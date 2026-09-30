@@ -25,6 +25,7 @@ import { renderCoachMe } from './views/coachme.js';
 import { renderBoxer, PROGRESS_SUBS } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
 import { renderVideo, videoBusy, trustedCal } from './views/video.js';
+import { personalFor } from './personal.js';
 import { renderCombos, comboHTML } from './views/combos.js';
 import { renderStudy } from './views/study.js';
 import { parseCombo, comboText, comboLabel, comboSpeech, comboKey, punchDigits, pickCombo, judgeCalls, sessionCombos } from './combos.js';
@@ -40,7 +41,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.30-12';
+export const APP_VERSION = '2026.09.30-15';
 
 const app = {
   version: APP_VERSION,
@@ -442,10 +443,14 @@ async function startSession(plan) {
       stance: state.profile.stance,
       sensitivity: state.profile.sensitivity,
       cal: trustedCal(state.profile.punchCal),
+      personal: personalFor(state.profile),
       onCue: (key, text) => {
         if (!state.settings.cues) return;
         showCue(text);
-        audio.say(text, { interrupt: true });
+        // Reminders never talk over a combo call: skipped while one is being said or due.
+        if (live?.nextCallAt && Math.abs(live.nextCallAt - performance.now()) < 2500) return;
+        if (performance.now() - (live?.lastCallAt || 0) < 3000) return;
+        audio.say(text);
       },
       onPunch: (type) => countPunch(type),
     });
@@ -595,7 +600,7 @@ function onPhase(phase, round) {
 
 // Between rounds: simplify, push harder, or switch the stimulus, from how the round went.
 function adaptNextRound(round) {
-  if (!live || round >= live.timer.rounds || !live.plan.combos) return null;
+  if (!live || round >= live.timer.rounds) return null;
   const form = live.formRounds[live.formRounds.length - 1];
   const a = adjustNextRound({ form, first: live.formRounds[0], calls: live.roundCalls, coach: live.plan.coach, comboLevel: live.plan.comboLevel });
   if (a.action === 'keep') return null;
@@ -640,8 +645,7 @@ function scheduleCombos(rp) {
         tokens = pick.tokens;
         text = null;
       } else {
-        if (opp && Math.random() < 0.3) text = opp.prompts[Math.floor(Math.random() * opp.prompts.length)];
-        else if (c?.combos) text = c.combos[Math.floor(Math.random() * c.combos.length)];
+        if (c?.combos) text = c.combos[Math.floor(Math.random() * c.combos.length)];
         else text = nextCombo(live.maxLen ? 1 : typeof level === 'number' ? level : 3, live.plan.focus);
         tokens = parseCombo(text);
       }
@@ -654,6 +658,8 @@ function scheduleCombos(rp) {
     if (finisher) speech += `, ${finisher}`;
     $('#liveCombo').innerHTML = (tokens ? comboHTML(tokens) : esc(text)) + (finisher ? ` <span class="small">→ ${esc(finisher)}</span>` : '');
     audio.say(speech, { rate: 1.3, interrupt: true }); // a call you don't hear can't be judged
+    live.lastCallAt = performance.now();
+    live.nextCallAt = live.lastCallAt + every;
     // With the camera on, remember the call so we can check what was actually thrown.
     if (tokens && live.analyzer) live.calls.push({ t: performance.now(), key: comboKey(tokens), digits: punchDigits(tokens) });
   };

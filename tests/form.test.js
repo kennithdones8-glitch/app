@@ -100,8 +100,8 @@ test('crossed feet and squaring up are flagged', () => {
   const cues = [];
   const an = new FormAnalyzer({ onCue: (k) => cues.push(k) });
   an.startRound();
-  // 12 s: reminders are spaced out (at most one every 8 s), so both need time to come up.
-  feed(an, still(360, {
+  // 24 s: reminders are spaced out (at most one every 15 s), so both need time to come up.
+  feed(an, still(720, {
     [LM.L_ANK]: { x: -0.25 }, [LM.R_ANK]: { x: 0.25 },
     [LM.L_SH]: { z: 0 }, [LM.R_SH]: { z: 0 },
   }), 0);
@@ -283,6 +283,25 @@ test('hand wobble starts no more false punches at 60 fps than at 30 fps', () => 
   assert.ok(at60 <= Math.max(3, at30 * 1.5), `30 fps: ${at30}, 60 fps: ${at60}`);
 });
 
+test('a sharp, fast jab counts; a fast jump of a bent arm is still a glitch', () => {
+  const run = (frames) => {
+    const an = new FormAnalyzer();
+    an.startRound();
+    let t = 0;
+    for (const w of [...still(20), ...frames, ...still(20)]) { an.update(w, image(w), t); t += 16; } // 60 fps
+    an.endRound();
+    return an.calib;
+  };
+  // Jab: fist travels ~45 cm to full extension in ~50 ms (about 9 m/s), then back.
+  const jab = punch(LM.L_WR, LM.L_EL, { x: 0.16, y: -0.49, z: -0.7 }, { x: 0.17, y: -0.47, z: -0.38 }, 3, 8);
+  const c = run(jab);
+  assert.deepEqual(c.punches.map((p) => p[0]), [1], `rejected: ${JSON.stringify(c.rejected)}`);
+  assert.ok(c.punches[0][1] > 6.5, `fast enough to test the cap: ${c.punches[0][1]} m/s`);
+  // Glitch: the wrist teleports 50 cm sideways with the elbow still bent, and back.
+  const glitch = [pose({ [LM.R_WR]: { x: -0.6, y: -0.5, z: -0.15 } }), pose({ [LM.R_WR]: { x: -0.6, y: -0.5, z: -0.15 } })];
+  assert.equal(run(glitch).punches.length, 0);
+});
+
 test('punches are classified correctly from a side-on camera', () => {
   // Same jab and lead hook as the front-on test, but the boxer is filmed from the side.
   const rot = (w) => w.map((p) => ({ x: -p.z, y: p.y, z: p.x }));
@@ -447,4 +466,35 @@ test('rolling in place is head movement, not footwork', () => {
   assert.ok(m.footwork < 10, `footwork ${m.footwork}%`);
   assert.ok(m.headPerMin >= 8, `head moves/min ${m.headPerMin}`);
   assert.ok(m.head > 40, `head ${m.head}%`);
+});
+
+test('a jab that jolts the rear hand forward counts once; a fast one-two still counts two', () => {
+  const run = (frames) => {
+    const got = [];
+    const an = new FormAnalyzer({ onPunch: (p) => got.push(p) });
+    an.startRound();
+    let t = feed(an, still(10), 0);
+    t = feed(an, frames, t);
+    feed(an, still(15), t);
+    an.endRound();
+    return { got, calib: an.calib };
+  };
+  const jab = punch(LM.L_WR, LM.L_EL, { x: 0.16, y: -0.49, z: -0.61 }, { x: 0.17, y: -0.47, z: -0.33 });
+  // The body turns with the jab and shoves the bent rear hand forward at the same moment.
+  const jolt = punch(LM.R_WR, LM.R_EL, { x: -0.02, y: -0.5, z: -0.45 }, { x: -0.14, y: -0.3, z: -0.12 });
+  const both = jab.map((w, i) => { const o = [...w]; o[LM.R_WR] = jolt[i][LM.R_WR]; o[LM.R_EL] = jolt[i][LM.R_EL]; return o; });
+  const a = run(both);
+  assert.deepEqual(a.got, ['jab'], `rejected: ${JSON.stringify(a.calib.rejected)}`);
+  assert.ok(a.calib.rejected.some((r) => r[5] === 'pair'));
+  // Jab, then the cross a quarter of a second later: two punches.
+  const cross = punch(LM.R_WR, LM.R_EL, { x: 0.02, y: -0.5, z: -0.5 }, { x: -0.1, y: -0.45, z: -0.2 });
+  const oneTwo = [...jab.slice(0, 7), ...jab.slice(7).map((w, i) => { const o = [...w]; o[LM.R_WR] = cross[i][LM.R_WR]; o[LM.R_EL] = cross[i][LM.R_EL]; return o; }), ...cross.slice(4)];
+  assert.deepEqual(run(oneTwo).got, ['jab', 'cross']);
+});
+
+test('a locked-out arm reads as a straight even when a low camera makes it seem to rise', async () => {
+  const { classifyFeatures } = await import('../web/js/form.js');
+  assert.equal(classifyFeatures({ ext: 0.97, angle: 162, rise: 0.25 }, 0.05, 0.2).kind, 'straight');
+  // A bent arm that rises is still an uppercut.
+  assert.equal(classifyFeatures({ ext: 0.75, angle: 95, rise: 0.25 }, 0.05, 0.1).kind, 'uppercut');
 });

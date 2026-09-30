@@ -6,6 +6,7 @@ import { $, $$, esc, opt, toast } from '../ui.js';
 import { newId } from '../store.js';
 import { comboLabel, comboText, parseCombo, STARTERS } from '../combos.js';
 import { calibrateFromCombo } from '../calibrate.js';
+import { personalFor, harvest, addExamples, trainPersonal } from '../personal.js';
 import { saveReference } from './study.js';
 import { takePreset } from './handoff.js';
 import { drawGloves } from '../pose.js';
@@ -229,7 +230,7 @@ async function analyse(file, video, opts, el, app) {
     status.textContent = model === 'heavy' ? 'Loading the precise pose model (30 MB, first time only)…' : 'Loading pose model…';
     const { getVideoLandmarker, detectVideoFrame } = await import('../pose.js');
     const lm = await getVideoLandmarker(model);
-    const analyzer = new FormAnalyzer({ stance: opts.stance, sensitivity: opts.sensitivity, minVis: 0.3, cal: trustedCal(app.state.profile.punchCal), aspect: video.videoWidth / video.videoHeight || 1 });
+    const analyzer = new FormAnalyzer({ stance: opts.stance, sensitivity: opts.sensitivity, minVis: 0.3, cal: trustedCal(app.state.profile.punchCal), personal: personalFor(app.state.profile), aspect: video.videoWidth / video.videoHeight || 1 });
     const durMs = video.duration * 1000;
     const roundMs = opts.roundSec ? opts.roundSec * 1000 : durMs + 1;
     const rounds = [];
@@ -447,8 +448,56 @@ function comboCheckHTML(c) {
     ${c.poorFit ? "Most punches didn't line up with this combo, so nothing was learned. Was it the right combo, thrown on repeat?" : ''}</li>`;
 }
 
+// Teach it your punches: one detected punch at a time, looping in slow motion, one tap each.
+function renderLabel(el, app) {
+  const j = job;
+  const ps = j.events.filter((e) => e.kind === 'punch');
+  const i = j.labelAt;
+  if (i >= ps.length) {
+    j.labelAt = null;
+    const n = ps.filter((e) => e.labelled).length;
+    if (n) toast(`${n} labelled. Save the session and it learns from them.`);
+    return renderReview(el, app);
+  }
+  const e = ps[i];
+  const lead = e.role === 'lead';
+  const choices = lead ? [['jab', 'Jab'], ['leadHook', 'Hook'], ['leadUppercut', 'Uppercut']] : [['cross', 'Cross'], ['rearHook', 'Hook'], ['rearUppercut', 'Uppercut']];
+  const picked = e.labelled ? (e.keep ? e.fix : 'none') : null;
+  el.innerHTML = `
+    <section class="card">
+      <div class="card-head"><h2>Punch ${i + 1} of ${ps.length}</h2><button class="linkbtn" id="lblDone" type="button">Done</button></div>
+      <video id="lblVid" src="${j.url}" playsinline muted class="vid-preview"></video>
+      <p class="small muted">${lead ? 'Lead' : 'Rear'} hand at ${fmtT(e.t)}. I read: <b>${esc(PUNCH_NAMES[e.type])}</b>. What was it?</p>
+      <div class="lblgrid">
+        ${choices.map(([k, n]) => `<button class="btn ${picked === k ? 'primary' : 'ghost'} big" data-lbl="${k}" type="button">${n}</button>`).join('')}
+        <button class="btn ${picked === 'none' ? 'primary' : 'ghost'} big" data-lbl="none" type="button">Not a punch</button>
+      </div>
+      <div class="row2" style="margin-top:10px"><button class="btn ghost" id="lblBack" type="button" ${i ? '' : 'disabled'}>Back</button><button class="btn ghost" id="lblSkip" type="button">Skip</button></div>
+    </section>`;
+  const v = $('#lblVid', el);
+  const start = Math.max(0, e.t / 1000 - 0.8), end = e.t / 1000 + 0.3;
+  const loop = () => { v.currentTime = start; v.play().catch(() => {}); };
+  v.playbackRate = 0.5;
+  v.addEventListener('loadedmetadata', () => { v.playbackRate = 0.5; loop(); }, { once: true });
+  v.addEventListener('timeupdate', () => { if (v.currentTime >= end) loop(); });
+  if (v.readyState >= 1) loop();
+  const go = (n) => { j.labelAt = n; renderLabel(el, app); };
+  $$('[data-lbl]', el).forEach((b) => b.addEventListener('click', () => {
+    const k = b.dataset.lbl;
+    e.labelled = true;
+    e.edited = true;
+    e.keep = k !== 'none';
+    if (k !== 'none') e.fix = k;
+    go(i + 1);
+  }));
+  $('#lblBack', el).addEventListener('click', () => go(i - 1));
+  $('#lblSkip', el).addEventListener('click', () => go(i + 1));
+  $('#lblDone', el).addEventListener('click', () => go(ps.length));
+}
+
 function renderReview(el, app) {
   const j = job;
+  if (j.labelAt != null) return renderLabel(el, app);
   const punches = j.events.filter((e) => e.kind === 'punch');
   const others = j.events.filter((e) => e.kind !== 'punch');
   const stance = combineRounds(j.rounds).leftLeadPct;
@@ -469,6 +518,7 @@ function renderReview(el, app) {
         <li>${others.filter((e) => e.kind === 'guardDrop').length} guard drops · ${others.filter((e) => e.kind === 'crossedFeet').length} crossed-feet moments</li>
       </ul>
       <p class="muted small">Computer vision isn't perfect. Tap a time to jump there, fix the punch type, or untick anything that's wrong. Low-confidence detections start unticked.</p>
+      ${j.subject !== 'pro' && punches.length ? `<button class="btn primary block" id="teach" type="button">Teach it your punches (${punches.filter((e) => e.labelled).length}/${punches.length} labelled)</button>` : ''}
       <label class="switch"><input type="checkbox" id="uncertain" ${uncertainOnly ? 'checked' : ''}> <span>Only show uncertain (&lt;70%)</span></label>
     </section>
     ${j.sheets?.length ? `<section class="card">
@@ -505,6 +555,12 @@ function renderReview(el, app) {
   $('#saveFrames', el)?.addEventListener('click', () => sendToClaude(j, app));
   $('#aiRetry', el)?.addEventListener('click', () => runAi(el, app));
   if (j.ai?.state === 'pending') runAi(el, app);
+  $('#teach', el)?.addEventListener('click', () => {
+    const ps = j.events.filter((e) => e.kind === 'punch');
+    j.labelAt = Math.max(0, ps.findIndex((e) => !e.labelled));
+    renderLabel(el, app);
+    el.scrollIntoView({ block: 'start' });
+  });
   $('#uncertain', el).addEventListener('change', (e) => { el.dataset.uncertain = e.target.checked ? '1' : ''; renderReview(el, app); });
   $$('[data-seek]', el).forEach((b) => b.addEventListener('click', () => {
     const v = $('#vidPreview', el);
@@ -529,6 +585,7 @@ function renderReview(el, app) {
     if (j.ai?.state === 'running' && !confirm('Claude is still checking. Save without its check?')) return;
     j.aiAbort?.abort();
     const session = buildSession(j);
+    if (j.subject !== 'pro') learnFrom(j, app);
     URL.revokeObjectURL(j.url);
     job = null;
     if (j.subject === 'pro') {
@@ -540,6 +597,19 @@ function renderReview(el, app) {
     }
     app.showSummary(session);
   });
+}
+
+// Your labels and fixes become examples for the reader trained on your own punches.
+function learnFrom(j, app) {
+  const add = harvest(j.events);
+  if (!add.length) return;
+  const p = app.state.profile;
+  p.punchLabels = addExamples(p.punchLabels, add);
+  const m = trainPersonal(p.punchLabels);
+  const msg = !m ? `Learned ${add.length} punches. ${Math.max(0, 20 - p.punchLabels.length)} more labels and it starts reading your punches.`
+    : m.use ? `Now reading punches your way: ${Math.round(m.acc * 100)}% right on your labels (was ${Math.round(m.baseAcc * 100)}%).`
+    : `Learned ${add.length} punches (${Math.round(m.acc * 100)}% vs ${Math.round(m.baseAcc * 100)}% built-in). A few more labels and it takes over.`;
+  setTimeout(() => toast(msg), 800);
 }
 
 // Report (with the boxer's edits so far) to the clipboard and the frames to the share sheet, in one
@@ -655,6 +725,7 @@ export function buildSession(j) {
     // Ground truth: [detected type, corrected type or 0 if rejected, confidence, 1 = you confirmed it].
     calib: {
       ...j.calib,
+      labelled: j.events.filter((e) => e.labelled).length,
       autoUnticked: j.events.filter((e) => e.kind === 'punch' && !e.edited && !e.keep).length,
       fixes: j.events.filter((e) => e.kind === 'punch' && e.edited).slice(0, 200).map((e) => [e.type, e.keep ? e.fix : 0, e.conf, e.keep && e.fix === e.type ? 1 : 0]),
     },

@@ -118,7 +118,7 @@ function planHTML(p) {
             ${esc(b.purpose)}${b.why ? `<br>${esc(b.why)}` : ''}
             ${b.success ? `<br><b>Success:</b> ${esc(b.success)}<br><b>Too easy?</b> ${esc(b.progression)}<br><b>Too hard?</b> ${esc(b.regression)}` : ''}
           </div></details></li>`).join('')}</ol>
-      ${p.live.coach ? `<p class="small muted">During the rounds I'll call combos that end with "${esc(p.live.coach.finisher || 'your fix')}", and after each round I'll make the next one easier or harder from what the camera sees.</p>` : ''}
+      ${p.live.coach && p.live.combos ? `<p class="small muted">During the rounds I'll call combos that end with "${esc(p.live.coach.finisher || 'your fix')}", and after each round I'll make the next one easier or harder from what the camera sees.</p>` : ''}
       <button class="btn primary block big" id="goCoached" type="button">Start</button>
     </section>`;
 }

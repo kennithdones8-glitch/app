@@ -1,3 +1,4 @@
+import { example as personalExample } from './personal.js';
 // Pose-based boxing form analysis. Pure logic: feed it pose landmarks each frame,
 // it counts/classifies punches, grades guard, stance and footwork, and emits live cues.
 //
@@ -55,8 +56,8 @@ export const STANCE_MIN = 0.9;
 export const STANCE_MAX = 2.2;
 export const BLADE_MIN_DEG = 12;
 
-const CUE_COOLDOWN_MS = 20000; // the same reminder at most every 20 s
-const GLOBAL_CUE_GAP_MS = 8000; // and any reminder at most every 8 s
+const CUE_COOLDOWN_MS = 45000; // the same reminder at most every 45 s
+const GLOBAL_CUE_GAP_MS = 15000; // and any reminder at most every 15 s
 
 const r2 = (x) => Math.round(x * 100) / 100;
 const median = (xs) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
@@ -441,7 +442,9 @@ export function classifyPunch(p, axis, cal = null) {
 export function classifyFeatures(p, fwd, lat, cal = null) {
   const T = cal?.ratio ?? DEFAULT_STRAIGHT_RATIO;
   const straightish = p.rise < 0.15 && p.ext >= 0.55 && fwd > 0.08 && fwd >= T * lat;
-  if ((p.angle >= 145 && p.ext >= 0.8 && p.rise < 0.15) || straightish) {
+  // A locked-out arm is a straight even when it seems to rise: a low phone (or a tilt the body
+  // frame missed) makes straights look like they go up. Hooks and uppercuts keep the elbow bent.
+  if ((p.angle >= 145 && p.ext >= 0.8) || straightish) {
     const byDir = straightish ? 0.5 + (fwd / Math.max(lat, 0.01) - T) / (2 * T) : 0;
     return { kind: 'straight', fwd, lat, margin: Math.min(1, Math.max((p.angle - 135) / 35, byDir)) };
   }
@@ -476,10 +479,14 @@ export function refineAxis(feats, cal = null) {
 }
 
 const SPEED_WINDOW_MS = 30; // hand speed is measured over at least this much time
+// Both hands "punching" with their full extension this close together is one punch: throwing one
+// hand turns the body and jolts the other (a bag report counted 13 of these pairs in 23 s).
+const PAIR_MS = 120;
 const PUNCH_CONF = (vis, speed, vTh, margin) => 100 * (0.5 + 0.5 * vis) * (0.55 + 0.45 * Math.min(1, speed / (vTh * 1.8))) * (0.6 + 0.4 * Math.max(0, margin));
 
 export class FormAnalyzer {
-  constructor({ stance = 'orthodox', sensitivity = 1, onCue = () => {}, onPunch = () => {}, minVis = 0.5, cal = null, aspect = 1 } = {}) {
+  constructor({ stance = 'orthodox', sensitivity = 1, onCue = () => {}, onPunch = () => {}, minVis = 0.5, cal = null, aspect = 1, personal = null } = {}) {
+    this.personal = personal?.use ? personal : null; // reader trained on your own labelled punches (personal.js)
     this.aspect = aspect; // video width / height, for measuring angles in the picture
     this.cal = cal; // per-boxer punch calibration, see calibrateFromCombo
     this.stance = stance;
@@ -510,6 +517,7 @@ export class FormAnalyzer {
     this.lastSeen = null;
     this.events = []; // detections with confidence, used for video review
     this.recent = []; // recent punch measurements, for learning which way is forward
+    this.pending = []; // punches held for PAIR_MS in case the other hand fires at the same moment
     this.learnedAxis = null;
     this.roundNo = 0;
     // Raw measurements behind each punch decision, for tuning thresholds to a real boxer.
@@ -536,6 +544,7 @@ export class FormAnalyzer {
   }
 
   endRound() {
+    this._flushPunches(Infinity);
     this.active = false;
     // Camera tilt against the body's up, in degrees (a phone on the floor tilted up reads high).
     // Tilt only when it could be measured (feet in view); null otherwise, not a misleading 0.
@@ -568,7 +577,7 @@ export class FormAnalyzer {
 
   update(world, image, t) {
     if (!world || !image) {
-      if (this.active && this.held('nobody', true, t) > 3000) this.cue('visibility', 'Step back so I can see your whole body', t);
+      if (this.active && this.held('nobody', true, t) > 3000) this.cue('visibility', 'Step back, I need to see you', t);
       return null;
     }
     const visible = REQUIRED.every((i) => (image[i]?.visibility ?? 1) > this.minVis);
@@ -577,7 +586,7 @@ export class FormAnalyzer {
       if (visible) this.calib.tracked++;
     }
     if (!visible) {
-      if (this.active && this.held('nobody', true, t) > 3000) this.cue('visibility', 'Step back so I can see your whole body', t);
+      if (this.active && this.held('nobody', true, t) > 3000) this.cue('visibility', 'Step back, I need to see you', t);
       return null;
     }
     this.held('nobody', false, t);
@@ -590,7 +599,7 @@ export class FormAnalyzer {
     const feet = (image[LM.L_ANK]?.visibility ?? 1) > 0.5 && (image[LM.R_ANK]?.visibility ?? 1) > 0.5;
     if (this.active && feet) this.feetSeen = (this.feetSeen || 0) + 1;
     // Feet out of shot: stance, footwork and the tilt correction all need them.
-    if (this.active && this.held('noFeet', !feet, t) > 5000) this.cue('feet', "Step back, I can't see your feet", t);
+    if (this.active && this.held('noFeet', !feet, t) > 5000) this.cue('feet', 'Step back, show your feet', t);
     if (feet) {
       const v = norm3({
         x: (world[LM.L_HIP].x + world[LM.R_HIP].x - world[LM.L_ANK].x - world[LM.R_ANK].x) / 2,
@@ -612,6 +621,7 @@ export class FormAnalyzer {
     const f = facing(world);
     if (f) this.face = this.face ? norm2({ x: this.face.x * 0.7 + f.x * 0.3, z: this.face.z * 0.7 + f.z * 0.3 }) : f;
     for (const role of ['lead', 'rear']) this._trackHand(role, world, nose, t);
+    this._flushPunches(t);
 
     if (!this.active) return this.snapshot(world, image);
     r.frames++;
@@ -663,8 +673,8 @@ export class FormAnalyzer {
         if (narrow) r.narrow++;
         if (wide) r.wide++;
         if (!crossed && !narrow && !wide) r.stanceOk++;
-        if (this.held('narrow', narrow, t) > 1500) this.cue('narrow', 'Widen your stance', t);
-        if (this.held('wide', wide, t) > 1500) this.cue('wide', 'Tighten up your stance', t);
+        if (this.held('narrow', narrow, t) > 1500) this.cue('narrow', 'Wider stance', t);
+        if (this.held('wide', wide, t) > 1500) this.cue('wide', 'Narrower stance', t);
       }
     }
 
@@ -679,7 +689,7 @@ export class FormAnalyzer {
       r.depthFrames++;
       if (lead === 'L') r.leftCloser++;
     }
-    if (this.held('squared', !bladed, t) > 2500) this.cue('squared', 'Turn your lead shoulder, stay bladed', t);
+    if (this.held('squared', !bladed, t) > 6000) this.cue('squared', 'Turn your shoulder', t);
 
 
     // --- Footwork and head movement, measured in the picture ------------------------------
@@ -718,7 +728,7 @@ export class FormAnalyzer {
     if (headMoving) r.headMoving++;
     if (r.t0 == null) r.t0 = t;
     r.t1 = t;
-    if (this.held('headStill', !headMoving, t) > 9000) this.cue('head', 'Move your head, slip after you punch', t);
+    if (this.held('headStill', !headMoving, t) > 9000) this.cue('head', 'Move your head', t);
     // Compact per-frame track (time in 0.1 s, nose relative to hips, hips in the picture; typical
     // torso lengths) so head-movement and footwork thresholds can be tuned against known drills.
     if (this.calib.track.length < 750) {
@@ -820,8 +830,11 @@ export class FormAnalyzer {
         const travel = h.maxNoseD - dist3(h.start, nose);
         // Short, fast punches count too (on pads the mitt meets the punch early); impossible
         // speeds are tracking glitches.
-        const real = h.peakSpeed < 6.5 && (travel > 0.1 || h.peakExt > 0.85 || (h.peakSpeed > 2 && h.peakExt > 0.65));
-        if (real) this._registerPunch(role, h, t);
+        // Over 6.5 m/s is usually a tracking glitch, but a fast, fully extended straight is real:
+        // a sharp jab measured over 30 ms reaches 7-10 m/s (these were being thrown away).
+        const fastStraight = h.peakSpeed < 11 && h.peakExt >= 0.9 && h.peakAngle >= 140 && travel >= 0.15;
+        const real = (h.peakSpeed < 6.5 || fastStraight) && (travel > 0.1 || h.peakExt > 0.85 || (h.peakSpeed > 2 && h.peakExt > 0.65));
+        if (real) this._queuePunch(role, h, t);
         else this._calibPush('rejected', [role === 'lead' ? 'L' : 'R', r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(travel)]);
       }
     }
@@ -847,35 +860,81 @@ export class FormAnalyzer {
     return this.learnedAxis || this.face || { x: 0, z: -1 };
   }
 
+  // Hold a punch briefly: if the other hand reached full stretch at the same moment, only the
+  // cleaner of the two is a punch (the other was moved by the body turning).
+  _queuePunch(role, h, t) {
+    const c = {
+      role, t, peakT: h.peakT ?? t, vis: this._vis([h.sh, h.el, h.wr]),
+      peakAngle: h.peakAngle, peakExt: h.peakExt, maxRise: h.maxRise, path: h.path, peakDisp: h.peakDisp,
+      peakSpeed: h.peakSpeed, i2: h.i2, rearSeen: h.rearSeen, rearDropped: h.rearDropped,
+    };
+    h.returnSince = c.peakT; // hand return is timed from impact (full extension)
+    const twin = this.pending.find((p) => p.role !== role && Math.abs(p.peakT - c.peakT) <= PAIR_MS);
+    if (twin) {
+      const score = (p) => p.peakExt + p.peakAngle / 400 + (p.i2?.ext || 0) / 2;
+      const [keep, drop] = score(c) > score(twin) ? [c, twin] : [twin, c];
+      this.pending = this.pending.filter((p) => p !== drop);
+      if (drop === twin) this.pending.push(keep);
+      this.hands[drop.role].returnSince = null;
+      this._calibPush('rejected', [drop.role === 'lead' ? 'L' : 'R', r2(drop.peakSpeed), r2(drop.peakExt), Math.round(drop.peakAngle), 0, 'pair']);
+      return;
+    }
+    this.pending.push(c);
+  }
+
+  _flushPunches(now) {
+    if (!this.pending.length) return;
+    this.pending = this.pending.filter((c) => {
+      const other = this.hands[c.role === 'lead' ? 'rear' : 'lead'];
+      // Wait while the other hand is mid-punch and could still peak alongside this one.
+      const wait = now - c.peakT <= PAIR_MS || (other.state === 'punch' && other.startT <= c.peakT + PAIR_MS);
+      if (wait && now !== Infinity) return true;
+      this._registerPunch(c.role, c, c.t);
+      return false;
+    });
+  }
+
   _registerPunch(role, h, t) {
     const feats = { angle: h.peakAngle, ext: h.peakExt, rise: h.maxRise, path: h.path };
     const axis = this.axis();
-    const { kind, margin, fwd, lat } = classifyPunch(feats, axis, this.cal);
+    const base = classifyPunch(feats, axis, this.cal);
+    let { kind, margin } = base;
+    const { fwd, lat } = base;
+    const face = this.face ? [this.face.x, this.face.z] : null;
+    const i2 = h.i2 ? { ext: h.i2.ext, angle: h.i2.maxAngle, dx: h.i2.dx, dy: h.i2.dy, fore: h.i2.fore } : null;
+    if (this.personal) {
+      const p = this.personal.predict(personalExample({ f: feats, fwd, lat, i2, face }, null));
+      if (p.kind === 'none' && p.share >= 0.7) { // you've taught it this movement isn't a punch
+        this.hands[role].returnSince = null;
+        this._calibPush('rejected', [role === 'lead' ? 'L' : 'R', r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), 0, 'you']);
+        return;
+      }
+      if (p.kind !== 'none') { kind = p.kind; margin = p.share; }
+    }
     this.recent.push({ ...feats, disp: h.peakDisp });
     if (this.recent.length > 24) this.recent.shift();
     this.learnedAxis = refineAxis(this.recent, this.cal); // also used for which foot leads
-    const vis = this._vis([h.sh, h.el, h.wr]);
+    const vis = h.vis;
     // Visibility counts for half: side-on the far arm is partly hidden even on clean punches.
     const conf = PUNCH_CONF(vis, h.peakSpeed, this.vTh, margin);
     const type = PUNCH_TYPE[kind][role];
-    h.returnSince = h.peakT ?? t; // hand return is timed from impact (full extension)
     if (!this.active) return;
     this.round.punches[type]++;
     this.round.punchLog.push({ t, type });
     const r3 = (x) => Math.round(x * 1000) / 1000;
     this.event('punch', t, conf, {
-      type, role, vis, speed: h.peakSpeed,
+      type, role, vis, speed: h.peakSpeed, fwd, lat, baseKind: base.kind,
       f: { angle: h.peakAngle, ext: h.peakExt, rise: h.maxRise, path: h.path.map(([a, b]) => [r3(a), r3(b)]), disp: h.peakDisp.map(r3) },
       i2: h.i2 ? { ext: r3(h.i2.ext), angle: Math.round(h.i2.maxAngle), fore: r3(h.i2.fore), elbUp: r3(h.i2.elbUp), dx: r3(h.i2.dx), dy: r3(h.i2.dy), vis: r3(h.i2.vis) } : null,
-      face: this.face ? [r3(this.face.x), r3(this.face.z)] : null,
+      face: face ? face.map(r3) : null,
     });
     this._calibPush('punches', [PUNCH_DIGIT[type], r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(h.maxRise), r2(lat), Math.round(conf), r2(fwd)]);
     if (role === 'lead') {
       if (h.rearSeen) this.round.leadPunches++;
-      if (h.rearDropped) {
-        this.round.rearDrops++;
-        this.cue('rearDrop', `Keep your ${this.rearName} hand home when you jab`, t);
-      }
+      if (h.rearDropped) this.round.rearDrops++;
+      // Only a habit is worth saying: 3 of the last 5 jabs, not one misread.
+      this.rearDropHist = [...(this.rearDropHist || []), h.rearDropped].slice(-5);
+      if (this.rearDropHist.filter(Boolean).length >= 3) this.cue('rearDrop', `${this.rearName[0].toUpperCase()}${this.rearName.slice(1)} hand home`, t);
     }
     this.onPunch(type, { t, conf });
   }
@@ -893,12 +952,20 @@ export class FormAnalyzer {
       if (e.face) faceDev.push((Math.acos(Math.max(-1, Math.min(1, e.face[0] * axis.x + e.face[1] * axis.z))) * 180) / Math.PI);
       const c = classifyPunch(e.f, axis, this.cal);
       e.axis = axis;
-      const type = PUNCH_TYPE[c.kind][e.role];
-      if (type !== e.type) changed++;
-      e.type = type;
-      e.conf = Math.round(PUNCH_CONF(e.vis, e.speed, this.vTh, c.margin));
       e.fwd = c.fwd;
       e.lat = c.lat;
+      e.baseKind = c.kind;
+      let { kind, margin } = c;
+      if (this.personal) {
+        const p = this.personal.predict(personalExample(e, null));
+        if (p.kind === 'none' && p.share >= 0.7) { e.notPunch = true; margin = 0; } // starts unticked in review
+        else if (p.kind !== 'none') { kind = p.kind; margin = p.share; }
+      }
+      const type = PUNCH_TYPE[kind][e.role];
+      if (type !== e.type) changed++;
+      e.type = type;
+      e.conf = Math.round(PUNCH_CONF(e.vis, e.speed, this.vTh, margin));
+      if (e.notPunch) e.conf = Math.min(e.conf, 30);
     });
     // Keep calibration rows in step with the final decisions.
     this.calib.punches = punches.slice(0, 300).map((e) => [PUNCH_DIGIT[e.type], r2(e.speed), r2(e.f.ext), Math.round(e.f.angle), r2(e.f.rise), r2(e.lat ?? 0), e.conf, r2(e.fwd ?? 0)]);

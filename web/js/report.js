@@ -2,6 +2,10 @@
 // No video, no images — just the measurements, so it is small and private.
 import { fatigueMap } from './analysis.js';
 import { sessionStream, sessionCombos, comboText } from './combos.js';
+import { personalFor } from './personal.js';
+
+// The reader trained on your labels: [labels, its % right, built-in % right, in use].
+const taughtStats = (p) => { const m = personalFor(p); return m ? [m.n, Math.round(m.acc * 100), Math.round(m.baseAcc * 100), m.use ? 1 : 0] : p?.punchLabels?.length ? [p.punchLabels.length] : undefined; };
 
 const r = (x) => (x == null ? null : Math.round(x * 10) / 10);
 const FORM_KEYS = ['guard', 'stance', 'blade', 'footwork', 'head', 'handReturnMs', 'leadReturnMs', 'rearReturnMs',
@@ -21,7 +25,7 @@ export function buildReport(session, state = {}, version = null) {
     type: session.type,
     source: session.source || (session.manual ? 'manual' : 'live'),
     tracking: session.tracking,
-    profile: state.profile ? { stance: state.profile.stance, level: state.profile.level, fight: state.profile.fight, sensitivity: state.profile.sensitivity } : undefined,
+    profile: state.profile ? { stance: state.profile.stance, level: state.profile.level, fight: state.profile.fight, sensitivity: state.profile.sensitivity, taught: taughtStats(state.profile) } : undefined,
     plan: session.plan,
     rounds: session.completedRounds,
     workSec: session.workSec,

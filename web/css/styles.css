@@ -119,6 +119,8 @@ main { padding: 0 var(--gutter); max-width: 640px; margin: 0 auto; outline: none
 .section-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 20px 2px 8px; }
 
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lblgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lblgrid .btn { min-height: 64px; }
 .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .row2 > *, .row3 > * { min-width: 0; }
 

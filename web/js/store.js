@@ -10,7 +10,7 @@ export function defaultState() {
       name: '', stance: 'orthodox', level: 'advanced', goal: 'compete', weeklyGoal: 6, sensitivity: 1,
       fight: { rounds: 6, roundSec: 180, restSec: 60 }, fightDate: '', opponentStyle: '', targetWeight: null, unit: 'lb',
     },
-    settings: { voice: true, combos: true, comboInterval: 6, tracking: 'camera', cues: true },
+    settings: { voice: true, combos: false, comboInterval: 6, tracking: 'camera', cues: true, voiceV2: true },
     sessions: [],
     memory: emptyMemory(),
     weights: [],
@@ -33,6 +33,8 @@ const ARRAYS = ['sessions', 'weights', 'observations', 'patterns', 'combos', 're
 function merge(base, data) {
   // Earlier versions defaulted to kg; switch to lb if no weights were logged in kg yet.
   if (data.profile?.unit === 'kg' && !(data.weights || []).length) data.profile.unit = 'lb';
+  // The voice now gives form fixes only; combo calls are opt-in (once, for older saves).
+  if (data.settings && !data.settings.voiceV2) data.settings = { ...data.settings, combos: false, voiceV2: true };
   return {
     ...base,
     ...data,

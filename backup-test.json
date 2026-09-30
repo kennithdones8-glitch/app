@@ -1,0 +1,4157 @@
+{
+  "version": 1,
+  "profile": {
+    "name": "",
+    "stance": "orthodox",
+    "level": "advanced",
+    "goal": "compete",
+    "weeklyGoal": 6,
+    "sensitivity": 1,
+    "fight": {
+      "rounds": 6,
+      "roundSec": 180,
+      "restSec": 60
+    },
+    "fightDate": "",
+    "opponentStyle": "",
+    "targetWeight": 154,
+    "unit": "lb"
+  },
+  "settings": {
+    "voice": true,
+    "combos": false,
+    "comboInterval": 6,
+    "tracking": "none",
+    "cues": true,
+    "voiceV2": true,
+    "lastBackup": "2026-09-30T20:13:25.410Z"
+  },
+  "sessions": [
+    {
+      "id": "c0",
+      "date": "2026-08-17T20:12:51.538Z",
+      "type": "shadow",
+      "tracking": "camera",
+      "source": "live",
+      "plan": {
+        "rounds": 5,
+        "roundSec": 180,
+        "restSec": 60
+      },
+      "completedRounds": 5,
+      "workSec": 900,
+      "totalSec": 1200,
+      "punches": {
+        "total": 700,
+        "perRound": [
+          140,
+          140,
+          140,
+          150,
+          155
+        ],
+        "byType": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        }
+      },
+      "form": {
+        "perRound": [
+          {
+            "frames": 300,
+            "guard": 84,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 85,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 82,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 64,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 18,
+            "handReturnMs": 420,
+            "leadReturnMs": 820,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 150,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 58,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 14,
+            "handReturnMs": 420,
+            "leadReturnMs": 900,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 155,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          }
+        ],
+        "guard": 75,
+        "stance": 84,
+        "crossedPct": 2,
+        "narrowPct": 3,
+        "widePct": 1,
+        "blade": 78,
+        "footwork": 45,
+        "head": 27,
+        "handReturnMs": 420,
+        "leadReturnMs": 584,
+        "rearReturnMs": 440,
+        "rearDropPct": 15,
+        "leftLeadPct": 92,
+        "sidePct": null,
+        "headPerMin": null,
+        "punches": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        },
+        "totalPunches": 700,
+        "sequences": {
+          "1": 60,
+          "1-2": 45,
+          "1-2-3": 20
+        },
+        "comboShare": 71,
+        "avgComboLen": 2.3,
+        "combos": 65
+      },
+      "rpe": 7,
+      "notes": "",
+      "constraints": [
+        {
+          "round": 1,
+          "key": "jabFootwork",
+          "compliance": 80,
+          "auto": true
+        },
+        {
+          "round": 2,
+          "key": "exitEvery",
+          "compliance": 40,
+          "auto": false,
+          "opponent": null
+        },
+        {
+          "round": 3,
+          "key": "pressureDefense",
+          "opponent": "pressure",
+          "compliance": 60,
+          "auto": false
+        }
+      ],
+      "scores": {
+        "guard": 75,
+        "stance": 84,
+        "blade": 78,
+        "footwork": 72,
+        "head": 43,
+        "handReturn": 91,
+        "output": 59,
+        "overall": 72
+      },
+      "feedback": {
+        "wins": [
+          "Finished all 5 rounds.",
+          "Footwork is solid at 72.",
+          "Hand return is solid at 91.",
+          "Fast hand return (~420ms).",
+          "You kept your output steady through the last round."
+        ],
+        "fixes": [
+          "Hands were up 75% of the time between punches. Aim for 80%+."
+        ],
+        "drills": [
+          "Slip-rope: 3 rounds slipping and rolling under a rope line.",
+          "Every combo ends with a slip or roll — punch, then move your head."
+        ]
+      }
+    },
+    {
+      "id": "c1",
+      "date": "2026-08-21T10:36:51.538Z",
+      "type": "shadow",
+      "tracking": "camera",
+      "source": "live",
+      "plan": {
+        "rounds": 5,
+        "roundSec": 180,
+        "restSec": 60
+      },
+      "completedRounds": 5,
+      "workSec": 900,
+      "totalSec": 1200,
+      "punches": {
+        "total": 700,
+        "perRound": [
+          140,
+          140,
+          140,
+          150,
+          155
+        ],
+        "byType": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        }
+      },
+      "form": {
+        "perRound": [
+          {
+            "frames": 300,
+            "guard": 85.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 86.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 83.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 65.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 18,
+            "handReturnMs": 420,
+            "leadReturnMs": 805,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 150,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 59.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 14,
+            "handReturnMs": 420,
+            "leadReturnMs": 885,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 155,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          }
+        ],
+        "guard": 76,
+        "stance": 84,
+        "crossedPct": 2,
+        "narrowPct": 3,
+        "widePct": 1,
+        "blade": 78,
+        "footwork": 45,
+        "head": 27,
+        "handReturnMs": 420,
+        "leadReturnMs": 578,
+        "rearReturnMs": 440,
+        "rearDropPct": 15,
+        "leftLeadPct": 92,
+        "sidePct": null,
+        "headPerMin": null,
+        "punches": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        },
+        "totalPunches": 700,
+        "sequences": {
+          "1": 60,
+          "1-2": 45,
+          "1-2-3": 20
+        },
+        "comboShare": 71,
+        "avgComboLen": 2.3,
+        "combos": 65
+      },
+      "rpe": 8,
+      "notes": "",
+      "constraints": [
+        {
+          "round": 1,
+          "key": "jabFootwork",
+          "compliance": 80,
+          "auto": true
+        },
+        {
+          "round": 2,
+          "key": "exitEvery",
+          "compliance": 44,
+          "auto": false,
+          "opponent": null
+        },
+        {
+          "round": 3,
+          "key": "pressureDefense",
+          "opponent": "pressure",
+          "compliance": 60,
+          "auto": false
+        }
+      ],
+      "scores": {
+        "guard": 76,
+        "stance": 84,
+        "blade": 78,
+        "footwork": 72,
+        "head": 43,
+        "handReturn": 91,
+        "output": 59,
+        "overall": 72
+      },
+      "feedback": {
+        "wins": [
+          "Finished all 5 rounds.",
+          "Footwork is solid at 72.",
+          "Hand return is solid at 91.",
+          "Fast hand return (~420ms).",
+          "You kept your output steady through the last round."
+        ],
+        "fixes": [
+          "Recurring: Your guard drops as you get tired in later rounds. (seen in 2 sessions)",
+          "Hands were up 76% of the time between punches. Aim for 80%+."
+        ],
+        "drills": [
+          "Slip-rope: 3 rounds slipping and rolling under a rope line.",
+          "Every combo ends with a slip or roll — punch, then move your head."
+        ]
+      }
+    },
+    {
+      "id": "sp1",
+      "date": "2026-08-22T10:36:51.538Z",
+      "type": "sparring",
+      "manual": true,
+      "source": "manual",
+      "durationMin": 40,
+      "rpe": 8,
+      "sparring": {
+        "rounds": 5,
+        "intensity": 4,
+        "partnerStyle": "pressure"
+      },
+      "hits": {
+        "failedExit": 5,
+        "handsDown": 3,
+        "rhythm": 2,
+        "fatigue": 2,
+        "distance": 1
+      },
+      "positives": [
+        "jabLanded",
+        "slipped"
+      ],
+      "patternUse": {
+        "pat1": {
+          "used": 3,
+          "landed": 1
+        }
+      }
+    },
+    {
+      "id": "c2",
+      "date": "2026-08-25T01:00:51.538Z",
+      "type": "bag",
+      "tracking": "camera",
+      "source": "live",
+      "plan": {
+        "rounds": 5,
+        "roundSec": 180,
+        "restSec": 60
+      },
+      "completedRounds": 5,
+      "workSec": 900,
+      "totalSec": 1200,
+      "punches": {
+        "total": 700,
+        "perRound": [
+          140,
+          140,
+          140,
+          150,
+          155
+        ],
+        "byType": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        }
+      },
+      "form": {
+        "perRound": [
+          {
+            "frames": 300,
+            "guard": 87,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 88,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 85,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 67,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 18,
+            "handReturnMs": 420,
+            "leadReturnMs": 790,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 150,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 61,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 14,
+            "handReturnMs": 420,
+            "leadReturnMs": 870,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 155,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          }
+        ],
+        "guard": 78,
+        "stance": 84,
+        "crossedPct": 2,
+        "narrowPct": 3,
+        "widePct": 1,
+        "blade": 78,
+        "footwork": 45,
+        "head": 27,
+        "handReturnMs": 420,
+        "leadReturnMs": 572,
+        "rearReturnMs": 440,
+        "rearDropPct": 15,
+        "leftLeadPct": 92,
+        "sidePct": null,
+        "headPerMin": null,
+        "punches": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        },
+        "totalPunches": 700,
+        "sequences": {
+          "1": 60,
+          "1-2": 45,
+          "1-2-3": 20
+        },
+        "comboShare": 71,
+        "avgComboLen": 2.3,
+        "combos": 65
+      },
+      "rpe": 9,
+      "notes": "",
+      "constraints": [
+        {
+          "round": 1,
+          "key": "jabFootwork",
+          "compliance": 80,
+          "auto": true
+        },
+        {
+          "round": 2,
+          "key": "exitEvery",
+          "compliance": 48,
+          "auto": false,
+          "opponent": null
+        },
+        {
+          "round": 3,
+          "key": "pressureDefense",
+          "opponent": "pressure",
+          "compliance": 60,
+          "auto": false
+        }
+      ],
+      "scores": {
+        "guard": 78,
+        "stance": 84,
+        "blade": 78,
+        "footwork": 72,
+        "head": 43,
+        "handReturn": 91,
+        "output": 59,
+        "overall": 72
+      },
+      "feedback": {
+        "wins": [
+          "Finished all 5 rounds.",
+          "Footwork is solid at 72.",
+          "Hand return is solid at 91.",
+          "Fast hand return (~420ms).",
+          "You kept your output steady through the last round."
+        ],
+        "fixes": [
+          "Recurring: Your guard drops as you get tired in later rounds. (seen in 3 sessions)",
+          "Hands were up 78% of the time between punches. Aim for 80%+."
+        ],
+        "drills": [
+          "Slip-rope: 3 rounds slipping and rolling under a rope line.",
+          "Every combo ends with a slip or roll — punch, then move your head."
+        ]
+      }
+    },
+    {
+      "id": "c3",
+      "date": "2026-08-28T15:24:51.538Z",
+      "type": "shadow",
+      "tracking": "camera",
+      "source": "live",
+      "plan": {
+        "rounds": 5,
+        "roundSec": 180,
+        "restSec": 60
+      },
+      "completedRounds": 5,
+      "workSec": 900,
+      "totalSec": 1200,
+      "punches": {
+        "total": 700,
+        "perRound": [
+          140,
+          140,
+          140,
+          150,
+          155
+        ],
+        "byType": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        }
+      },
+      "form": {
+        "perRound": [
+          {
+            "frames": 300,
+            "guard": 88.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 89.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 86.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 68.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 18,
+            "handReturnMs": 420,
+            "leadReturnMs": 775,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 150,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 62.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 14,
+            "handReturnMs": 420,
+            "leadReturnMs": 855,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 155,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          }
+        ],
+        "guard": 79,
+        "stance": 84,
+        "crossedPct": 2,
+        "narrowPct": 3,
+        "widePct": 1,
+        "blade": 78,
+        "footwork": 45,
+        "head": 27,
+        "handReturnMs": 420,
+        "leadReturnMs": 566,
+        "rearReturnMs": 440,
+        "rearDropPct": 15,
+        "leftLeadPct": 92,
+        "sidePct": null,
+        "headPerMin": null,
+        "punches": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        },
+        "totalPunches": 700,
+        "sequences": {
+          "1": 60,
+          "1-2": 45,
+          "1-2-3": 20
+        },
+        "comboShare": 71,
+        "avgComboLen": 2.3,
+        "combos": 65
+      },
+      "rpe": 7,
+      "notes": "",
+      "constraints": [
+        {
+          "round": 1,
+          "key": "jabFootwork",
+          "compliance": 80,
+          "auto": true
+        },
+        {
+          "round": 2,
+          "key": "exitEvery",
+          "compliance": 52,
+          "auto": false,
+          "opponent": null
+        },
+        {
+          "round": 3,
+          "key": "pressureDefense",
+          "opponent": "pressure",
+          "compliance": 60,
+          "auto": false
+        }
+      ],
+      "scores": {
+        "guard": 79,
+        "stance": 84,
+        "blade": 78,
+        "footwork": 72,
+        "head": 43,
+        "handReturn": 91,
+        "output": 59,
+        "overall": 72
+      },
+      "feedback": {
+        "wins": [
+          "Finished all 5 rounds.",
+          "Footwork is solid at 72.",
+          "Hand return is solid at 91.",
+          "Fast hand return (~420ms).",
+          "You kept your output steady through the last round."
+        ],
+        "fixes": [
+          "Recurring: Your guard drops as you get tired in later rounds. (seen in 4 sessions)",
+          "Hands were up 79% of the time between punches. Aim for 80%+."
+        ],
+        "drills": [
+          "Slip-rope: 3 rounds slipping and rolling under a rope line.",
+          "Every combo ends with a slip or roll — punch, then move your head."
+        ]
+      }
+    },
+    {
+      "id": "c4",
+      "date": "2026-09-01T05:48:51.538Z",
+      "type": "shadow",
+      "tracking": "camera",
+      "source": "live",
+      "plan": {
+        "rounds": 5,
+        "roundSec": 180,
+        "restSec": 60
+      },
+      "completedRounds": 5,
+      "workSec": 900,
+      "totalSec": 1200,
+      "punches": {
+        "total": 700,
+        "perRound": [
+          140,
+          140,
+          140,
+          150,
+          155
+        ],
+        "byType": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        }
+      },
+      "form": {
+        "perRound": [
+          {
+            "frames": 300,
+            "guard": 90,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 91,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 88,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 70,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 18,
+            "handReturnMs": 420,
+            "leadReturnMs": 760,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 150,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 64,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 14,
+            "handReturnMs": 420,
+            "leadReturnMs": 840,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 155,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          }
+        ],
+        "guard": 81,
+        "stance": 84,
+        "crossedPct": 2,
+        "narrowPct": 3,
+        "widePct": 1,
+        "blade": 78,
+        "footwork": 45,
+        "head": 27,
+        "handReturnMs": 420,
+        "leadReturnMs": 560,
+        "rearReturnMs": 440,
+        "rearDropPct": 15,
+        "leftLeadPct": 92,
+        "sidePct": null,
+        "headPerMin": null,
+        "punches": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        },
+        "totalPunches": 700,
+        "sequences": {
+          "1": 60,
+          "1-2": 45,
+          "1-2-3": 20
+        },
+        "comboShare": 71,
+        "avgComboLen": 2.3,
+        "combos": 65
+      },
+      "rpe": 8,
+      "notes": "",
+      "constraints": [
+        {
+          "round": 1,
+          "key": "jabFootwork",
+          "compliance": 80,
+          "auto": true
+        },
+        {
+          "round": 2,
+          "key": "exitEvery",
+          "compliance": 56,
+          "auto": false,
+          "opponent": null
+        },
+        {
+          "round": 3,
+          "key": "pressureDefense",
+          "opponent": "pressure",
+          "compliance": 60,
+          "auto": false
+        }
+      ],
+      "scores": {
+        "guard": 81,
+        "stance": 84,
+        "blade": 78,
+        "footwork": 72,
+        "head": 43,
+        "handReturn": 91,
+        "output": 59,
+        "overall": 73
+      },
+      "feedback": {
+        "wins": [
+          "Finished all 5 rounds.",
+          "Footwork is solid at 72.",
+          "Hand return is solid at 91.",
+          "Fast hand return (~420ms).",
+          "You kept your output steady through the last round."
+        ],
+        "fixes": [
+          "Recurring: Your guard drops as you get tired in later rounds. (seen in 5 sessions)"
+        ],
+        "drills": [
+          "Slip-rope: 3 rounds slipping and rolling under a rope line.",
+          "Every combo ends with a slip or roll — punch, then move your head."
+        ]
+      }
+    },
+    {
+      "id": "sp4",
+      "date": "2026-09-02T05:48:51.538Z",
+      "type": "sparring",
+      "manual": true,
+      "source": "manual",
+      "durationMin": 40,
+      "rpe": 8,
+      "sparring": {
+        "rounds": 5,
+        "intensity": 4,
+        "partnerStyle": "volume"
+      },
+      "hits": {
+        "failedExit": 4,
+        "handsDown": 3,
+        "rhythm": 2,
+        "fatigue": 2,
+        "distance": 1
+      },
+      "positives": [
+        "jabLanded",
+        "slipped"
+      ],
+      "patternUse": {
+        "pat1": {
+          "used": 3,
+          "landed": 1
+        }
+      }
+    },
+    {
+      "id": "c5",
+      "date": "2026-09-04T20:12:51.538Z",
+      "type": "bag",
+      "tracking": "camera",
+      "source": "live",
+      "plan": {
+        "rounds": 5,
+        "roundSec": 180,
+        "restSec": 60
+      },
+      "completedRounds": 5,
+      "workSec": 900,
+      "totalSec": 1200,
+      "punches": {
+        "total": 700,
+        "perRound": [
+          140,
+          140,
+          140,
+          150,
+          155
+        ],
+        "byType": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        }
+      },
+      "form": {
+        "perRound": [
+          {
+            "frames": 300,
+            "guard": 91.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 92.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 89.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 71.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 18,
+            "handReturnMs": 420,
+            "leadReturnMs": 745,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 150,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 65.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 14,
+            "handReturnMs": 420,
+            "leadReturnMs": 825,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 155,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          }
+        ],
+        "guard": 82,
+        "stance": 84,
+        "crossedPct": 2,
+        "narrowPct": 3,
+        "widePct": 1,
+        "blade": 78,
+        "footwork": 45,
+        "head": 27,
+        "handReturnMs": 420,
+        "leadReturnMs": 554,
+        "rearReturnMs": 440,
+        "rearDropPct": 15,
+        "leftLeadPct": 92,
+        "sidePct": null,
+        "headPerMin": null,
+        "punches": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        },
+        "totalPunches": 700,
+        "sequences": {
+          "1": 60,
+          "1-2": 45,
+          "1-2-3": 20
+        },
+        "comboShare": 71,
+        "avgComboLen": 2.3,
+        "combos": 65
+      },
+      "rpe": 9,
+      "notes": "",
+      "constraints": [
+        {
+          "round": 1,
+          "key": "jabFootwork",
+          "compliance": 80,
+          "auto": true
+        },
+        {
+          "round": 2,
+          "key": "exitEvery",
+          "compliance": 60,
+          "auto": false,
+          "opponent": null
+        },
+        {
+          "round": 3,
+          "key": "pressureDefense",
+          "opponent": "pressure",
+          "compliance": 60,
+          "auto": false
+        }
+      ],
+      "scores": {
+        "guard": 82,
+        "stance": 84,
+        "blade": 78,
+        "footwork": 72,
+        "head": 43,
+        "handReturn": 91,
+        "output": 59,
+        "overall": 73
+      },
+      "feedback": {
+        "wins": [
+          "Finished all 5 rounds.",
+          "Footwork is solid at 72.",
+          "Hand return is solid at 91.",
+          "Fast hand return (~420ms).",
+          "You kept your output steady through the last round."
+        ],
+        "fixes": [
+          "Recurring: Your guard drops as you get tired in later rounds. (seen in 6 sessions)"
+        ],
+        "drills": [
+          "Slip-rope: 3 rounds slipping and rolling under a rope line.",
+          "Every combo ends with a slip or roll — punch, then move your head."
+        ]
+      }
+    },
+    {
+      "id": "c6",
+      "date": "2026-09-08T10:36:51.538Z",
+      "type": "shadow",
+      "tracking": "camera",
+      "source": "live",
+      "plan": {
+        "rounds": 5,
+        "roundSec": 180,
+        "restSec": 60
+      },
+      "completedRounds": 5,
+      "workSec": 900,
+      "totalSec": 1200,
+      "punches": {
+        "total": 700,
+        "perRound": [
+          140,
+          140,
+          140,
+          150,
+          155
+        ],
+        "byType": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        }
+      },
+      "form": {
+        "perRound": [
+          {
+            "frames": 300,
+            "guard": 93,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 94,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 91,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 73,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 18,
+            "handReturnMs": 420,
+            "leadReturnMs": 730,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 150,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 67,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 14,
+            "handReturnMs": 420,
+            "leadReturnMs": 810,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 155,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          }
+        ],
+        "guard": 84,
+        "stance": 84,
+        "crossedPct": 2,
+        "narrowPct": 3,
+        "widePct": 1,
+        "blade": 78,
+        "footwork": 45,
+        "head": 27,
+        "handReturnMs": 420,
+        "leadReturnMs": 548,
+        "rearReturnMs": 440,
+        "rearDropPct": 15,
+        "leftLeadPct": 92,
+        "sidePct": null,
+        "headPerMin": null,
+        "punches": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        },
+        "totalPunches": 700,
+        "sequences": {
+          "1": 60,
+          "1-2": 45,
+          "1-2-3": 20
+        },
+        "comboShare": 71,
+        "avgComboLen": 2.3,
+        "combos": 65
+      },
+      "rpe": 7,
+      "notes": "",
+      "constraints": [
+        {
+          "round": 1,
+          "key": "jabFootwork",
+          "compliance": 80,
+          "auto": true
+        },
+        {
+          "round": 2,
+          "key": "exitEvery",
+          "compliance": 64,
+          "auto": false,
+          "opponent": null
+        },
+        {
+          "round": 3,
+          "key": "pressureDefense",
+          "opponent": "pressure",
+          "compliance": 60,
+          "auto": false
+        }
+      ],
+      "scores": {
+        "guard": 84,
+        "stance": 84,
+        "blade": 78,
+        "footwork": 72,
+        "head": 43,
+        "handReturn": 91,
+        "output": 59,
+        "overall": 73
+      },
+      "feedback": {
+        "wins": [
+          "Finished all 5 rounds.",
+          "Footwork is solid at 72.",
+          "Hand return is solid at 91.",
+          "Fast hand return (~420ms).",
+          "You kept your output steady through the last round."
+        ],
+        "fixes": [
+          "Recurring: Your guard drops as you get tired in later rounds. (seen in 7 sessions)"
+        ],
+        "drills": [
+          "Slip-rope: 3 rounds slipping and rolling under a rope line.",
+          "Every combo ends with a slip or roll — punch, then move your head."
+        ]
+      }
+    },
+    {
+      "id": "c7",
+      "date": "2026-09-12T01:00:51.538Z",
+      "type": "shadow",
+      "tracking": "camera",
+      "source": "live",
+      "plan": {
+        "rounds": 5,
+        "roundSec": 180,
+        "restSec": 60
+      },
+      "completedRounds": 5,
+      "workSec": 900,
+      "totalSec": 1200,
+      "punches": {
+        "total": 700,
+        "perRound": [
+          140,
+          140,
+          140,
+          150,
+          155
+        ],
+        "byType": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        }
+      },
+      "form": {
+        "perRound": [
+          {
+            "frames": 300,
+            "guard": 94.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 95.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 92.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 74.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 18,
+            "handReturnMs": 420,
+            "leadReturnMs": 715,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 150,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 68.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 14,
+            "handReturnMs": 420,
+            "leadReturnMs": 795,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 155,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          }
+        ],
+        "guard": 85,
+        "stance": 84,
+        "crossedPct": 2,
+        "narrowPct": 3,
+        "widePct": 1,
+        "blade": 78,
+        "footwork": 45,
+        "head": 27,
+        "handReturnMs": 420,
+        "leadReturnMs": 542,
+        "rearReturnMs": 440,
+        "rearDropPct": 15,
+        "leftLeadPct": 92,
+        "sidePct": null,
+        "headPerMin": null,
+        "punches": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        },
+        "totalPunches": 700,
+        "sequences": {
+          "1": 60,
+          "1-2": 45,
+          "1-2-3": 20
+        },
+        "comboShare": 71,
+        "avgComboLen": 2.3,
+        "combos": 65
+      },
+      "rpe": 8,
+      "notes": "",
+      "constraints": [
+        {
+          "round": 1,
+          "key": "jabFootwork",
+          "compliance": 80,
+          "auto": true
+        },
+        {
+          "round": 2,
+          "key": "exitEvery",
+          "compliance": 68,
+          "auto": false,
+          "opponent": null
+        },
+        {
+          "round": 3,
+          "key": "pressureDefense",
+          "opponent": "pressure",
+          "compliance": 60,
+          "auto": false
+        }
+      ],
+      "scores": {
+        "guard": 85,
+        "stance": 84,
+        "blade": 78,
+        "footwork": 72,
+        "head": 43,
+        "handReturn": 91,
+        "output": 59,
+        "overall": 73
+      },
+      "feedback": {
+        "wins": [
+          "Finished all 5 rounds.",
+          "Footwork is solid at 72.",
+          "Hand return is solid at 91.",
+          "Fast hand return (~420ms).",
+          "You kept your output steady through the last round."
+        ],
+        "fixes": [
+          "Recurring: Your guard drops as you get tired in later rounds. (seen in 8 sessions)"
+        ],
+        "drills": [
+          "Slip-rope: 3 rounds slipping and rolling under a rope line.",
+          "Every combo ends with a slip or roll — punch, then move your head."
+        ]
+      }
+    },
+    {
+      "id": "sp7",
+      "date": "2026-09-13T01:00:51.538Z",
+      "type": "sparring",
+      "manual": true,
+      "source": "manual",
+      "durationMin": 40,
+      "rpe": 8,
+      "sparring": {
+        "rounds": 5,
+        "intensity": 4,
+        "partnerStyle": "pressure"
+      },
+      "hits": {
+        "failedExit": 4,
+        "handsDown": 3,
+        "rhythm": 2,
+        "fatigue": 2,
+        "distance": 1
+      },
+      "positives": [
+        "jabLanded",
+        "cleanExits"
+      ],
+      "patternUse": {
+        "pat1": {
+          "used": 3,
+          "landed": 2
+        }
+      }
+    },
+    {
+      "id": "c8",
+      "date": "2026-09-15T15:24:51.538Z",
+      "type": "bag",
+      "tracking": "camera",
+      "source": "live",
+      "plan": {
+        "rounds": 5,
+        "roundSec": 180,
+        "restSec": 60
+      },
+      "completedRounds": 5,
+      "workSec": 900,
+      "totalSec": 1200,
+      "punches": {
+        "total": 700,
+        "perRound": [
+          140,
+          140,
+          140,
+          150,
+          155
+        ],
+        "byType": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        }
+      },
+      "form": {
+        "perRound": [
+          {
+            "frames": 300,
+            "guard": 96,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 97,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 94,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 76,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 18,
+            "handReturnMs": 420,
+            "leadReturnMs": 700,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 150,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 70,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 14,
+            "handReturnMs": 420,
+            "leadReturnMs": 780,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 155,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          }
+        ],
+        "guard": 87,
+        "stance": 84,
+        "crossedPct": 2,
+        "narrowPct": 3,
+        "widePct": 1,
+        "blade": 78,
+        "footwork": 45,
+        "head": 27,
+        "handReturnMs": 420,
+        "leadReturnMs": 536,
+        "rearReturnMs": 440,
+        "rearDropPct": 15,
+        "leftLeadPct": 92,
+        "sidePct": null,
+        "headPerMin": null,
+        "punches": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        },
+        "totalPunches": 700,
+        "sequences": {
+          "1": 60,
+          "1-2": 45,
+          "1-2-3": 20
+        },
+        "comboShare": 71,
+        "avgComboLen": 2.3,
+        "combos": 65
+      },
+      "rpe": 9,
+      "notes": "",
+      "constraints": [
+        {
+          "round": 1,
+          "key": "jabFootwork",
+          "compliance": 80,
+          "auto": true
+        },
+        {
+          "round": 2,
+          "key": "exitEvery",
+          "compliance": 72,
+          "auto": false,
+          "opponent": null
+        },
+        {
+          "round": 3,
+          "key": "pressureDefense",
+          "opponent": "pressure",
+          "compliance": 60,
+          "auto": false
+        }
+      ],
+      "scores": {
+        "guard": 87,
+        "stance": 84,
+        "blade": 78,
+        "footwork": 72,
+        "head": 43,
+        "handReturn": 91,
+        "output": 59,
+        "overall": 73
+      },
+      "feedback": {
+        "wins": [
+          "Finished all 5 rounds.",
+          "Footwork is solid at 72.",
+          "Hand return is solid at 91.",
+          "Fast hand return (~420ms).",
+          "You kept your output steady through the last round."
+        ],
+        "fixes": [
+          "Recurring: Your guard drops as you get tired in later rounds. (seen in 9 sessions)"
+        ],
+        "drills": [
+          "Slip-rope: 3 rounds slipping and rolling under a rope line.",
+          "Every combo ends with a slip or roll — punch, then move your head."
+        ]
+      }
+    },
+    {
+      "id": "c9",
+      "date": "2026-09-19T05:48:51.538Z",
+      "type": "shadow",
+      "tracking": "camera",
+      "source": "live",
+      "plan": {
+        "rounds": 5,
+        "roundSec": 180,
+        "restSec": 60
+      },
+      "completedRounds": 5,
+      "workSec": 900,
+      "totalSec": 1200,
+      "punches": {
+        "total": 700,
+        "perRound": [
+          140,
+          140,
+          140,
+          150,
+          155
+        ],
+        "byType": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        }
+      },
+      "form": {
+        "perRound": [
+          {
+            "frames": 300,
+            "guard": 97.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 98.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 95.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 77.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 18,
+            "handReturnMs": 420,
+            "leadReturnMs": 685,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 150,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 71.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 14,
+            "handReturnMs": 420,
+            "leadReturnMs": 765,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 155,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          }
+        ],
+        "guard": 88,
+        "stance": 84,
+        "crossedPct": 2,
+        "narrowPct": 3,
+        "widePct": 1,
+        "blade": 78,
+        "footwork": 45,
+        "head": 27,
+        "handReturnMs": 420,
+        "leadReturnMs": 530,
+        "rearReturnMs": 440,
+        "rearDropPct": 15,
+        "leftLeadPct": 92,
+        "sidePct": null,
+        "headPerMin": null,
+        "punches": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        },
+        "totalPunches": 700,
+        "sequences": {
+          "1": 60,
+          "1-2": 45,
+          "1-2-3": 20
+        },
+        "comboShare": 71,
+        "avgComboLen": 2.3,
+        "combos": 65
+      },
+      "rpe": 7,
+      "notes": "",
+      "constraints": [
+        {
+          "round": 1,
+          "key": "jabFootwork",
+          "compliance": 80,
+          "auto": true
+        },
+        {
+          "round": 2,
+          "key": "exitEvery",
+          "compliance": 76,
+          "auto": false,
+          "opponent": null
+        },
+        {
+          "round": 3,
+          "key": "pressureDefense",
+          "opponent": "pressure",
+          "compliance": 60,
+          "auto": false
+        }
+      ],
+      "scores": {
+        "guard": 88,
+        "stance": 84,
+        "blade": 78,
+        "footwork": 72,
+        "head": 43,
+        "handReturn": 91,
+        "output": 59,
+        "overall": 74
+      },
+      "feedback": {
+        "wins": [
+          "Finished all 5 rounds.",
+          "Footwork is solid at 72.",
+          "Hand return is solid at 91.",
+          "Fast hand return (~420ms).",
+          "You kept your output steady through the last round."
+        ],
+        "fixes": [
+          "Recurring: Your guard drops as you get tired in later rounds. (seen in 10 sessions)"
+        ],
+        "drills": [
+          "Slip-rope: 3 rounds slipping and rolling under a rope line.",
+          "Every combo ends with a slip or roll — punch, then move your head."
+        ]
+      }
+    },
+    {
+      "id": "c10",
+      "date": "2026-09-22T20:12:51.538Z",
+      "type": "shadow",
+      "tracking": "camera",
+      "source": "live",
+      "plan": {
+        "rounds": 5,
+        "roundSec": 180,
+        "restSec": 60
+      },
+      "completedRounds": 5,
+      "workSec": 900,
+      "totalSec": 1200,
+      "punches": {
+        "total": 700,
+        "perRound": [
+          140,
+          140,
+          140,
+          150,
+          155
+        ],
+        "byType": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        }
+      },
+      "form": {
+        "perRound": [
+          {
+            "frames": 300,
+            "guard": 99,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 100,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 97,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 79,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 18,
+            "handReturnMs": 420,
+            "leadReturnMs": 670,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 150,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 73,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 14,
+            "handReturnMs": 420,
+            "leadReturnMs": 750,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 155,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          }
+        ],
+        "guard": 90,
+        "stance": 84,
+        "crossedPct": 2,
+        "narrowPct": 3,
+        "widePct": 1,
+        "blade": 78,
+        "footwork": 45,
+        "head": 27,
+        "handReturnMs": 420,
+        "leadReturnMs": 524,
+        "rearReturnMs": 440,
+        "rearDropPct": 15,
+        "leftLeadPct": 92,
+        "sidePct": null,
+        "headPerMin": null,
+        "punches": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        },
+        "totalPunches": 700,
+        "sequences": {
+          "1": 60,
+          "1-2": 45,
+          "1-2-3": 20
+        },
+        "comboShare": 71,
+        "avgComboLen": 2.3,
+        "combos": 65
+      },
+      "rpe": 8,
+      "notes": "",
+      "constraints": [
+        {
+          "round": 1,
+          "key": "jabFootwork",
+          "compliance": 80,
+          "auto": true
+        },
+        {
+          "round": 2,
+          "key": "exitEvery",
+          "compliance": 80,
+          "auto": false,
+          "opponent": null
+        },
+        {
+          "round": 3,
+          "key": "pressureDefense",
+          "opponent": "pressure",
+          "compliance": 60,
+          "auto": false
+        }
+      ],
+      "scores": {
+        "guard": 90,
+        "stance": 84,
+        "blade": 78,
+        "footwork": 72,
+        "head": 43,
+        "handReturn": 91,
+        "output": 59,
+        "overall": 74
+      },
+      "feedback": {
+        "wins": [
+          "Finished all 5 rounds.",
+          "Guard is solid at 90.",
+          "Footwork is solid at 72.",
+          "Hand return is solid at 91.",
+          "Fast hand return (~420ms).",
+          "You kept your output steady through the last round."
+        ],
+        "fixes": [
+          "Recurring: Your guard drops as you get tired in later rounds. (seen in 11 sessions)"
+        ],
+        "drills": [
+          "Slip-rope: 3 rounds slipping and rolling under a rope line.",
+          "Every combo ends with a slip or roll — punch, then move your head."
+        ]
+      }
+    },
+    {
+      "id": "sp10",
+      "date": "2026-09-23T20:12:51.538Z",
+      "type": "sparring",
+      "manual": true,
+      "source": "manual",
+      "durationMin": 40,
+      "rpe": 8,
+      "sparring": {
+        "rounds": 5,
+        "intensity": 4,
+        "partnerStyle": "volume"
+      },
+      "hits": {
+        "failedExit": 3,
+        "handsDown": 3,
+        "rhythm": 2,
+        "fatigue": 2,
+        "distance": 1
+      },
+      "positives": [
+        "jabLanded",
+        "cleanExits"
+      ],
+      "patternUse": {
+        "pat1": {
+          "used": 3,
+          "landed": 2
+        }
+      }
+    },
+    {
+      "id": "c11",
+      "date": "2026-09-26T10:36:51.538Z",
+      "type": "bag",
+      "tracking": "camera",
+      "source": "live",
+      "plan": {
+        "rounds": 5,
+        "roundSec": 180,
+        "restSec": 60
+      },
+      "completedRounds": 5,
+      "workSec": 900,
+      "totalSec": 1200,
+      "punches": {
+        "total": 700,
+        "perRound": [
+          140,
+          140,
+          140,
+          150,
+          155
+        ],
+        "byType": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        }
+      },
+      "form": {
+        "perRound": [
+          {
+            "frames": 300,
+            "guard": 100.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 101.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 98.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 35,
+            "handReturnMs": 420,
+            "leadReturnMs": 400,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 140,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 80.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 18,
+            "handReturnMs": 420,
+            "leadReturnMs": 655,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 150,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          },
+          {
+            "frames": 300,
+            "guard": 74.5,
+            "stance": 84,
+            "blade": 78,
+            "footwork": 45,
+            "head": 14,
+            "handReturnMs": 420,
+            "leadReturnMs": 735,
+            "rearReturnMs": 440,
+            "rearDropPct": 15,
+            "totalPunches": 155,
+            "punches": {
+              "jab": 45,
+              "cross": 38,
+              "leadHook": 22,
+              "rearHook": 18,
+              "leadUppercut": 9,
+              "rearUppercut": 8
+            },
+            "sequences": {
+              "1": 12,
+              "1-2": 9,
+              "1-2-3": 4
+            },
+            "comboShare": 58,
+            "avgComboLen": 2.3,
+            "crossedPct": 2,
+            "narrowPct": 3,
+            "widePct": 1,
+            "leftLeadPct": 92
+          }
+        ],
+        "guard": 91,
+        "stance": 84,
+        "crossedPct": 2,
+        "narrowPct": 3,
+        "widePct": 1,
+        "blade": 78,
+        "footwork": 45,
+        "head": 27,
+        "handReturnMs": 420,
+        "leadReturnMs": 518,
+        "rearReturnMs": 440,
+        "rearDropPct": 15,
+        "leftLeadPct": 92,
+        "sidePct": null,
+        "headPerMin": null,
+        "punches": {
+          "jab": 225,
+          "cross": 190,
+          "leadHook": 110,
+          "rearHook": 90,
+          "leadUppercut": 45,
+          "rearUppercut": 40
+        },
+        "totalPunches": 700,
+        "sequences": {
+          "1": 60,
+          "1-2": 45,
+          "1-2-3": 20
+        },
+        "comboShare": 71,
+        "avgComboLen": 2.3,
+        "combos": 65
+      },
+      "rpe": 9,
+      "notes": "",
+      "constraints": [
+        {
+          "round": 1,
+          "key": "jabFootwork",
+          "compliance": 80,
+          "auto": true
+        },
+        {
+          "round": 2,
+          "key": "exitEvery",
+          "compliance": 84,
+          "auto": false,
+          "opponent": null
+        },
+        {
+          "round": 3,
+          "key": "pressureDefense",
+          "opponent": "pressure",
+          "compliance": 60,
+          "auto": false
+        }
+      ],
+      "scores": {
+        "guard": 91,
+        "stance": 84,
+        "blade": 78,
+        "footwork": 72,
+        "head": 43,
+        "handReturn": 91,
+        "output": 59,
+        "overall": 74
+      },
+      "feedback": {
+        "wins": [
+          "Finished all 5 rounds.",
+          "Guard is solid at 91.",
+          "Footwork is solid at 72.",
+          "Hand return is solid at 91.",
+          "Fast hand return (~420ms).",
+          "You kept your output steady through the last round."
+        ],
+        "fixes": [
+          "Recurring: Your guard drops as you get tired in later rounds. (seen in 12 sessions)"
+        ],
+        "drills": [
+          "Slip-rope: 3 rounds slipping and rolling under a rope line.",
+          "Every combo ends with a slip or roll — punch, then move your head."
+        ]
+      }
+    },
+    {
+      "id": "run1",
+      "date": "2026-09-28T20:12:51.538Z",
+      "type": "run",
+      "manual": true,
+      "durationMin": 35,
+      "rpe": 5
+    },
+    {
+      "id": "muojlx0dpxs3n",
+      "date": "2026-09-30T20:12:54.270Z",
+      "type": "shadow",
+      "tracking": "none",
+      "source": "live",
+      "plan": {
+        "rounds": 3,
+        "roundSec": 120,
+        "restSec": 30
+      },
+      "completedRounds": 3,
+      "workSec": 19,
+      "totalSec": 29,
+      "focus": null,
+      "punches": null,
+      "intensity": null,
+      "form": null,
+      "constraints": [
+        {
+          "round": 1,
+          "key": "fatigueSim",
+          "opponent": null,
+          "compliance": null,
+          "auto": false
+        },
+        {
+          "round": 2,
+          "key": "exitEvery",
+          "opponent": null,
+          "compliance": null,
+          "auto": false
+        },
+        {
+          "round": 3,
+          "key": "guardRecovery",
+          "opponent": null,
+          "compliance": null,
+          "auto": false
+        }
+      ],
+      "coach": {
+        "root": "gasTank",
+        "level": 1,
+        "finisher": "breathe, hands home",
+        "metric": "guardFade",
+        "drill": "Short rounds, full form",
+        "eval": {
+          "root": "gasTank",
+          "level": 1,
+          "metric": "guardFade",
+          "target": 15,
+          "value": null,
+          "pass": null,
+          "text": "Not measured (camera off or out of frame)."
+        }
+      },
+      "rpe": 7,
+      "notes": "",
+      "scores": {
+        "overall": null
+      },
+      "feedback": {
+        "wins": [
+          "Finished all 3 rounds."
+        ],
+        "fixes": [],
+        "drills": [
+          "Slip-rope: 3 rounds slipping and rolling under a rope line.",
+          "Every combo ends with a slip or roll — punch, then move your head."
+        ]
+      }
+    }
+  ],
+  "memory": {
+    "ema": {
+      "guard": 88,
+      "stance": 84,
+      "blade": 78,
+      "footwork": 72,
+      "head": 43,
+      "handReturn": 91,
+      "output": 59
+    },
+    "analyzed": 12,
+    "insights": {
+      "lateGuardFade": {
+        "count": 12,
+        "firstSeen": "2026-08-17T20:12:51.538Z",
+        "lastSeen": "2026-09-26T10:36:51.538Z",
+        "lastSeenAt": 12
+      }
+    },
+    "resolved": [],
+    "focus": {
+      "area": "head",
+      "since": "2026-08-17T20:12:51.538Z",
+      "sessions": 17
+    },
+    "prs": {
+      "mostPunches": {
+        "value": 700,
+        "date": "2026-08-17T20:12:51.538Z",
+        "label": "Most punches in a session"
+      },
+      "bestPpm": {
+        "value": 47,
+        "date": "2026-08-17T20:12:51.538Z",
+        "label": "Best punches per minute"
+      },
+      "bestForm": {
+        "value": 74,
+        "date": "2026-09-19T05:48:51.538Z",
+        "label": "Best overall score"
+      },
+      "mostRounds": {
+        "value": 5,
+        "date": "2026-08-17T20:12:51.538Z",
+        "label": "Most rounds completed"
+      }
+    },
+    "streak": {
+      "count": 1,
+      "lastDay": "2026-09-30"
+    }
+  },
+  "weights": [
+    {
+      "date": "2026-09-16",
+      "value": 161.8
+    },
+    {
+      "date": "2026-09-17",
+      "value": 161.7
+    },
+    {
+      "date": "2026-09-18",
+      "value": 161.5
+    },
+    {
+      "date": "2026-09-19",
+      "value": 161.4
+    },
+    {
+      "date": "2026-09-20",
+      "value": 161.2
+    },
+    {
+      "date": "2026-09-21",
+      "value": 161.1
+    },
+    {
+      "date": "2026-09-22",
+      "value": 161
+    },
+    {
+      "date": "2026-09-23",
+      "value": 160.8
+    },
+    {
+      "date": "2026-09-24",
+      "value": 160.7
+    },
+    {
+      "date": "2026-09-25",
+      "value": 160.5
+    },
+    {
+      "date": "2026-09-26",
+      "value": 160.4
+    },
+    {
+      "date": "2026-09-27",
+      "value": 160.3
+    },
+    {
+      "date": "2026-09-28",
+      "value": 160.1
+    },
+    {
+      "date": "2026-09-29",
+      "value": 160
+    }
+  ],
+  "plans": {
+    "2026-09-28": {
+      "week": "2026-09-28",
+      "gymDays": [],
+      "phase": {
+        "key": "base",
+        "name": "Competitive base",
+        "volume": 1,
+        "camp": false,
+        "note": "Building your engine and fixing habits so you are always close to fight-ready.",
+        "priorities": [
+          "Fix your biggest recurring problem",
+          "Build skills you are underexposed to",
+          "Aerobic base"
+        ]
+      },
+      "notes": [
+        "Planned from Wed onward."
+      ],
+      "items": [
+        {
+          "id": "2026-09-30-fightSim-0",
+          "day": 2,
+          "date": "2026-09-30",
+          "kind": "fightSim",
+          "title": "Fight simulation · bag",
+          "load": "hard",
+          "category": "boxing",
+          "detail": "6 × 3 min at fight pace, 60s rest. Treat every round like it's scored. Hold 40+ punches/min to the final bell.",
+          "preset": {
+            "type": "bag",
+            "rounds": 6,
+            "roundSec": 180,
+            "restSec": 60,
+            "tracking": "motion",
+            "comboLevel": 3
+          }
+        },
+        {
+          "id": "2026-10-01-shadowTech-0",
+          "day": 3,
+          "date": "2026-10-01",
+          "kind": "shadowTech",
+          "title": "Technique · shadowboxing (head movement)",
+          "load": "moderate",
+          "category": "boxing",
+          "detail": "5 × 3 min with the camera coach, focused on head movement. Crisp, relaxed, perfect reps.",
+          "preset": {
+            "type": "shadow",
+            "rounds": 5,
+            "roundSec": 180,
+            "restSec": 60,
+            "tracking": "camera",
+            "comboLevel": 3,
+            "focus": "head"
+          }
+        },
+        {
+          "id": "2026-10-02-intervals-0",
+          "day": 4,
+          "date": "2026-10-02",
+          "kind": "intervals",
+          "title": "Fight-pace intervals · run",
+          "load": "hard",
+          "category": "run",
+          "detail": "10 min easy, then 6 × 3 min hard / 60s walk, 10 min cool-down. Mirrors your fight's rounds."
+        },
+        {
+          "id": "2026-10-03-strength-0",
+          "day": 5,
+          "date": "2026-10-03",
+          "kind": "strength",
+          "title": "Strength & power",
+          "load": "moderate",
+          "category": "strength",
+          "detail": "Trap-bar deadlift or squat 4×4, split squats 3×6, push-ups or bench 3×6, rows 3×8, rotational med-ball throws 4×5 each side, core. Leave 2 reps in the tank."
+        },
+        {
+          "id": "2026-10-04-bagVolume-0",
+          "day": 6,
+          "date": "2026-10-04",
+          "kind": "bagVolume",
+          "title": "Power & volume · bag",
+          "load": "hard",
+          "category": "boxing",
+          "detail": "8 × 3 min. Odd rounds: sit down on power shots. Even rounds: non-stop volume.",
+          "preset": {
+            "type": "bag",
+            "rounds": 8,
+            "roundSec": 180,
+            "restSec": 60,
+            "tracking": "motion",
+            "comboLevel": 3
+          }
+        }
+      ]
+    }
+  },
+  "observations": [
+    {
+      "id": "o1",
+      "date": "2026-08-23T20:12:51.538Z",
+      "source": "coach",
+      "kind": "issue",
+      "text": "You're backing straight up after combinations.",
+      "tags": [
+        "hit:failedExit"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "o2",
+      "date": "2026-09-20T20:12:51.538Z",
+      "source": "self",
+      "kind": "positive",
+      "text": "Jab felt sharp, snapping it back.",
+      "tags": [
+        "jab"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "muojl8alv5n7y",
+      "date": "2026-09-30T20:12:51.639Z",
+      "source": "ai",
+      "kind": "issue",
+      "status": "open",
+      "key": "decay:defense",
+      "text": "Your defense is consistently worse in high-fatigue rounds (from round 4) — 6 of 6 sessions. This is fatigue-induced, not a lack of skill. Add defensive recovery drills straight after conditioning rather than simply more punching volume.",
+      "tags": [
+        "defense"
+      ],
+      "lastSeen": "2026-09-30T20:13:24.612Z"
+    },
+    {
+      "id": "muojl8aldox8w",
+      "date": "2026-09-30T20:12:51.639Z",
+      "source": "ai",
+      "kind": "issue",
+      "status": "open",
+      "key": "decay:leadReturn",
+      "text": "Your left-hand recovery is consistently worse in high-fatigue rounds (from round 4) — 6 of 6 sessions. This is fatigue-induced, not a lack of skill. Add defensive recovery drills straight after conditioning rather than simply more punching volume.",
+      "tags": [
+        "defense",
+        "jab"
+      ],
+      "lastSeen": "2026-09-30T20:13:24.612Z"
+    },
+    {
+      "id": "muojl8alxw4y6",
+      "date": "2026-09-30T20:12:51.639Z",
+      "source": "ai",
+      "kind": "issue",
+      "status": "open",
+      "key": "hits:failedExit",
+      "text": "33% of the times you get hit come from: failed exit (straight back).",
+      "tags": [
+        "hit:failedExit"
+      ],
+      "lastSeen": "2026-09-30T20:13:24.612Z"
+    },
+    {
+      "id": "muojl8al589rc",
+      "date": "2026-09-30T20:12:51.639Z",
+      "source": "ai",
+      "kind": "issue",
+      "status": "open",
+      "key": "habit:lateGuardFade",
+      "text": "Your guard drops as you get tired in later rounds. (seen in 12 sessions)",
+      "tags": [],
+      "lastSeen": "2026-09-30T20:13:24.612Z"
+    },
+    {
+      "id": "muojl8al3qec7",
+      "date": "2026-09-30T20:12:51.639Z",
+      "source": "ai",
+      "kind": "issue",
+      "status": "open",
+      "key": "med:jab",
+      "text": "Your jab quality holds up to ~150 reps per session, then drops ~24%. Stop at ~150 quality reps and move to another stimulus.",
+      "tags": [
+        "jab"
+      ],
+      "lastSeen": "2026-09-30T20:13:24.612Z"
+    }
+  ],
+  "patterns": [
+    {
+      "id": "pat1",
+      "name": "Jab → cross → angle exit",
+      "seq": "1-2",
+      "exit": "angle",
+      "skills": [
+        "combinations",
+        "angles"
+      ],
+      "active": true,
+      "created": "2026-08-21T20:12:51.538Z"
+    },
+    {
+      "id": "pat2",
+      "name": "Slip → cross counter",
+      "seq": "2",
+      "counter": true,
+      "skills": [
+        "counters"
+      ],
+      "active": true,
+      "created": "2026-08-31T20:12:51.538Z"
+    }
+  ],
+  "combos": [
+    {
+      "id": "c1",
+      "tokens": [
+        "1",
+        "2"
+      ],
+      "name": "",
+      "created": "2026-09-30T20:12:51.543Z"
+    },
+    {
+      "id": "c2",
+      "tokens": [
+        "1",
+        "3",
+        "2",
+        "roll",
+        "2"
+      ],
+      "name": "Pad",
+      "created": "2026-09-30T20:12:51.543Z"
+    }
+  ],
+  "refVideos": [],
+  "references": [],
+  "decisions": [
+    {
+      "id": "ropes-pressure",
+      "date": "2026-08-31T20:12:51.538Z",
+      "choice": 0,
+      "correct": false,
+      "ok": false,
+      "ms": 2500
+    },
+    {
+      "id": "jab-lazy",
+      "date": "2026-09-01T20:12:51.538Z",
+      "choice": 0,
+      "correct": true,
+      "ok": false,
+      "ms": 3200
+    },
+    {
+      "id": "runner",
+      "date": "2026-09-02T20:12:51.538Z",
+      "choice": 0,
+      "correct": true,
+      "ok": false,
+      "ms": 3900
+    },
+    {
+      "id": "after-combo",
+      "date": "2026-09-03T20:12:51.538Z",
+      "choice": 0,
+      "correct": false,
+      "ok": false,
+      "ms": 4600
+    },
+    {
+      "id": "southpaw-circle",
+      "date": "2026-09-04T20:12:51.538Z",
+      "choice": 0,
+      "correct": true,
+      "ok": false,
+      "ms": 2500
+    },
+    {
+      "id": "tired-late",
+      "date": "2026-09-05T20:12:51.538Z",
+      "choice": 0,
+      "correct": true,
+      "ok": false,
+      "ms": 3200
+    },
+    {
+      "id": "ropes-pressure",
+      "date": "2026-09-06T20:12:51.538Z",
+      "choice": 0,
+      "correct": false,
+      "ok": false,
+      "ms": 3900
+    },
+    {
+      "id": "jab-lazy",
+      "date": "2026-09-07T20:12:51.538Z",
+      "choice": 0,
+      "correct": true,
+      "ok": false,
+      "ms": 4600
+    },
+    {
+      "id": "runner",
+      "date": "2026-09-08T20:12:51.538Z",
+      "choice": 0,
+      "correct": true,
+      "ok": false,
+      "ms": 2500
+    },
+    {
+      "id": "after-combo",
+      "date": "2026-09-09T20:12:51.538Z",
+      "choice": 0,
+      "correct": false,
+      "ok": false,
+      "ms": 3200
+    },
+    {
+      "id": "southpaw-circle",
+      "date": "2026-09-10T20:12:51.538Z",
+      "choice": 0,
+      "correct": true,
+      "ok": false,
+      "ms": 3900
+    },
+    {
+      "id": "tired-late",
+      "date": "2026-09-11T20:12:51.538Z",
+      "choice": 0,
+      "correct": true,
+      "ok": false,
+      "ms": 4600
+    },
+    {
+      "id": "ropes-pressure",
+      "date": "2026-09-12T20:12:51.538Z",
+      "choice": 0,
+      "correct": false,
+      "ok": false,
+      "ms": 2500
+    },
+    {
+      "id": "jab-lazy",
+      "date": "2026-09-13T20:12:51.538Z",
+      "choice": 0,
+      "correct": true,
+      "ok": false,
+      "ms": 3200
+    },
+    {
+      "id": "runner",
+      "date": "2026-09-14T20:12:51.538Z",
+      "choice": 0,
+      "correct": true,
+      "ok": false,
+      "ms": 3900
+    },
+    {
+      "id": "after-combo",
+      "date": "2026-09-15T20:12:51.538Z",
+      "choice": 0,
+      "correct": false,
+      "ok": false,
+      "ms": 4600
+    },
+    {
+      "id": "southpaw-circle",
+      "date": "2026-09-16T20:12:51.538Z",
+      "choice": 0,
+      "correct": true,
+      "ok": false,
+      "ms": 2500
+    },
+    {
+      "id": "tired-late",
+      "date": "2026-09-17T20:12:51.538Z",
+      "choice": 0,
+      "correct": true,
+      "ok": false,
+      "ms": 3200
+    }
+  ],
+  "hypotheses": [],
+  "checkins": [
+    {
+      "date": "2026-09-22",
+      "sleep": 6,
+      "soreness": 2,
+      "motivation": 4,
+      "hr": 52
+    },
+    {
+      "date": "2026-09-23",
+      "sleep": 7,
+      "soreness": 3,
+      "motivation": 4,
+      "hr": 53
+    },
+    {
+      "date": "2026-09-24",
+      "sleep": 8,
+      "soreness": 2,
+      "motivation": 4,
+      "hr": 54
+    },
+    {
+      "date": "2026-09-25",
+      "sleep": 6,
+      "soreness": 3,
+      "motivation": 4,
+      "hr": 52
+    },
+    {
+      "date": "2026-09-26",
+      "sleep": 7,
+      "soreness": 2,
+      "motivation": 4,
+      "hr": 53
+    },
+    {
+      "date": "2026-09-27",
+      "sleep": 8,
+      "soreness": 3,
+      "motivation": 4,
+      "hr": 54
+    },
+    {
+      "date": "2026-09-28",
+      "sleep": 6,
+      "soreness": 2,
+      "motivation": 4,
+      "hr": 52
+    },
+    {
+      "date": "2026-09-29",
+      "sleep": 7,
+      "soreness": 3,
+      "motivation": 4,
+      "hr": 53
+    }
+  ],
+  "paused": [],
+  "coach": {
+    "equipment": [],
+    "levels": {
+      "gasTank": {
+        "level": 1,
+        "pass": 0,
+        "fail": 0,
+        "history": []
+      }
+    },
+    "overrides": [],
+    "assigned": {
+      "gasTank": "2026-09-30T20:12:54.270Z"
+    },
+    "lastMinutes": 15
+  }
+}
