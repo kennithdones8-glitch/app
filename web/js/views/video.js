@@ -476,6 +476,13 @@ function renderReview(el, app) {
       <div class="row2"><button class="btn ghost" id="vidDiscard">Discard</button><button class="btn primary" id="vidSave">${j.subject === 'pro' ? 'Save for comparison' : 'Save session'}</button></div>
     </section>`;
 
+  // iPhone only opens the share sheet straight from a tap, so the photos are made ready beforehand.
+  if (j.sheets?.length && !j.files) {
+    j.files = Promise.all(j.sheets.map((s) => s.blob)).then((blobs) => blobs
+      .map((b, i) => b && new File([b], `boxcoach-${j.date.slice(0, 10)}-frames-${String(i + 1).padStart(2, '0')}.jpg`, { type: 'image/jpeg' }))
+      .filter(Boolean));
+    j.files.then((f) => { j.filesReady = f; });
+  }
   $('#saveFrames', el)?.addEventListener('click', () => saveFrames(j));
   $('#aiRetry', el)?.addEventListener('click', () => runAi(el, app));
   if (j.ai?.state === 'pending') runAi(el, app);
@@ -518,18 +525,17 @@ function renderReview(el, app) {
 
 // Share the contact sheets (iPhone: Save Images to Photos), or download them where sharing files isn't possible.
 async function saveFrames(j) {
-  const stamp = j.date.slice(0, 10);
-  const files = (await Promise.all(j.sheets.map((s) => s.blob)))
-    .map((b, i) => b && new File([b], `boxcoach-${stamp}-frames-${String(i + 1).padStart(2, '0')}.jpg`, { type: 'image/jpeg' }))
-    .filter(Boolean);
+  const files = j.filesReady;
+  if (!files) return toast('Getting the photos ready. Tap again in a moment.');
   if (!files.length) return toast('No frames were captured.');
-  try {
-    if (navigator.canShare?.({ files })) {
+  // Called with no await before it, so the tap still counts for the share sheet.
+  if (navigator.canShare?.({ files })) {
+    try {
       await navigator.share({ files, title: 'BoxCoach frames' });
       return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
     }
-  } catch (err) {
-    if (err?.name === 'AbortError') return;
   }
   for (const f of files) {
     const a = document.createElement('a');

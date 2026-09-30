@@ -64,8 +64,9 @@ export class FrameSheets {
   // frame: canvas of the video frame; pts: image landmarks of the boxer (or null); t in ms.
   add(frame, pts, t) {
     if (this.full || t - this.lastT < this.gap) return;
+    const W = frame.videoWidth || frame.width, H = frame.videoHeight || frame.height;
+    if (!W || !H) return;
     this.lastT = t;
-    const W = frame.width, H = frame.height;
     const b = pts ? cropBox(pts, W, H) : null;
     // Smooth the crop so the boxer doesn't jump around from frame to frame.
     if (b) this.box = this.box ? { cx: this.box.cx * 0.5 + b.cx * 0.5, cy: this.box.cy * 0.5 + b.cy * 0.5, h: this.box.h * 0.6 + b.h * 0.4 } : b;
