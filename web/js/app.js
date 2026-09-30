@@ -21,7 +21,7 @@ import { reviewFieldsHTML, bindReview, readReview } from './views/review.js';
 import { buildReport, reportSize } from './report.js';
 import { renderBoxer } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
-import { renderVideo, videoBusy } from './views/video.js';
+import { renderVideo, videoBusy, trustedCal } from './views/video.js';
 import { renderCombos, comboHTML } from './views/combos.js';
 import { parseCombo, comboText, comboLabel, comboSpeech, comboKey, punchDigits, pickCombo, judgeCalls, sessionCombos } from './combos.js';
 
@@ -36,7 +36,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.30-1';
+export const APP_VERSION = '2026.09.30-2';
 
 const app = {
   version: APP_VERSION,
@@ -419,7 +419,7 @@ async function startSession(plan) {
     live.analyzer = new FormAnalyzer({
       stance: state.profile.stance,
       sensitivity: state.profile.sensitivity,
-      cal: state.profile.punchCal || null,
+      cal: trustedCal(state.profile.punchCal),
       onCue: (key, text) => {
         if (!state.settings.cues) return;
         showCue(text);

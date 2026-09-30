@@ -311,7 +311,7 @@ function settings(el, app) {
         <label>Training days per week<input type="number" name="weeklyGoal" min="1" max="7" value="${profile.weeklyGoal}"></label>
         <label><span>Punch detection sensitivity <b id="sensOut">${profile.sensitivity}</b></span>
           <input type="range" name="sensitivity" min="0.5" max="2" step="0.1" value="${profile.sensitivity}"></label>
-        ${profile.punchCal ? `<p class="small muted" style="margin:0">Punch reading tuned to you from ${profile.punchCal.n} punches (drilled-combo videos). <button type="button" class="linkbtn" id="resetCal">Reset</button></p>` : ''}
+        ${profile.punchCal?.acc >= 0.6 ? `<p class="small muted" style="margin:0">Punch reading tuned to you from ${profile.punchCal.n} punches (drilled-combo videos, ${Math.round(profile.punchCal.acc * 100)}% right). <button type="button" class="linkbtn" id="resetCal">Reset</button></p>` : ''}
         <label class="switch"><input type="checkbox" name="voice" ${st.voice ? 'checked' : ''}> <span>Voice coaching</span></label>
         <label class="switch"><input type="checkbox" name="cues" ${st.cues ? 'checked' : ''}> <span>Live form cues ("Hands up!")</span></label>
         <label>Combo call every<select name="comboInterval">${[4, 5, 6, 8, 10, 15].map((s) => opt(s, st.comboInterval, `${s} seconds`)).join('')}</select></label>

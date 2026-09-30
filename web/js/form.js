@@ -291,6 +291,8 @@ function pct(n, d) {
   return d ? Math.round((n / d) * 100) : null;
 }
 
+const frontEnough = (n, r) => n >= 0.3 * r.frames;
+
 export function roundMetrics(r) {
   const total = Object.values(r.punches).reduce((a, b) => a + b, 0);
   const avg = (xs) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
@@ -301,11 +303,12 @@ export function roundMetrics(r) {
     guard: pct(r.guardUp, r.guardEligible),
     // Stance width and blade need depth, which is only usable when the camera sees you from the
     // front; side-on they're left unmeasured (null) rather than guessed.
-    stance: pct(r.stanceOk, r.stanceFrames),
+    // A few front-on moments in a side-on clip aren't enough to judge: need 30% of the round.
+    stance: frontEnough(r.stanceFrames, r) ? pct(r.stanceOk, r.stanceFrames) : null,
     crossedPct: pct(r.crossed, r.footFrames ?? r.stanceFrames),
-    narrowPct: pct(r.narrow, r.stanceFrames),
-    widePct: pct(r.wide, r.stanceFrames),
-    blade: pct(r.bladeOk, r.bladeFrames ?? r.frames),
+    narrowPct: frontEnough(r.stanceFrames, r) ? pct(r.narrow, r.stanceFrames) : null,
+    widePct: frontEnough(r.stanceFrames, r) ? pct(r.wide, r.stanceFrames) : null,
+    blade: frontEnough(r.bladeFrames ?? r.frames, r) ? pct(r.bladeOk, r.bladeFrames ?? r.frames) : null,
     sidePct: pct(r.sideFrames || 0, r.frames),
     footwork: pct(r.moving, r.frames),
     head: pct(r.headMoving, r.frames),
