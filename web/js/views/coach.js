@@ -330,7 +330,7 @@ function settings(el, app) {
     </section>
     <section class="card">
       <h2>Your data</h2>
-      <p class="muted small">Everything is stored on this phone only. Back it up now and then.</p>
+      <p class="muted small">Everything is stored on this phone only. Back it up now and then: on iPhone choose <b>Save to Files → iCloud Drive</b> so a copy lives off the phone.${app.state.settings.lastBackup ? ` Last backup: ${esc(shortDate(app.state.settings.lastBackup))}.` : ' No backup yet.'}</p>
       <div class="row2">
         <button class="btn ghost" id="exportBtn">Export backup</button>
         <label class="btn ghost file">Import backup<input type="file" id="importFile" accept="application/json,.json" hidden></label>
@@ -389,13 +389,27 @@ function settings(el, app) {
     toast('Key removed from this phone.');
     app.rerender();
   });
-  $('#exportBtn', el).addEventListener('click', () => {
-    const blob = new Blob([store.exportJSON(app.state)], { type: 'application/json' });
+  $('#exportBtn', el).addEventListener('click', async () => {
+    const name = `boxcoach-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    app.state.settings.lastBackup = new Date().toISOString();
+    app.persist();
+    const file = new File([store.exportJSON(app.state)], name, { type: 'application/json' });
+    // iPhone: the share sheet offers "Save to Files" (iCloud Drive keeps it off the phone).
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'BoxCoach backup' });
+        toast('Backup saved.');
+        return;
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `boxcoach-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.href = URL.createObjectURL(file);
+    a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast('Backup downloaded.');
   });
   $('#importFile', el).addEventListener('change', async (e) => {
     const file = e.target.files[0];

@@ -19,6 +19,7 @@ import { fatigueMap } from './analysis.js';
 import { $, $$, esc, fmtDate, shortDate, toast, scoreClass, scoreChip, subnav, subOf, pageHead } from './ui.js';
 import { reviewFieldsHTML, bindReview, readReview } from './views/review.js';
 import { buildReport, reportSize } from './report.js';
+import { safetyNotes, isStandalone, isIOS, askPersist } from './safety.js';
 import { renderBoxer } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
 import { renderVideo, videoBusy, trustedCal } from './views/video.js';
@@ -37,7 +38,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.30-7';
+export const APP_VERSION = '2026.09.30-8';
 
 const app = {
   version: APP_VERSION,
@@ -131,6 +132,7 @@ function renderHome() {
   if (day.priorities.congested) notes.push(['⚠️', 'Too many priorities at once', `${day.priorities.all.length - (state.paused || []).length} active — focus on the top 3`, '#coach/priorities']);
   if (ctx.proposals.length) notes.push(['🧪', 'I have a hypothesis to test', ctx.proposals[0].text, '#coach/hypotheses']);
   if (ws?.status === 'fast' || ws?.status === 'behind') notes.push(['⚖️', ws.status === 'fast' ? 'Cutting weight too fast' : 'Weight trending above target', ws.message, '#plan/weight']);
+  notes.unshift(...safetyNotes({ standalone: isStandalone(), ios: isIOS(), sessions: sessions.length, lastBackup: state.settings.lastBackup }));
   const decay = ctx.decay[0];
   if (decay) notes.push(['📉', decay.kind === 'fatigue' ? 'Breaks down under fatigue' : 'Technical weakness', decay.text, '#boxer/analysis']);
 
@@ -1219,4 +1221,5 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 afterDataChange();
+askPersist();
 route();

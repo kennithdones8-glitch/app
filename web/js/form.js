@@ -239,7 +239,7 @@ function emptyRound() {
 }
 
 // Punch numbers used by boxers: 1 jab, 2 cross, 3 lead hook, 4 rear hook, 5 lead uppercut, 6 rear uppercut.
-const PUNCH_TYPE = {
+export const PUNCH_TYPE = {
   straight: { lead: 'jab', rear: 'cross' }, hook: { lead: 'leadHook', rear: 'rearHook' }, uppercut: { lead: 'leadUppercut', rear: 'rearUppercut' },
 };
 export const PUNCH_DIGIT = { jab: 1, cross: 2, leadHook: 3, rearHook: 4, leadUppercut: 5, rearUppercut: 6 };
@@ -409,6 +409,11 @@ function travel(path, axis) {
 export const DEFAULT_STRAIGHT_RATIO = 1.8;
 export function classifyPunch(p, axis, cal = null) {
   const { fwd, lat } = travel(p.path || [], axis);
+  return classifyFeatures(p, fwd, lat, cal);
+}
+
+// The same decision from already-measured forward/sideways travel (also used to score saved clips).
+export function classifyFeatures(p, fwd, lat, cal = null) {
   const T = cal?.ratio ?? DEFAULT_STRAIGHT_RATIO;
   const straightish = p.rise < 0.15 && p.ext >= 0.55 && fwd > 0.08 && fwd >= T * lat;
   if ((p.angle >= 145 && p.ext >= 0.8 && p.rise < 0.15) || straightish) {
