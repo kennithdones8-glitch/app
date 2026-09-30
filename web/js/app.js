@@ -21,7 +21,7 @@ import { reviewFieldsHTML, bindReview, readReview } from './views/review.js';
 import { buildReport, reportSize } from './report.js';
 import { renderBoxer } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
-import { renderVideo } from './views/video.js';
+import { renderVideo, videoBusy } from './views/video.js';
 import { renderCombos, comboHTML } from './views/combos.js';
 import { parseCombo, comboText, comboLabel, comboSpeech, comboKey, punchDigits, pickCombo, judgeCalls, sessionCombos } from './combos.js';
 
@@ -36,7 +36,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.29-9';
+export const APP_VERSION = '2026.09.30-1';
 
 const app = {
   version: APP_VERSION,
@@ -416,6 +416,10 @@ async function startSession(plan) {
       const { PoseTracker } = await import('./pose.js');
       live.tracker = new PoseTracker($('#camVideo'), $('#camCanvas'));
       live.tracker.onFrame = (world, image, t) => {
+        if (live?.analyzer && !live.analyzer.aspectSet && $('#camVideo').videoWidth) {
+          live.analyzer.aspect = $('#camVideo').videoWidth / $('#camVideo').videoHeight;
+          live.analyzer.aspectSet = true;
+        }
         const m = live?.analyzer.update(world, image, t);
         $('#camStatus').textContent = image ? '' : 'Step into frame';
         if (m && live.timer?.phase === 'work') {
@@ -1170,12 +1174,26 @@ document.addEventListener('visibilitychange', async () => {
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   // Reload once when a new version takes over, so the new code runs straight away.
+  // Never mid-session or mid-video: then it waits until you're done.
   const hadController = !!navigator.serviceWorker.controller;
-  let reloaded = false;
+  let reloaded = false, updateReady = false;
+  const applyUpdate = () => {
+    if (updateReady && !reloaded && !live && !videoBusy()) { reloaded = true; location.reload(); }
+  };
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (hadController && !reloaded && !live) { reloaded = true; location.reload(); }
+    if (!hadController) return;
+    updateReady = true;
+    applyUpdate();
+    if (!reloaded) toast('App update ready: it applies when you finish.');
   });
-  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
+  window.addEventListener('hashchange', applyUpdate);
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    reg.update();
+    // Home-screen apps resume instead of restarting, so also check whenever the app comes back.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reg.update().catch(() => {});
+    });
+  }).catch(() => {});
 }
 
 afterDataChange();

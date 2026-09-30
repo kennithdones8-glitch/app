@@ -63,7 +63,7 @@ export function calibrateFromCombo(punches, tokens, prior = null) {
     const axis = punchAxis(near, 3);
     if (axis) { e.axisFixed = axis; e.axis = axis; }
   }
-  const res = { total: punches.length, matched: matched.length, agree, ratio: null, before: prior?.ratio ?? DEFAULT_STRAIGHT_RATIO };
+  const res = { total: punches.length, matched: matched.length, agree, ratio: null, before: prior?.ratio ?? DEFAULT_STRAIGHT_RATIO, labels };
 
   const sh = matched.filter((m) => m.want !== 'uppercut' && m.e.f.rise < 0.15 && m.e.axis);
   const nStraight = sh.filter((m) => m.want === 'straight').length;
