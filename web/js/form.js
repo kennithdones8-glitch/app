@@ -90,6 +90,7 @@ export class PersonTracker {
   constructor() {
     this.target = null;
     this.lostSince = null;
+    this.crowd = false; // ever seen more than one person
   }
 
   get locked() {
@@ -106,6 +107,13 @@ export class PersonTracker {
     if (!this.target || !people?.length) {
       if (this.target && this.lostSince == null) this.lostSince = t;
       return -1;
+    }
+    if (people.length > 1) this.crowd = true;
+    // Nobody else has ever been in shot: the one person found is the boxer, however their
+    // position, size or colours changed (a wrong first look used to lose them for good).
+    if (people.length === 1 && !this.crowd) {
+      this.lockOn(people[0], colors[0] || this.target.color);
+      return 0;
     }
     const lost = this.lostSince != null && t - this.lostSince > 1000;
     let best = -1, bestScore = Infinity;
@@ -817,6 +825,8 @@ export class FormAnalyzer {
     // 2D arm measurements per punch: [hand, stretch, elbow angle, forearm/upper arm, elbow height, fist dx, fist dy, visibility].
     this.calib.vec2 = punches.slice(0, 200).map((e) => (e.i2 ? [e.role === 'lead' ? 'L' : 'R', r2(e.i2.ext), e.i2.angle, r2(e.i2.fore), r2(e.i2.elbUp), r2(e.i2.dx), r2(e.i2.dy), r2(e.i2.vis)] : [e.role === 'lead' ? 'L' : 'R']));
     faceDev.sort((a, b) => a - b);
+    // Punch times (0.1 s of video), to match against the saved frames.
+    this.calib.pt = punches.slice(0, 300).map((e) => Math.round(e.t / 100));
     this.calib.faceDev = faceDev.length ? Math.round(faceDev[Math.floor(faceDev.length / 2)]) : null;
     this.calib.reclassified = changed;
     return changed;

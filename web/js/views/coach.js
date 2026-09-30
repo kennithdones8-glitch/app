@@ -5,6 +5,7 @@ import { memoryTrace, rankProblems, priorities } from '../engine.js';
 import { startHypothesis, evaluateHypothesis } from '../hypotheses.js';
 import * as store from '../store.js';
 import { $, $$, esc, shortDate, subnav, subOf, toast, opt, scoreClass, pageHead } from '../ui.js';
+import { aiKey, aiModel, setAi, AI_MODELS } from '../aicheck.js';
 
 const SUBS = [['memory', 'Memory'], ['hypotheses', 'Hypotheses'], ['priorities', 'Priorities'], ['iq', 'Fight IQ']];
 
@@ -319,6 +320,15 @@ function settings(el, app) {
       </form>
     </section>
     <section class="card">
+      <h2>Claude punch check (optional)</h2>
+      <p class="muted small">After a video is analysed on your phone, Claude can look at cropped frames of the boxer, check every punch type and add punches the tracker missed. It needs your own API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a> (pay as you go, roughly a few cents per 30 s of video). The key stays on this phone and only goes to Anthropic. It's never in backups or reports.</p>
+      <form id="aiForm" class="form">
+        <label>API key<input name="key" type="password" autocomplete="off" spellcheck="false" placeholder="${aiKey() ? 'Saved. Paste a new one to replace it.' : 'sk-ant-…'}"></label>
+        <label>Model<select name="model">${Object.entries(AI_MODELS).map(([k, n]) => opt(k, aiModel(), n)).join('')}</select></label>
+        <div class="row2"><button class="btn primary" type="submit">Save</button>${aiKey() ? '<button class="btn ghost" type="button" id="aiRemove">Remove key</button>' : ''}</div>
+      </form>
+    </section>
+    <section class="card">
       <h2>Your data</h2>
       <p class="muted small">Everything is stored on this phone only. Back it up now and then.</p>
       <div class="row2">
@@ -366,6 +376,19 @@ function settings(el, app) {
     app.persist();
     toast('Saved.');
   });
+  $('#aiForm', el).addEventListener('submit', (e) => {
+    e.preventDefault();
+    const key = e.target.key.value.trim();
+    if (key && !key.startsWith('sk-')) return toast('That doesn\'t look like an Anthropic API key (they start with sk-ant-).');
+    setAi(key || aiKey(), e.target.model.value);
+    toast(key || aiKey() ? 'Saved. Switch on the Claude check when you analyse a video.' : 'Model saved. Add a key to use the check.');
+    app.rerender();
+  });
+  $('#aiRemove', el)?.addEventListener('click', () => {
+    setAi('', null);
+    toast('Key removed from this phone.');
+    app.rerender();
+  });
   $('#exportBtn', el).addEventListener('click', () => {
     const blob = new Blob([store.exportJSON(app.state)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -397,6 +420,7 @@ function settings(el, app) {
     if (!confirm('Erase all sessions and everything the coach has learned? This cannot be undone.')) return;
     app.state = store.defaultState();
     app.persist();
+    setAi('', null);
     location.hash = '#home';
   });
 }
