@@ -467,3 +467,27 @@ test('rolling in place is head movement, not footwork', () => {
   assert.ok(m.headPerMin >= 8, `head moves/min ${m.headPerMin}`);
   assert.ok(m.head > 40, `head ${m.head}%`);
 });
+
+test('a jab that jolts the rear hand forward counts once; a fast one-two still counts two', () => {
+  const run = (frames) => {
+    const got = [];
+    const an = new FormAnalyzer({ onPunch: (p) => got.push(p) });
+    an.startRound();
+    let t = feed(an, still(10), 0);
+    t = feed(an, frames, t);
+    feed(an, still(15), t);
+    an.endRound();
+    return { got, calib: an.calib };
+  };
+  const jab = punch(LM.L_WR, LM.L_EL, { x: 0.16, y: -0.49, z: -0.61 }, { x: 0.17, y: -0.47, z: -0.33 });
+  // The body turns with the jab and shoves the bent rear hand forward at the same moment.
+  const jolt = punch(LM.R_WR, LM.R_EL, { x: -0.02, y: -0.5, z: -0.45 }, { x: -0.14, y: -0.3, z: -0.12 });
+  const both = jab.map((w, i) => { const o = [...w]; o[LM.R_WR] = jolt[i][LM.R_WR]; o[LM.R_EL] = jolt[i][LM.R_EL]; return o; });
+  const a = run(both);
+  assert.deepEqual(a.got, ['jab'], `rejected: ${JSON.stringify(a.calib.rejected)}`);
+  assert.ok(a.calib.rejected.some((r) => r[5] === 'pair'));
+  // Jab, then the cross a quarter of a second later: two punches.
+  const cross = punch(LM.R_WR, LM.R_EL, { x: 0.02, y: -0.5, z: -0.5 }, { x: -0.1, y: -0.45, z: -0.2 });
+  const oneTwo = [...jab.slice(0, 7), ...jab.slice(7).map((w, i) => { const o = [...w]; o[LM.R_WR] = cross[i][LM.R_WR]; o[LM.R_EL] = cross[i][LM.R_EL]; return o; }), ...cross.slice(4)];
+  assert.deepEqual(run(oneTwo).got, ['jab', 'cross']);
+});
