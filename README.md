@@ -29,6 +29,18 @@ It's an installable web app (PWA). It works offline after the first load, and al
 
 The data model is built around **skills, observations, hypotheses, training stimuli (constraints, opponents, patterns), outcomes (per-round metrics, hits, decisions) and coach feedback**.
 
+
+## Coach me
+
+One button on Today. It asks only what it needs (time, equipment, how you feel), then:
+
+1. **Finds the root problems** (`coachme.js` `detectWeaknesses`): symptoms from sparring hits, repeated habits, camera measurements, fatigue decay and coach notes are grouped under the habit that causes them ("getting hit backing up isn't the problem; you stay square after your combinations"). Each has a *do this / not that* replacement and a measurement that tests whether it caught on.
+2. **Builds today's session** around the time, gear and energy you have: warm-up, a drill from the root problem's 4-level ladder (purpose, success condition, progression, regression), constraint rounds, conditioning that fits your equipment. It cuts volume on its own when recovery is poor, technical quality is dropping, you're tired or sore, or you're back after a break, and says why.
+3. **Adapts during the session**: combo calls end with your fix ("…then pivot out"); after each round it simplifies, pushes harder, or switches the stimulus if fatigue is breaking your technique.
+4. **Judges it afterwards**: the drill's success condition passes or not; two passes move the ladder up, two misses move it down.
+
+Also: combos built on what you already throw, a 4-weekly benchmark (same 3 × 2-min test) to compare months, "my coach disagrees" overrides that the bot remembers, and a plain-language first-run setup.
+
 ## Features
 
 | # | Feature | Where |

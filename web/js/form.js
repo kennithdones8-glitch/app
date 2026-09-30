@@ -15,6 +15,31 @@ export const LM = {
   L_ANK: 27, R_ANK: 28,
 };
 
+// The pose model sometimes swaps the left and right arm for a frame or two when the arms cross,
+// blur or hide each other. Both wrists then "jump" to where the other one was, which looks like
+// two fast punches. If swapping them back fits the previous frame far better, undo the swap.
+const ARM_PAIRS = [[13, 14], [15, 16], [17, 18], [19, 20], [21, 22]];
+export function unswapArms(world, image, prev) {
+  const L = world[LM.L_WR], R = world[LM.R_WR];
+  let swapped = false;
+  if (prev) {
+    const same = dist3(L, prev.l) + dist3(R, prev.r);
+    const cross = dist3(L, prev.r) + dist3(R, prev.l);
+    // Both wrists moved a long way, and each landed where the other one was.
+    if (same > 0.3 && cross < same * 0.35) {
+      swapped = true;
+      const sw = (arr) => {
+        const out = arr.slice();
+        for (const [a, b] of ARM_PAIRS) { out[a] = arr[b]; out[b] = arr[a]; }
+        return out;
+      };
+      world = sw(world);
+      image = sw(image);
+    }
+  }
+  return { world, image, swapped, prev: { l: world[LM.L_WR], r: world[LM.R_WR] } };
+}
+
 export const PUNCH_NAMES = {
   jab: 'Jab', cross: 'Cross',
   leadHook: 'Lead hook', rearHook: 'Rear hook',
@@ -239,7 +264,7 @@ function emptyRound() {
 }
 
 // Punch numbers used by boxers: 1 jab, 2 cross, 3 lead hook, 4 rear hook, 5 lead uppercut, 6 rear uppercut.
-const PUNCH_TYPE = {
+export const PUNCH_TYPE = {
   straight: { lead: 'jab', rear: 'cross' }, hook: { lead: 'leadHook', rear: 'rearHook' }, uppercut: { lead: 'leadUppercut', rear: 'rearUppercut' },
 };
 export const PUNCH_DIGIT = { jab: 1, cross: 2, leadHook: 3, rearHook: 4, leadUppercut: 5, rearUppercut: 6 };
@@ -409,6 +434,11 @@ function travel(path, axis) {
 export const DEFAULT_STRAIGHT_RATIO = 1.8;
 export function classifyPunch(p, axis, cal = null) {
   const { fwd, lat } = travel(p.path || [], axis);
+  return classifyFeatures(p, fwd, lat, cal);
+}
+
+// The same decision from already-measured forward/sideways travel (also used to score saved clips).
+export function classifyFeatures(p, fwd, lat, cal = null) {
   const T = cal?.ratio ?? DEFAULT_STRAIGHT_RATIO;
   const straightish = p.rise < 0.15 && p.ext >= 0.55 && fwd > 0.08 && fwd >= T * lat;
   if ((p.angle >= 145 && p.ext >= 0.8 && p.rise < 0.15) || straightish) {
@@ -548,6 +578,11 @@ export class FormAnalyzer {
       return null;
     }
     this.held('nobody', false, t);
+    const fixed = unswapArms(world, image, this.armPrev && t - this.armPrev.t < 300 ? this.armPrev : null);
+    world = fixed.world;
+    image = fixed.image;
+    this.armPrev = { ...fixed.prev, t };
+    if (fixed.swapped && this.active) this.calib.swaps = (this.calib.swaps || 0) + 1;
     // Up = feet → hips, averaged over time (hips sit over the feet in any stance).
     if ((image[LM.L_ANK]?.visibility ?? 1) > 0.5 && (image[LM.R_ANK]?.visibility ?? 1) > 0.5) {
       const v = norm3({

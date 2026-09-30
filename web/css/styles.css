@@ -243,7 +243,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 
 .tabs {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
-  display: grid; grid-template-columns: repeat(6, 1fr);
+  display: grid; grid-template-columns: repeat(4, 1fr);
   height: calc(var(--tabs-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
@@ -251,7 +251,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
   -webkit-backdrop-filter: saturate(1.4) blur(12px);
   border-top: 1px solid var(--line);
 }
-.tabs a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 0.66rem; font-weight: 600; color: var(--muted); }
+.tabs a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 0.72rem; font-weight: 600; color: var(--muted); }
 .tabs a svg { width: 23px; height: 23px; }
 .tabs a.active { color: var(--accent); }
 
@@ -522,3 +522,37 @@ a.chip { text-decoration: none; color: var(--ink); }
 .howto summary { cursor: pointer; margin-bottom: 6px; }
 .howto ol, .howto ul { margin: 6px 0 8px; padding-left: 20px; }
 .howto li { margin: 4px 0; }
+
+/* Coach me */
+.coachme-btn { display: block; margin: 0 0 12px; padding: 16px 18px; border-radius: var(--radius); background: var(--accent); color: var(--accent-ink); text-decoration: none; box-shadow: var(--shadow); }
+.coachme-btn b { display: block; font-size: 1.2rem; }
+.coachme-btn span { display: block; font-size: 0.85rem; opacity: 0.9; margin-top: 2px; }
+.rowbtn { display: grid; grid-template-columns: 1fr auto; width: 100%; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.rowbtn b { grid-column: 1; }
+.rowbtn span:not(.chev) { grid-column: 1; font-size: 0.82rem; color: var(--muted); }
+.rowbtn .chev { grid-column: 2; grid-row: 1 / 3; align-self: center; font-size: 1.3rem; color: var(--muted); }
+.ready-row .linkbtn { margin-left: auto; align-self: flex-start; }
+.dnt { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+.dnt > div { background: var(--surface-2); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 0.82rem; }
+.dnt > div:first-child { background: var(--good-bg); }
+.dnt > div:last-child { background: var(--bad-bg); }
+.dnt b { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+.weak { border-top: 1px solid var(--line); padding: 10px 0; }
+.weak:first-of-type { border-top: 0; }
+details.why summary { cursor: pointer; margin-top: 2px; }
+details.options > summary { list-style: none; }
+details.options > summary::-webkit-details-marker { display: none; }
+details.options[open] > summary .chev { transform: rotate(90deg); }
+details.options.card > summary { list-style: none; }
+details.options.card > summary::-webkit-details-marker { display: none; }
+details.weak > summary { list-style: none; cursor: pointer; }
+details.weak > summary::-webkit-details-marker { display: none; }
+/* Options rows that open in place */
+summary.card.rowbtn, details.options.card { background: var(--surface); padding: 14px 16px; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 12px; }
+details.options.card > summary.rowbtn { padding: 0; box-shadow: none; margin: 0; }
+/* Many sub-tabs: scroll sideways instead of cutting labels off */
+.subnav[style*="--n:5"], .subnav[style*="--n:6"] { display: flex; overflow-x: auto; scrollbar-width: none; }
+.subnav[style*="--n:5"] a, .subnav[style*="--n:6"] a { flex: 1 0 auto; padding: 8px 12px; overflow: visible; }
+.subnav::-webkit-scrollbar { display: none; }
+details.weak > summary::after { content: '›'; margin-left: 8px; font-size: 1.3rem; color: var(--muted); }
+details.weak[open] > summary::after { transform: rotate(90deg); }

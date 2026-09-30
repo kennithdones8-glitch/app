@@ -3,17 +3,19 @@
 const VERSION = '0.10.14';
 const BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VERSION}`;
 const modelUrl = (size) => `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${size}/float16/1/pose_landmarker_${size}.task`;
-const MODEL = modelUrl('lite'); // live camera: must keep up in real time
+// Live camera: the 'full' model tracks arms noticeably better than 'lite'. It is used when the
+// phone keeps up; if it can't (measured in the first seconds), the tracker drops to 'lite' and
+// remembers that for next time.
+const LIVE_PREF = 'boxcoach.liveModel';
+const livePromises = {};
 
-let landmarkerPromise = null;
-
-export async function getLandmarker() {
-  if (!landmarkerPromise) {
-    landmarkerPromise = (async () => {
+export async function getLandmarker(size = 'lite') {
+  if (!livePromises[size]) {
+    livePromises[size] = (async () => {
       const { FilesetResolver, PoseLandmarker } = await import(`${BASE}/vision_bundle.mjs`);
       const fileset = await FilesetResolver.forVisionTasks(`${BASE}/wasm`);
       const opts = (delegate) => ({
-        baseOptions: { modelAssetPath: MODEL, delegate },
+        baseOptions: { modelAssetPath: modelUrl(size), delegate },
         runningMode: 'VIDEO',
         numPoses: 1,
       });
@@ -23,9 +25,25 @@ export async function getLandmarker() {
         return await PoseLandmarker.createFromOptions(fileset, opts('CPU'));
       }
     })();
-    landmarkerPromise.catch(() => { landmarkerPromise = null; });
+    livePromises[size].catch(() => { delete livePromises[size]; });
   }
-  return landmarkerPromise;
+  return livePromises[size];
+}
+
+// Median time per frame (ms) above which the full model is too slow for live coaching (~22 fps).
+export const LIVE_SLOW_MS = 45;
+// 'lite' is remembered for 14 days, then the full model gets another try (Low Power Mode, a
+// busy phone or an older browser version can make one session slow).
+export function pickLiveModel(storage = globalThis.localStorage, now = Date.now()) {
+  try {
+    const [m, at] = String(storage?.getItem(LIVE_PREF) || '').split('@');
+    return m === 'lite' && now - (+at || 0) < 14 * 86400000 ? 'lite' : 'full';
+  } catch { return 'full'; }
+}
+export function tooSlow(times) {
+  if (times.length < 30) return null;
+  const s = [...times].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)] > LIVE_SLOW_MS;
 }
 
 // Separate instance for video files: up to 2 people (pads/sparring), and its own timestamp
@@ -57,10 +75,29 @@ export function detectVideoFrame(lm, source) {
   return lm.detectForVideo(source, videoLastTs);
 }
 
-const BONES = [
-  [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
-  [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28],
-];
+// What's drawn over the camera: just the two gloves, green when that hand is up at guard height
+// and red when it has dropped. Less clutter than a skeleton, and it shows the one thing a boxer
+// checks at a glance.
+export function gloveState(pts) {
+  const sh = (pts[11].y + pts[12].y) / 2, hip = (pts[23].y + pts[24].y) / 2;
+  const limit = sh + (hip - sh) * 0.3; // a little below the shoulders still counts as up
+  return [15, 16].map((i) => ({ i, up: pts[i].y <= limit, seen: (pts[i].visibility ?? 1) >= 0.5 }));
+}
+
+export function drawGloves(g, pts, w, h, { dim = false } = {}) {
+  const shW = Math.hypot((pts[11].x - pts[12].x) * w, (pts[11].y - pts[12].y) * h);
+  const r = Math.max(8, shW * 0.22);
+  for (const { i, up, seen } of gloveState(pts)) {
+    if (!seen) continue;
+    g.beginPath();
+    g.arc(pts[i].x * w, pts[i].y * h, r, 0, Math.PI * 2);
+    g.fillStyle = dim ? 'rgba(255,255,255,0.35)' : up ? 'rgba(34,197,94,0.55)' : 'rgba(239,68,68,0.6)';
+    g.fill();
+    g.lineWidth = Math.max(2, r * 0.18);
+    g.strokeStyle = dim ? 'rgba(255,255,255,0.6)' : up ? '#22c55e' : '#ef4444';
+    g.stroke();
+  }
+}
 
 export class PoseTracker {
   constructor(video, canvas) {
@@ -85,7 +122,14 @@ export class PoseTracker {
     this.video.classList.toggle('mirror', facing === 'user');
     this.canvas.classList.toggle('mirror', facing === 'user');
     await this.video.play();
-    this.landmarker = await getLandmarker();
+    this.model = pickLiveModel();
+    try {
+      this.landmarker = await getLandmarker(this.model);
+    } catch {
+      this.model = 'lite';
+      this.landmarker = await getLandmarker('lite');
+    }
+    this.times = [];
     this.running = true;
     this._lastVideoTime = -1;
     this._loop();
@@ -108,6 +152,7 @@ export class PoseTracker {
       } catch {
         res = null;
       }
+      this._checkSpeed(performance.now() - t);
       const image = res?.landmarks?.[0] || null;
       const world = res?.worldLandmarks?.[0] || null;
       this._draw(image);
@@ -115,6 +160,17 @@ export class PoseTracker {
     }
     this._raf = requestAnimationFrame(this._loop);
   };
+
+  // Too slow for the full model? Switch to lite for the rest of this and future sessions.
+  _checkSpeed(ms) {
+    if (this.model !== 'full' || this.switching || this.times.length >= 60) return;
+    this.times.push(ms);
+    if (tooSlow(this.times)) {
+      this.switching = true;
+      try { localStorage.setItem(LIVE_PREF, `lite@${Date.now()}`); } catch { /* private mode */ }
+      getLandmarker('lite').then((lm) => { this.landmarker = lm; this.model = 'lite'; }).catch(() => {}).finally(() => { this.switching = false; });
+    }
+  }
 
   _draw(pts) {
     const c = this.canvas;
@@ -125,22 +181,7 @@ export class PoseTracker {
     }
     const g = c.getContext('2d');
     g.clearRect(0, 0, c.width, c.height);
-    if (!pts) return;
-    g.lineWidth = 4;
-    g.strokeStyle = 'rgba(255,255,255,0.85)';
-    for (const [a, b] of BONES) {
-      if ((pts[a].visibility ?? 1) < 0.5 || (pts[b].visibility ?? 1) < 0.5) continue;
-      g.beginPath();
-      g.moveTo(pts[a].x * c.width, pts[a].y * c.height);
-      g.lineTo(pts[b].x * c.width, pts[b].y * c.height);
-      g.stroke();
-    }
-    g.fillStyle = '#ff3b3b';
-    for (const i of [15, 16]) {
-      g.beginPath();
-      g.arc(pts[i].x * c.width, pts[i].y * c.height, 9, 0, Math.PI * 2);
-      g.fill();
-    }
+    if (pts) drawGloves(g, pts, c.width, c.height);
   }
 
   stopCamera() {

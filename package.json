@@ -6,6 +6,7 @@
   "description": "Boxing workout tracker and form coach (installable web app)",
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "start": "python3 -m http.server 8080 --directory web"
+    "start": "python3 -m http.server 8080 --directory web",
+    "accuracy": "node scripts/accuracy.mjs"
   }
 }

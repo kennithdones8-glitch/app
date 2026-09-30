@@ -7,14 +7,15 @@ import { lineChart } from '../chart.js';
 import { $, $$, esc, shortDate, subnav, subOf, deltaHTML, confDot, scoreClass, toast, pageHead } from '../ui.js';
 import { newId } from '../store.js';
 
-const SUBS = [['skills', 'Skills'], ['analysis', 'Analysis'], ['style', 'Style'], ['timeline', 'Timeline'], ['charts', 'Charts']];
+// Progress tab: session history first, then what the sessions add up to.
+export const PROGRESS_SUBS = [['history', 'History'], ['skills', 'Skills'], ['analysis', 'Analysis'], ['style', 'Style'], ['charts', 'Charts'], ['timeline', 'Timeline']];
 
 export function renderBoxer(view, app) {
   const sub = subOf('skills');
   const ctx = app.model();
   const body = { skills, analysis, style, timeline, charts }[sub] || skills;
   const measured = ctx.skills.filter((x) => x.confidence !== 'none').length;
-  view.innerHTML = `${pageHead('Your boxing', { eyebrow: `${measured} of 18 skills measured${ctx.skills.length ? ` · ${esc(ctx.phase.name)}` : ''}`, nav: subnav('boxer', SUBS, sub) })}<div id="boxerBody"></div>`;
+  view.innerHTML = `${pageHead('Your boxing', { eyebrow: `${measured} of 18 skills measured${ctx.skills.length ? ` · ${esc(ctx.phase.name)}` : ''}`, nav: subnav('progress', PROGRESS_SUBS, sub) })}<div id="boxerBody"></div>`;
   body($('#boxerBody'), app, ctx);
 }
 

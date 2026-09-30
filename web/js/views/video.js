@@ -8,6 +8,8 @@ import { comboLabel, comboText, parseCombo, STARTERS } from '../combos.js';
 import { calibrateFromCombo } from '../calibrate.js';
 import { saveReference } from './study.js';
 import { takePreset } from './handoff.js';
+import { drawGloves } from '../pose.js';
+import { buildReport } from '../report.js';
 import { FrameSheets, aiKey, checkWithClaude, applyAi, AI_MODELS } from '../aicheck.js';
 
 let job = null; // { analyzer, events, rounds, meta } after analysis
@@ -46,7 +48,7 @@ export function renderVideo(el, app) {
           <li>Good light, and iPhone Settings → Camera → Record Video → <b>1080p at 60 fps</b>: less blur on fast hands than 4K.</li>
         </ul>
       </details>
-      <div class="msg" style="margin:0 0 12px">📋 Want Claude to review it? After the analysis you can save frames of the video to attach in your Claude chat. After saving the session, open it in <b>Log</b> and tap <b>Copy report for coach</b> to paste the measurements too.</div>
+      <div class="msg" style="margin:0 0 12px">📋 Want Claude to check it? When the analysis finishes, tap <b>Copy report + save photos</b>, then paste and attach them in your Claude chat.</div>
       <form id="vidForm" class="form">
         <label>Video<input type="file" name="file" accept="video/*" required></label>
         <label>Whose video?<select name="subject">${opt('me', 'me', 'Me')}${opt('pro', 'me', 'A pro to compare against')}</select></label>
@@ -174,8 +176,8 @@ function nextFrame(video, ms = 3000) {
   });
 }
 
-const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
-
+// Over the video: a rounded box around each person (the one being followed in red) and the
+// tracked boxer's gloves. Clearer than skeleton lines, and a box is easy to tap.
 function drawPeople(canvas, video, people, chosen) {
   // Overlay at most 720 px too: a 4K canvas redrawn every frame is heavy on a phone.
   const k = Math.min(1, 720 / Math.max(video.videoWidth || 1, video.videoHeight || 1));
@@ -184,14 +186,21 @@ function drawPeople(canvas, video, people, chosen) {
   const g = canvas.getContext('2d');
   g.clearRect(0, 0, canvas.width, canvas.height);
   people.forEach((pts, i) => {
-    g.strokeStyle = i === chosen ? '#ff4655' : 'rgba(255,255,255,0.45)';
-    g.lineWidth = Math.max(3, canvas.width / 160);
-    for (const [a, b] of BONES) {
-      g.beginPath();
-      g.moveTo(pts[a].x * canvas.width, pts[a].y * canvas.height);
-      g.lineTo(pts[b].x * canvas.width, pts[b].y * canvas.height);
-      g.stroke();
-    }
+    const seen = pts.filter((p) => (p.visibility ?? 1) > 0.3);
+    if (seen.length < 5) return;
+    const xs = seen.map((p) => p.x * cw), ys = seen.map((p) => p.y * ch);
+    const pad = cw * 0.03;
+    const x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad, x1 = Math.max(...xs) + pad, y1 = Math.max(...ys) + pad;
+    const on = i === chosen;
+    if (chosen >= 0 && !on) return; // once you're picked, only you are marked
+    g.lineWidth = Math.max(3, cw / 180);
+    g.strokeStyle = on ? '#ff4655' : 'rgba(255,255,255,0.7)';
+    g.setLineDash(on || chosen >= 0 ? [] : [10, 8]);
+    g.beginPath();
+    g.roundRect ? g.roundRect(x0, y0, x1 - x0, y1 - y0, 14) : g.rect(x0, y0, x1 - x0, y1 - y0);
+    g.stroke();
+    g.setLineDash([]);
+    if (on) drawGloves(g, pts, cw, ch);
   });
 }
 
@@ -463,9 +472,9 @@ function renderReview(el, app) {
       <label class="switch"><input type="checkbox" id="uncertain" ${uncertainOnly ? 'checked' : ''}> <span>Only show uncertain (&lt;70%)</span></label>
     </section>
     ${j.sheets?.length ? `<section class="card">
-      <h3 style="margin-top:0">Get every punch checked for free</h3>
-      <p class="muted small">Save ${j.sheets.length} photo${j.sheets.length === 1 ? '' : 's'} of this video (your upper body, frame by frame, with times). Attach them in your Claude chat together with the report from this session (Log → Copy report for coach). Claude labels every punch, and the app learns from it.</p>
-      <button class="btn ghost block" id="saveFrames" type="button">📸 Save frames for Claude chat</button>
+      <h3 style="margin-top:0">Send to Claude (free)</h3>
+      <p class="muted small">One tap copies this video's report and saves ${j.sheets.length} photo${j.sheets.length === 1 ? '' : 's'} of it (your upper body, frame by frame, with times): choose <b>Save Images</b>. Then in your Claude chat, paste the report and attach the photos. Claude checks every punch, and the app learns from it.</p>
+      <button class="btn primary block" id="saveFrames" type="button">📤 Copy report + save photos</button>
     </section>` : ''}
     ${filmingTips(j) ? `<section class="card"><div class="msg">${filmingTips(j)}</div></section>` : ''}
     ${j.tracked < 30 ? `<section class="card"><div class="msg behind"><b>I could barely see you in this video.</b> Try: whole body in frame (head to feet), steadier camera, better light, or re-run and tap yourself carefully if someone else is in the shot. You can also use Fast/Normal detail on long clips.</div></section>` : ''}
@@ -493,7 +502,7 @@ function renderReview(el, app) {
       .filter(Boolean));
     j.files.then((f) => { j.filesReady = f; });
   }
-  $('#saveFrames', el)?.addEventListener('click', () => saveFrames(j));
+  $('#saveFrames', el)?.addEventListener('click', () => sendToClaude(j, app));
   $('#aiRetry', el)?.addEventListener('click', () => runAi(el, app));
   if (j.ai?.state === 'pending') runAi(el, app);
   $('#uncertain', el).addEventListener('change', (e) => { el.dataset.uncertain = e.target.checked ? '1' : ''; renderReview(el, app); });
@@ -533,18 +542,32 @@ function renderReview(el, app) {
   });
 }
 
+// Report (with the boxer's edits so far) to the clipboard and the frames to the share sheet, in one
+// tap. Both are started straight from the tap: iPhone only allows either from a tap.
+function sendToClaude(j, app) {
+  let copied = null;
+  try {
+    const text = buildReport(buildSession(j), app.state, app.version);
+    copied = navigator.clipboard?.writeText(text).then(() => true, () => false) ?? null; // refused copy is handled, never thrown
+  } catch { copied = null; }
+  saveFrames(j, copied);
+}
+
 // Share the contact sheets (iPhone: Save Images to Photos), or download them where sharing files isn't possible.
-async function saveFrames(j) {
+async function saveFrames(j, copied = null) {
   const files = j.filesReady;
-  if (!files) return toast('Getting the photos ready. Tap again in a moment.');
-  if (!files.length) return toast('No frames were captured.');
+  const copyNote = async () => ((await copied) ? 'Report copied. ' : '');
+  if (!files) return toast(`${await copyNote()}Getting the photos ready. Tap again in a moment.`);
+  if (!files.length) return toast(`${await copyNote()}No frames were captured.`);
   // Called with no await before it, so the tap still counts for the share sheet.
   if (navigator.canShare?.({ files })) {
     try {
       await navigator.share({ files, title: 'BoxCoach frames' });
+      toast(`${await copyNote()}Now paste the report and attach the photos in your Claude chat.`);
       return;
     } catch (err) {
       if (err?.name === 'AbortError') return;
+      if (err?.name === 'NotAllowedError') return toast(`${await copyNote()}Tap the button once more to save the photos.`);
     }
   }
   for (const f of files) {
@@ -555,7 +578,7 @@ async function saveFrames(j) {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     await new Promise((r) => setTimeout(r, 250));
   }
-  toast(`Saved ${files.length} photos.`);
+  toast(`${await copyNote()}Saved ${files.length} photos.`);
 }
 
 // What to change next time, from what the analysis measured.

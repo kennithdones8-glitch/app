@@ -19,7 +19,10 @@ import { fatigueMap } from './analysis.js';
 import { $, $$, esc, fmtDate, shortDate, toast, scoreClass, scoreChip, subnav, subOf, pageHead } from './ui.js';
 import { reviewFieldsHTML, bindReview, readReview } from './views/review.js';
 import { buildReport, reportSize } from './report.js';
-import { renderBoxer } from './views/boxer.js';
+import { safetyNotes, isStandalone, isIOS, askPersist } from './safety.js';
+import { adjustNextRound, evaluateCoached, applyEvaluation, drillFor, BENCHMARK, applyOnboarding, ONBOARD, EQUIPMENT } from './coachme.js';
+import { renderCoachMe } from './views/coachme.js';
+import { renderBoxer, PROGRESS_SUBS } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
 import { renderVideo, videoBusy, trustedCal } from './views/video.js';
 import { renderCombos, comboHTML } from './views/combos.js';
@@ -37,7 +40,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.30-7';
+export const APP_VERSION = '2026.09.30-11';
 
 const app = {
   version: APP_VERSION,
@@ -50,6 +53,9 @@ const app = {
     return modelCache.ctx;
   },
   rebuildPlan: () => rebuildPlan(currentPlan().gymDays),
+  // Start a Coach-me session (or the benchmark). The camera is on unless the boxer turned it off.
+  startCoached: (plan) => startSession({ tracking: state.settings.tracking === 'none' ? 'none' : 'camera', focus: null, ...plan }),
+  startBenchmark: () => startSession({ ...structuredClone(BENCHMARK), tracking: 'camera', focus: null }),
   showSummary: (s) => { s.scores = scoreSession(s, state.profile); renderSummary(s); },
   // Open the live-session setup with your combos (or just some of them) being called.
   drillCombos: (ids) => {
@@ -63,9 +69,12 @@ const app = {
 // Routing
 
 const routes = {
-  home: renderHome, plan: renderPlan, train: renderTrain, log: renderLog,
-  boxer: () => renderBoxer(view, app), coach: () => renderCoach(view, app),
-  progress: () => { location.hash = '#boxer/charts'; },
+  home: renderHome, plan: renderPlan, train: renderTrain,
+  progress: () => (subOf('history') === 'history' ? renderLog() : renderBoxer(view, app)),
+  // Older links: the Log and Boxer tabs are now Progress.
+  log: () => location.replace(`#progress/history${location.hash.split('/')[1] ? `/${location.hash.split('/')[1]}` : ''}`),
+  boxer: () => location.replace(`#progress/${location.hash.split('/')[1] || 'skills'}`),
+  coach: () => renderCoach(view, app), coachme: () => renderCoachMe(view, app),
 };
 
 // A finished session waiting on the summary screen. Leaving it any way other than Discard saves it,
@@ -86,7 +95,8 @@ function route() {
   savePendingSummary();
   const name = (location.hash.slice(1) || 'home').split('/')[0];
   const fn = routes[name] || renderHome;
-  $$('.tabs a').forEach((a) => a.classList.toggle('active', a.dataset.tab === name));
+  const tab = { plan: 'home', coachme: 'home', log: 'progress', boxer: 'progress' }[name] || name;
+  $$('.tabs a').forEach((a) => a.classList.toggle('active', a.dataset.tab === tab));
   fn();
   renderStreak();
   window.scrollTo(0, 0);
@@ -104,7 +114,8 @@ function renderStreak() {
 // ---------------------------------------------------------------------------
 // Today
 
-let showToday = false;
+let showCheckin = false;
+let trainOptsOpen = false;
 
 const STATUS_WORD = { fresh: 'Fresh', normal: 'Ready to train', strained: 'Go lighter today', deload: 'Deload needed' };
 
@@ -131,19 +142,20 @@ function renderHome() {
   if (day.priorities.congested) notes.push(['⚠️', 'Too many priorities at once', `${day.priorities.all.length - (state.paused || []).length} active — focus on the top 3`, '#coach/priorities']);
   if (ctx.proposals.length) notes.push(['🧪', 'I have a hypothesis to test', ctx.proposals[0].text, '#coach/hypotheses']);
   if (ws?.status === 'fast' || ws?.status === 'behind') notes.push(['⚖️', ws.status === 'fast' ? 'Cutting weight too fast' : 'Weight trending above target', ws.message, '#plan/weight']);
+  notes.unshift(...safetyNotes({ standalone: isStandalone(), ios: isIOS(), sessions: sessions.length, lastBackup: state.settings.lastBackup }));
   const decay = ctx.decay[0];
-  if (decay) notes.push(['📉', decay.kind === 'fatigue' ? 'Breaks down under fatigue' : 'Technical weakness', decay.text, '#boxer/analysis']);
+  if (decay) notes.push(['📉', decay.kind === 'fatigue' ? 'Breaks down under fatigue' : 'Technical weakness', decay.text, '#progress/analysis']);
 
   view.innerHTML = `
     ${pageHead('Today', { eyebrow: esc(dateLine) })}
+    <a class="coachme-btn" href="#coachme"><b>🥊 Coach me</b><span>Today: ${esc(day.objective)}</span></a>
 
-    ${!sessions.length ? `
+    ${!sessions.length && !profile.onboarded ? onboardHTML() : !sessions.length ? `
       <section class="card hero">
         <h2>Welcome${profile.name ? `, ${esc(profile.name)}` : ''} 👊</h2>
         <p>Every session, sparring round and coach note becomes evidence about your boxing. The plan is built from that.</p>
         <ol class="steps">
-          <li>Do the check-in below.</li>
-          <li>Run a camera session from <a href="#train">Train</a> so I can measure you.</li>
+          <li>Tap <b>Coach me</b> and do the session with the camera on.</li>
           <li>Log sparring and your coach's feedback.</li>
         </ol>
       </section>` : ''}
@@ -153,22 +165,11 @@ function renderHome() {
         <div class="ready-row">
           <div class="ring ${rec.status}" style="--v:${rec.readiness ?? 0}"><b>${rec.readiness ?? '–'}</b></div>
           <div class="ready-text"><b>${esc(STATUS_WORD[rec.status])}</b><span>${esc(rec.advice)}</span></div>
+          <button class="linkbtn small" id="redoCheckin">Edit</button>
         </div>
-        ${rec.reasons.length ? `<ul class="small">${rec.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
-        <div class="card-head" style="margin-top:10px"><span class="muted small">Load ${rec.load.acute} this week${rec.load.ratio != null ? ` · ${rec.load.ratio}× usual` : ''}</span><button class="linkbtn small" id="redoCheckin">Edit check-in</button></div>`
-        : `<div class="card-head"><h2>Morning check-in</h2><span class="muted small">30 seconds</span></div>${checkinForm()}`}
-    </section>
-
-    <section class="card objective">
-      <div class="eyebrow">What should I train today?</div>
-      <h2>${esc(day.objective)}</h2>
-      ${day.why[0] ? `<p class="small muted">${esc(day.why[0])}</p>` : ''}
-      <div class="meta"><span>${day.minutes} min</span>${day.priorityOrder.map((c) => `<span>${esc(c)}</span>`).join('')}</div>
-      ${showToday ? todayHTML(day) : ''}
-      <div class="row2" style="margin-top:12px">
-        <button class="btn ghost" id="whatToday">${showToday ? 'Hide plan' : 'Session plan'}</button>
-        <button class="btn primary" id="startToday">Start rounds</button>
-      </div>
+        ${rec.reasons.length ? `<details class="howto"><summary class="small">Why</summary><ul class="small">${rec.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul><p class="small muted">Load ${rec.load.acute} this week${rec.load.ratio != null ? ` · ${rec.load.ratio}× usual` : ''}</p></details>` : ''}`
+        : showCheckin ? `<div class="card-head"><h2>Morning check-in</h2><button class="linkbtn small" id="hideCheckin">Later</button></div>${checkinForm()}`
+        : '<button class="rowbtn" id="openCheckin" type="button"><b>Morning check-in</b><span>Sleep, soreness, motivation · 30 s</span><span class="chev">›</span></button>'}
     </section>
 
     <section class="card">
@@ -179,7 +180,7 @@ function renderHome() {
     ${notes.length ? `
     <section class="card">
       <h2>Coach notes</h2>
-      <ul class="rows notes-list">${notes.slice(0, 4).map(([ico, title, sub, href]) => `
+      <ul class="rows notes-list">${notes.slice(0, 2).map(([ico, title, sub, href]) => `
         <li><span class="row-ico">${ico}</span><a class="row-main" href="${href}" style="color:inherit;font-weight:400"><b>${esc(title)}</b><span>${esc(sub)}</span></a><span class="chev">›</span></li>`).join('')}</ul>
     </section>` : ''}
 
@@ -194,28 +195,41 @@ function renderHome() {
       <div class="bar"><div style="width:${Math.min(100, (wk.days / profile.weeklyGoal) * 100)}%"></div></div>
     </section>`;
 
-  $('#whatToday').addEventListener('click', () => { showToday = !showToday; renderHome(); });
-  $('#startToday').addEventListener('click', () => {
-    startSession({
-      type: 'shadow', rounds: day.rounds.length, roundSec: 180, restSec: 60, tracking: state.settings.tracking === 'motion' ? 'camera' : state.settings.tracking,
-      combos: true, comboLevel: 3, focus: state.memory.focus?.area || null, rounds_: day.rounds,
-    });
-  });
+  $('#openCheckin')?.addEventListener('click', () => { showCheckin = true; renderHome(); });
+  $('#hideCheckin')?.addEventListener('click', () => { showCheckin = false; renderHome(); });
   $('#redoCheckin')?.addEventListener('click', () => {
     state.checkins = state.checkins.filter((c) => c.date !== today);
     persist();
     renderHome();
   });
   bindCheckin();
+  $('#onboard')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target;
+    state.profile = applyOnboarding(state.profile, { want: f.want.value, experience: f.experience.value, hand: f.hand.value, days: f.days.value });
+    state.coach.equipment = [...f.querySelectorAll('[name=eq]:checked')].map((x) => x.value);
+    rebuildPlan(currentPlan().gymDays);
+    persist();
+    toast('Set up. Tap Coach me whenever you train.');
+    renderHome();
+  });
 }
 
-function todayHTML(d) {
+// First open: plain questions, no boxing words needed.
+function onboardHTML() {
+  const radios = (name, obj, first) => Object.entries(obj).map(([k, v], i) => `<label class="radio"><input type="radio" name="${name}" value="${k}" ${i === first ? 'checked' : ''}> <span>${esc(v)}</span></label>`).join('');
   return `
-    <div class="today">
-      ${d.why.length > 1 ? `<p class="small"><b>Why:</b> ${d.why.slice(1).map(esc).join(' ')}</p>` : ''}
-      <ol class="blocks">${d.blocks.map((b) => `<li><b>${esc(b.name)}</b> <span class="muted small">· ${b.minutes} min</span><br><span class="small muted">${esc(b.detail)}</span></li>`).join('')}</ol>
-      ${d.avoid.length ? `<h3>Do not add</h3><ul class="avoid">${d.avoid.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>` : ''}
-    </div>`;
+    <section class="card hero">
+      <h2>Welcome 👊 Four quick questions</h2>
+      <form id="onboard" class="form">
+        <fieldset><legend>What do you want most?</legend>${radios('want', ONBOARD.want, 1)}</fieldset>
+        <fieldset><legend>How much have you boxed?</legend>${radios('experience', ONBOARD.experience, 0)}</fieldset>
+        <fieldset><legend>Which hand do you write with?</legend>${radios('hand', ONBOARD.hand, 0)}</fieldset>
+        <label>Days a week you can train<select name="days">${[2, 3, 4, 5, 6].map((n) => `<option ${n === 3 ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <fieldset><legend>What do you have? (tick any)</legend>${Object.entries(EQUIPMENT).filter(([k]) => k !== 'none').map(([k, v]) => `<label class="switch"><input type="checkbox" name="eq" value="${k}"> <span>${esc(v)}</span></label>`).join('')}</fieldset>
+        <button class="btn primary block" type="submit">Set me up</button>
+      </form>
+    </section>`;
 }
 
 function checkinForm() {
@@ -291,6 +305,8 @@ function renderTrain() {
           <label>Rest<select name="restSec">${rests.map((s) => opt(s, draft.restSec, fmt(s))).join('')}</select></label>
         </div>
       </section>
+      <details class="options" ${trainOptsOpen ? 'open' : ''}>
+      <summary class="card rowbtn"><b>Options</b><span id="optSummary"></span><span class="chev">›</span></summary>
       <section class="card form">
         <h2>Rounds</h2>
         <label class="switch"><input type="checkbox" name="constraints" ${draft.constraints ? 'checked' : ''}> <span>Constraint rounds</span></label>
@@ -314,6 +330,7 @@ function renderTrain() {
             <span><b>Timer only</b> — rounds and effort, optional tap counting.</span></label>
         </fieldset>
       </section>
+      </details>
       <button class="btn primary block big" type="submit">Start · <span id="totalTime"></span></button>
     </form>`;
 
@@ -327,11 +344,13 @@ function renderTrain() {
       comboIds: draft.comboIds, constraints: fd.get('constraints') === 'on',
     };
     $('#totalTime').textContent = fmt(draft.rounds * draft.roundSec + (draft.rounds - 1) * draft.restSec);
+    $('#optSummary').textContent = [{ camera: 'Camera coach', motion: 'Motion sensor', none: 'Timer only' }[draft.tracking], draft.constraints ? 'constraint rounds' : null, draft.combos ? 'combos called' : null].filter(Boolean).join(' · ');
     const usable = draft.constraints && ['shadow', 'bag', 'mitts'].includes(draft.type);
     rounds = usable ? generateFor(draft.rounds, ctx) : [];
     $('#roundPreview').innerHTML = rounds.length ? `<ol class="blocks">${rounds.map((r) => `<li><b>${esc(CONSTRAINTS[r.constraint].name)}</b>${r.opponent ? ` <span class="muted small">vs ${esc(OPPONENTS[r.opponent].name.toLowerCase())}</span>` : ''}<br><span class="small muted">${esc(r.why)}</span></li>`).join('')}</ol>` : '';
   };
   form.addEventListener('change', sync);
+  $('.options', form).addEventListener('toggle', (e) => { trainOptsOpen = e.target.open; });
   sync();
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -400,6 +419,7 @@ async function startSession(plan) {
     byType: tracking === 'camera' ? { jab: 0, cross: 0, leadHook: 0, rearHook: 0, leadUppercut: 0, rearUppercut: 0 } : null,
     completedRounds: 0, comboTimer: null, burstTimers: [], stopMotion: null, analyzer: null, tracker: null, wakeLock: null,
     medThreshold: med?.threshold || null, medCued: false, calls: [], callResults: [], lastComboId: null,
+    roundCalls: [], maxLen: null, adjustments: [], callN: 0,
   };
 
   try { live.wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* optional */ }
@@ -500,7 +520,8 @@ function closeRound() {
   live.perRound.push(live.roundPunches);
   if (live.analyzer) {
     live.formRounds.push(live.analyzer.endRound());
-    live.callResults.push(...judgeCalls(live.calls, live.analyzer.round.punchLog));
+    live.roundCalls = judgeCalls(live.calls, live.analyzer.round.punchLog);
+    live.callResults.push(...live.roundCalls);
   }
   live.calls = [];
   live.roundPunches = 0;
@@ -560,7 +581,9 @@ function onPhase(phase, round) {
     audio.vibrate([200, 100, 200]);
     live.completedRounds = round;
     closeRound();
-    const msg = roundReport(round);
+    let msg = roundReport(round);
+    const adj = adaptNextRound(round);
+    if (adj) msg += ` ${adj}`;
     showCue(msg);
     showConstraint(roundPlan(round + 1));
     setTimeout(() => audio.say(msg, { interrupt: true }), 1500);
@@ -573,6 +596,20 @@ function onPhase(phase, round) {
     finishSession();
   }
   updateClock();
+}
+
+// Between rounds: simplify, push harder, or switch the stimulus, from how the round went.
+function adaptNextRound(round) {
+  if (!live || round >= live.timer.rounds || !live.plan.combos) return null;
+  const form = live.formRounds[live.formRounds.length - 1];
+  const a = adjustNextRound({ form, first: live.formRounds[0], calls: live.roundCalls, coach: live.plan.coach, comboLevel: live.plan.comboLevel });
+  if (a.action === 'keep') return null;
+  if (typeof live.plan.comboLevel === 'number') live.plan.comboLevel = a.comboLevel;
+  live.maxLen = a.maxLen;
+  const next = live.plan.rounds_?.[round];
+  if (a.switchTo && next) Object.assign(next, { constraint: a.switchTo, why: 'Switched: fatigue was breaking your technique.' });
+  live.adjustments.push([round, a.action]);
+  return a.say;
 }
 
 function showConstraint(rp) {
@@ -599,18 +636,28 @@ function scheduleCombos(rp) {
     const mine = level === 'only' ? state.combos.filter((x) => live.plan.comboIds?.includes(x.id)) : state.combos;
     const useMine = mine.length && (level === 'mine' || level === 'only' || (level === 'mix' && Math.random() < 0.5));
     let tokens = null, text, speech;
-    if (useMine) {
-      const pick = pickCombo(mine, live.lastComboId);
-      live.lastComboId = pick.id;
-      tokens = pick.tokens;
-    } else {
-      if (opp && Math.random() < 0.3) text = opp.prompts[Math.floor(Math.random() * opp.prompts.length)];
-      else if (c?.combos) text = c.combos[Math.floor(Math.random() * c.combos.length)];
-      else text = nextCombo(typeof level === 'number' ? level : 3, live.plan.focus);
-      tokens = parseCombo(text);
+    // After a hard round the adjuster may cap combos at two punches; try a few picks to respect it.
+    const fits = (tk) => !live.maxLen || !tk || tk.filter((x) => /^[1-6]b?$/.test(x)).length <= live.maxLen;
+    for (let tries = 0; tries < 6; tries++) {
+      if (useMine) {
+        const pick = pickCombo(mine, live.lastComboId);
+        live.lastComboId = pick.id;
+        tokens = pick.tokens;
+        text = null;
+      } else {
+        if (opp && Math.random() < 0.3) text = opp.prompts[Math.floor(Math.random() * opp.prompts.length)];
+        else if (c?.combos) text = c.combos[Math.floor(Math.random() * c.combos.length)];
+        else text = nextCombo(live.maxLen ? 1 : typeof level === 'number' ? level : 3, live.plan.focus);
+        tokens = parseCombo(text);
+      }
+      if (fits(tokens)) break;
     }
     if (tokens) { text = comboText(tokens); speech = comboSpeech(tokens); } else speech = comboToSpeech(text);
-    $('#liveCombo').innerHTML = tokens ? comboHTML(tokens) : esc(text);
+    // Next-rep coaching: every other call ends with the fix you're working on.
+    let finisher = live.plan.coach?.finisher && live.callN++ % 2 === 0 ? live.plan.coach.finisher : null;
+    if (finisher && finisher.split(/[ ,]+/).some((w) => w.length > 3 && String(text).toLowerCase().includes(w))) finisher = null; // the call already says it
+    if (finisher) speech += `, ${finisher}`;
+    $('#liveCombo').innerHTML = (tokens ? comboHTML(tokens) : esc(text)) + (finisher ? ` <span class="small">→ ${esc(finisher)}</span>` : '');
     audio.say(speech, { rate: 1.3, interrupt: true }); // a call you don't hear can't be judged
     // With the camera on, remember the call so we can check what was actually thrown.
     if (tokens && live.analyzer) live.calls.push({ t: performance.now(), key: comboKey(tokens), digits: punchDigits(tokens) });
@@ -654,6 +701,7 @@ function teardownLive() {
 function finishSession() {
   if (!live) return;
   const l = live;
+  l.liveModel = l.tracker?.model || null;
   const t = l.timer;
   const constraints = (l.plan.rounds_ || []).slice(0, l.completedRounds).map((r, i) => {
     const f = l.formRounds[i];
@@ -671,8 +719,11 @@ function finishSession() {
     intensity: l.intensity.length ? Math.round(l.intensity.reduce((a, b) => a + b, 0) / l.intensity.length) : null,
     form: l.formRounds.some((r) => r.frames > 30) ? combineRounds(l.formRounds) : null,
     constraints: constraints.length ? constraints : undefined,
-    calib: l.analyzer?.calib.frames ? l.analyzer.calib : undefined,
+    calib: l.analyzer?.calib.frames ? { ...l.analyzer.calib, model: l.liveModel || undefined } : undefined,
     comboCalls: l.callResults.length ? l.callResults.slice(0, 400) : undefined,
+    coach: l.plan.coach ? { ...l.plan.coach } : undefined,
+    benchmark: l.plan.benchmark || undefined,
+    adjustments: l.adjustments.length ? l.adjustments : undefined,
     rpe: 7, notes: '',
   };
   teardownLive();
@@ -777,6 +828,19 @@ function sessionDetailHTML(s, fb) {
     ${s.notes ? `<p class="notes">${esc(s.notes)}</p>` : ''}`;
 }
 
+// Coach-me result on the summary: the drill's success condition and what happens next.
+function coachedHTML(session) {
+  if (!session.coach) return session.benchmark ? '<div class="pr">📏 Benchmark done: compare it in Coach me.</div>' : '';
+  const ev = evaluateCoached(session, session.coach);
+  if (!ev) return '';
+  const l = state.coach?.levels?.[ev.root] || { level: 1, pass: 0, fail: 0 };
+  const next = ev.pass == null ? '' : ev.pass
+    ? (l.pass + 1 >= 2 && ev.level < 4 ? ` Next session: level ${ev.level + 1}, ${drillFor(ev.root, ev.level + 1).name}.` : ' One more pass like this and the drill levels up.')
+    : (l.fail + 1 >= 2 && ev.level > 1 ? ` Next session: back to ${drillFor(ev.root, ev.level - 1).name} to rebuild it.` : ' Same level next time.');
+  const adj = (session.adjustments || []).map(([r, a]) => `after R${r}: ${a}`).join(', ');
+  return `<div class="pr ${ev.pass === false ? 'warn' : ''}">🎯 ${esc(session.coach.drill)} (level ${ev.level}): ${esc(ev.text)}${esc(next)}${adj ? `<br><span class="small">Adjusted live ${esc(adj)}.</span>` : ''}</div>`;
+}
+
 function renderSummary(session) {
   const { memory: preview, events } = updateMemory(state.memory, session, state.profile);
   const fb = feedback(session, state.sessions, preview, state.profile);
@@ -788,6 +852,7 @@ function renderSummary(session) {
       ${events.newPRs.length ? `<div class="pr">🏆 New personal record: ${events.newPRs.map(esc).join(', ')}</div>` : ''}
       ${events.resolved.length ? `<div class="pr">✅ Habit fixed: ${events.resolved.map((k) => esc(INSIGHTS[k].text)).join(' ')}</div>` : ''}
       ${events.confirmed.length ? `<div class="pr warn">🧠 I'm noticing a pattern: ${events.confirmed.map((k) => esc(INSIGHTS[k].text)).join(' ')}</div>` : ''}
+      ${coachedHTML(session)}
       ${sessionDetailHTML(session, fb)}
     </section>
     <section class="card">
@@ -867,6 +932,11 @@ function saveSession(session) {
   session.scores = session.type in BOXING_TYPES ? scoreSession(session, state.profile) : {};
   const { memory } = updateMemory(state.memory, session, state.profile);
   session.feedback = feedback(session, state.sessions, memory, state.profile);
+  if (session.coach) {
+    const ev = evaluateCoached(session, session.coach);
+    session.coach.eval = ev;
+    state.coach = applyEvaluation(state.coach, ev, session.date);
+  }
   state.memory = memory;
   state.sessions.push(session);
   state.sessions.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -958,7 +1028,7 @@ function planItemHTML(it, st) {
         <p>${esc(it.detail)}${it.rescheduled ? ` <i>(moved from ${DAY_NAMES[(new Date(it.from + 'T12:00:00').getDay() + 6) % 7]})</i>` : ''}</p>
       </div>
       ${canStart ? `<button class="btn primary" data-action="start-item" data-id="${it.id}">Start</button>`
-        : canLog ? `<a class="btn ghost" href="#log/${LOG_TYPE[it.kind] || 'conditioning'}">Log</a>` : ''}
+        : canLog ? `<a class="btn ghost" href="#progress/history/${LOG_TYPE[it.kind] || 'conditioning'}">Log</a>` : ''}
     </div>`;
 }
 
@@ -1072,7 +1142,7 @@ function renderLog() {
     groups[groups.length - 1].items.push(s);
   }
   view.innerHTML = `
-    ${pageHead('Log', { eyebrow: `${list.length} sessions` })}
+    ${pageHead('Progress', { eyebrow: `${list.length} sessions`, nav: subnav('progress', PROGRESS_SUBS, 'history') })}
     <section class="card">
       <details class="add">
         <summary class="btn primary block" style="margin-top:0">+ Log a session</summary>
@@ -1107,7 +1177,7 @@ function renderLog() {
     <dialog id="detail"></dialog>`;
 
   const mf = $('#manual');
-  const pre = location.hash.split('/')[1];
+  const pre = location.hash.split('/')[2];
   if (pre && pre in ALL_TYPES) {
     mf.type.value = pre;
     mf.closest('details').open = true;
@@ -1219,4 +1289,5 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 afterDataChange();
+askPersist();
 route();
