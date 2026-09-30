@@ -96,16 +96,30 @@ export function renderVideo(el, app) {
   });
 }
 
+// iPhone recordings are often 4K HDR: far more than the pose model needs, and heavy enough to
+// stall a phone. Each frame is drawn once at up to 720 px and everything reads from that copy.
+const frameCanvas = document.createElement('canvas');
+function grabFrame(video) {
+  const w = video.videoWidth, h = video.videoHeight;
+  if (!w || !h) return video;
+  const k = Math.min(1, 720 / Math.max(w, h));
+  const cw = Math.round(w * k), ch = Math.round(h * k);
+  if (frameCanvas.width !== cw || frameCanvas.height !== ch) { frameCanvas.width = cw; frameCanvas.height = ch; }
+  frameCanvas.getContext('2d').drawImage(video, 0, 0, cw, ch);
+  return frameCanvas;
+}
+
 // Average clothing colour over each person's torso: the tracker's main identity cue.
 const sampler = document.createElement('canvas');
-function sampleColors(video, people) {
-  if (!people.length || !video.videoWidth) return [];
-  const w = 96, h = Math.round((96 * video.videoHeight) / video.videoWidth);
+function sampleColors(frame, people) {
+  const fw = frame.videoWidth || frame.width, fh = frame.videoHeight || frame.height;
+  if (!people.length || !fw) return [];
+  const w = 96, h = Math.round((96 * fh) / fw);
   sampler.width = w;
   sampler.height = h;
   const g = sampler.getContext('2d', { willReadFrequently: true });
   try {
-    g.drawImage(video, 0, 0, w, h);
+    g.drawImage(frame, 0, 0, w, h);
     const data = g.getImageData(0, 0, w, h).data;
     return people.map((pts) => {
       const xs = [pts[11].x, pts[12].x, pts[23].x, pts[24].x], ys = [pts[11].y, pts[12].y, pts[23].y, pts[24].y];
@@ -130,22 +144,30 @@ function sampleColors(video, people) {
 }
 
 // Waits for the next decoded frame (play, then pause on the first frame shown).
-function nextFrame(video) {
+// Never waits more than 3 s: some recordings don't deliver a frame when asked, which used to
+// leave the screen stuck on "Finding you in the video…".
+function nextFrame(video, ms = 3000) {
   return new Promise((res) => {
+    let done = false;
+    const finish = () => { if (!done) { done = true; video.pause(); res(); } };
+    setTimeout(finish, ms);
     if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) {
-      video.addEventListener('seeked', () => res(), { once: true });
+      video.addEventListener('seeked', finish, { once: true });
       video.currentTime = Math.min(video.duration, video.currentTime + 0.2);
       return;
     }
-    video.requestVideoFrameCallback(() => { video.pause(); res(); });
-    video.play().catch(() => res());
+    video.requestVideoFrameCallback(finish);
+    video.play().catch(finish);
   });
 }
 
 const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
 
 function drawPeople(canvas, video, people, chosen) {
-  if (canvas.width !== video.videoWidth) { canvas.width = video.videoWidth; canvas.height = video.videoHeight; }
+  // Overlay at most 720 px too: a 4K canvas redrawn every frame is heavy on a phone.
+  const k = Math.min(1, 720 / Math.max(video.videoWidth || 1, video.videoHeight || 1));
+  const cw = Math.round(video.videoWidth * k), ch = Math.round(video.videoHeight * k);
+  if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
   const g = canvas.getContext('2d');
   g.clearRect(0, 0, canvas.width, canvas.height);
   people.forEach((pts, i) => {
@@ -198,11 +220,13 @@ async function analyse(file, video, opts, el, app) {
     // Look through up to 5 s: people may walk into shot late, or one may be missed on a single frame.
     // Keep the frame showing the most people; stop as soon as two are seen.
     let first = [], colors = [];
-    for (let i = 0; i < 90 && !cancelled && !video.ended; i++) {
+    const scanStart = performance.now(); // at most ~12 s looking, however the video behaves
+    for (let i = 0; i < 90 && !cancelled && !video.ended && performance.now() - scanStart < 12000; i++) {
       await nextFrame(video);
       let found = [];
-      try { found = detectVideoFrame(lm, video)?.landmarks || []; } catch { found = []; }
-      if (found.length > first.length) { first = found; colors = sampleColors(video, found); }
+      const frame = grabFrame(video);
+      try { found = detectVideoFrame(lm, frame)?.landmarks || []; } catch { found = []; }
+      if (found.length > first.length) { first = found; colors = sampleColors(frame, found); }
       if (first.length > 1 || (first.length === 1 && video.currentTime > 1.5) || video.currentTime > 5) break;
     }
     if (cancelled) throw new Error('cancelled');
@@ -241,13 +265,14 @@ async function analyse(file, video, opts, el, app) {
         roundEnd += roundMs;
       }
       let r = null;
-      try { r = detectVideoFrame(lm, video); } catch { r = null; }
+      const frame = grabFrame(video);
+      try { r = detectVideoFrame(lm, frame); } catch { r = null; }
       const people = r?.landmarks || [];
       let idx = -1;
-      if (tracker.locked) idx = tracker.pick(people, sampleColors(video, people), t);
+      if (tracker.locked) idx = tracker.pick(people, sampleColors(frame, people), t);
       else if (people.length) {
         idx = choosePose(people, 'auto');
-        tracker.lockOn(people[idx], sampleColors(video, people)[idx]);
+        tracker.lockOn(people[idx], sampleColors(frame, people)[idx]);
       }
       const image = idx >= 0 ? people[idx] : null;
       const world = idx >= 0 ? r.worldLandmarks?.[idx] : null;
@@ -266,11 +291,23 @@ async function analyse(file, video, opts, el, app) {
       // Play the video; on each shown frame we want, pause, analyse, then resume. Reliable on
       // iPhone, and no frames are lost however slow the phone is.
       const gap = 1000 / opts.fps - 5;
+      let watchdog = null;
       await new Promise((resolve, reject) => {
         let gotFrame = false;
+        let lastProgress = performance.now(), nudged = false;
+        // If playback stops delivering frames, nudge it once, then give a clear message
+        // instead of sitting on a frozen screen.
+        watchdog = setInterval(() => {
+          if (cancelled) return;
+          const idle = performance.now() - lastProgress;
+          if (idle > 6000 && !nudged) { nudged = true; video.play().catch(() => {}); }
+          if (idle > 20000) reject(new Error('The analysis stopped responding on this video. Try Detail: Fast, or a shorter clip (iPhone: Settings → Camera → Record Video → 1080p HD).'));
+        }, 2000);
         const onFrame = (now, meta) => {
           if (cancelled) return reject(new Error('cancelled'));
           gotFrame = true;
+          lastProgress = performance.now();
+          nudged = false;
           const t = meta.mediaTime * 1000;
           if (t - lastT >= gap) {
             video.pause();
@@ -286,14 +323,14 @@ async function analyse(file, video, opts, el, app) {
         video.play().catch(() => reject(new Error('The video would not play. Tap Analyse again.')));
         setTimeout(() => { if (!gotFrame && !cancelled) reject(new Error('The video did not start playing. Tap Analyse again.')); }, 15000);
         $('#vidCancel', el).addEventListener('click', () => reject(new Error('cancelled')));
-      });
+      }).finally(() => clearInterval(watchdog));
     } else {
       // Fallback: step through the video frame by frame.
       const step = 1000 / opts.fps;
       for (let t = 0; t < durMs; t += step) {
         if (cancelled) throw new Error('cancelled');
         video.currentTime = t / 1000;
-        await new Promise((res) => video.addEventListener('seeked', res, { once: true }));
+        await new Promise((res) => { video.addEventListener('seeked', res, { once: true }); setTimeout(res, 3000); });
         processFrame(t);
         if (frames % 5 === 0) await new Promise((res) => setTimeout(res, 0));
       }
