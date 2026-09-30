@@ -37,8 +37,16 @@ export function renderVideo(el, app) {
   el.innerHTML = `
     <section class="card">
       <h2>Analyse a video</h2>
-      <p class="muted small">Shadowboxing, pads, bag or sparring. It's analysed on your phone; nothing is uploaded unless you switch on the Claude check. Best results: whole body in frame, camera still, filmed from the front or a 45° angle.</p>
-      <div class="msg" style="margin:0 0 12px">📋 Want Claude to review it? After saving, open the session in <b>Log</b> and tap <b>Copy report for coach</b>, then paste it into your chat. Only the measurements are shared, never the video.</div>
+      <p class="muted small">Shadowboxing, pads, bag or sparring. It's analysed on your phone; nothing is uploaded unless you switch on the Claude check.</p>
+      <details class="howto"><summary class="small"><b>How to film for the best reading</b></summary>
+        <ul class="small">
+          <li>Phone at chest height and level, not on the floor tilted up.</li>
+          <li>Facing you, or at 45°. Side-on hides your far arm.</li>
+          <li>Whole body in frame, head to feet, camera still.</li>
+          <li>Good light, and iPhone Settings → Camera → Record Video → <b>1080p at 60 fps</b>: less blur on fast hands than 4K.</li>
+        </ul>
+      </details>
+      <div class="msg" style="margin:0 0 12px">📋 Want Claude to review it? After the analysis you can save frames of the video to attach in your Claude chat. After saving the session, open it in <b>Log</b> and tap <b>Copy report for coach</b> to paste the measurements too.</div>
       <form id="vidForm" class="form">
         <label>Video<input type="file" name="file" accept="video/*" required></label>
         <label>Whose video?<select name="subject">${opt('me', 'me', 'Me')}${opt('pro', 'me', 'A pro to compare against')}</select></label>
@@ -62,6 +70,7 @@ export function renderVideo(el, app) {
         <div class="vid-stage" id="vidStage"><canvas id="vidOverlay"></canvas></div>
         <div class="bar"><div id="vidBar" style="width:0%"></div></div>
         <p class="small muted" id="vidStatus">Loading…</p>
+        <p class="small muted" style="margin-top:0">Keep this screen open. When it finishes you can check every punch and save frames for your Claude chat.</p>
         <button class="btn ghost" id="vidCancel" type="button">Cancel</button>
       </div>
     </section>`;
@@ -458,6 +467,7 @@ function renderReview(el, app) {
       <p class="muted small">Save ${j.sheets.length} photo${j.sheets.length === 1 ? '' : 's'} of this video (your upper body, frame by frame, with times). Attach them in your Claude chat together with the report from this session (Log → Copy report for coach). Claude labels every punch, and the app learns from it.</p>
       <button class="btn ghost block" id="saveFrames" type="button">📸 Save frames for Claude chat</button>
     </section>` : ''}
+    ${filmingTips(j) ? `<section class="card"><div class="msg">${filmingTips(j)}</div></section>` : ''}
     ${j.tracked < 30 ? `<section class="card"><div class="msg behind"><b>I could barely see you in this video.</b> Try: whole body in frame (head to feet), steadier camera, better light, or re-run and tap yourself carefully if someone else is in the shot. You can also use Fast/Normal detail on long clips.</div></section>` : ''}
     <section class="card">
       ${shown.length ? '' : '<p class="muted small" style="margin:0">No detections to review.</p>'}
@@ -546,6 +556,16 @@ async function saveFrames(j) {
     await new Promise((r) => setTimeout(r, 250));
   }
   toast(`Saved ${files.length} photos.`);
+}
+
+// What to change next time, from what the analysis measured.
+function filmingTips(j) {
+  const tips = [];
+  const tilt = j.calib?.tilt;
+  if (tilt >= 20) tips.push(`Your phone was tilted about ${tilt}° up or down. The app corrects for it, but a level phone at chest height reads punches and guard more reliably.`);
+  const side = combineRounds(j.rounds).sidePct;
+  if (side >= 60) tips.push(`You were side-on to the camera ${side}% of the time, which hides your far arm. Face the camera or stand at 45°.`);
+  return tips.length ? `<b>Next time you film:</b> ${tips.map(esc).join(' ')}` : '';
 }
 
 function aiStatusHTML(a) {

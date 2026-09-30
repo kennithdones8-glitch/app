@@ -209,6 +209,43 @@ test('stance is found side-on even when the ears overlap', async () => {
   assert.equal(leadSide(w), 'L');
 });
 
+test('a camera tilted up (phone on the floor) still reads straights as straights', () => {
+  // Pitched up 30°: punches toward the camera look like they rise in camera coordinates.
+  let guard0 = null;
+  for (const deg of [0, 30, 45]) {
+    const a = (deg * Math.PI) / 180;
+    const tilt = (w) => w.map((p) => ({ x: p.x, y: p.y * Math.cos(a) + p.z * Math.sin(a), z: -p.y * Math.sin(a) + p.z * Math.cos(a) }));
+    const punches = [];
+    const an = new FormAnalyzer({ onPunch: (p) => punches.push(p) });
+    an.startRound();
+    let t = feed(an, still(10).map(tilt), 0);
+    t = feed(an, punch(LM.L_WR, LM.L_EL, { x: 0.16, y: -0.49, z: -0.61 }, { x: 0.17, y: -0.47, z: -0.33 }).map(tilt), t);
+    t = feed(an, still(15).map(tilt), t);
+    t = feed(an, punch(LM.R_WR, LM.R_EL, { x: 0.02, y: -0.5, z: -0.5 }, { x: -0.1, y: -0.45, z: -0.2 }).map(tilt), t);
+    t = feed(an, still(15).map(tilt), t);
+    t = feed(an, punch(LM.L_WR, LM.L_EL, { x: 0.5, y: -0.5, z: -0.35 }, { x: 0.42, y: -0.42, z: -0.02 }, 4, 6).map(tilt), t);
+    feed(an, still(15).map(tilt), t);
+    const m = an.endRound();
+    assert.deepEqual(punches, ['jab', 'cross', 'leadHook'], `tilted ${deg}°`);
+    guard0 ??= m.guard;
+    assert.equal(m.guard, guard0, `guard ${m.guard}% tilted ${deg}° vs ${guard0}% level`);
+    assert.ok(Math.abs(an.calib.tilt - deg) <= 3, `measured tilt ${an.calib.tilt}° for ${deg}°`);
+  }
+});
+
+test('dropped hands held forward still read as dropped with the camera tilted up', () => {
+  for (const deg of [0, 30]) {
+    const a = (deg * Math.PI) / 180;
+    const tilt = (w) => w.map((p) => ({ x: p.x, y: p.y * Math.cos(a) + p.z * Math.sin(a), z: -p.y * Math.sin(a) + p.z * Math.cos(a) }));
+    const an = new FormAnalyzer();
+    an.startRound();
+    // Hands 12 cm below the shoulders and 30 cm out in front: a lazy guard.
+    feed(an, still(60, { [LM.L_WR]: { y: -0.33, z: -0.3 }, [LM.R_WR]: { y: -0.33, z: -0.3 } }).map(tilt), 0);
+    const m = an.endRound();
+    assert.ok(m.guard < 20, `guard ${m.guard}% tilted ${deg}°`);
+  }
+});
+
 test('punches are classified correctly from a side-on camera', () => {
   // Same jab and lead hook as the front-on test, but the boxer is filmed from the side.
   const rot = (w) => w.map((p) => ({ x: -p.z, y: p.y, z: p.x }));

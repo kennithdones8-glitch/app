@@ -380,6 +380,18 @@ function arm2d(image, sh, el, wr, A) {
 }
 const sub2 = (a, b) => ({ x: a.x - b.x, y: a.y - b.y });
 
+// The body's "up" and two level directions, in the pose model's camera-aligned coordinates.
+// A phone on the floor tilted up (or held high, tilted down) turns the camera's axes: a punch
+// straight at the camera then seems to rise. Measuring against the body fixes that.
+const norm3 = (v) => { const l = Math.hypot(v.x, v.y, v.z) || 1; return { x: v.x / l, y: v.y / l, z: v.z / l }; };
+const dot3 = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
+export function bodyFrame(up) {
+  const e1 = norm3({ x: 1 - up.x * up.x, y: -up.x * up.y, z: -up.x * up.z }); // camera x, levelled
+  const e2 = { x: up.y * e1.z - up.z * e1.y, y: up.z * e1.x - up.x * e1.z, z: up.x * e1.y - up.y * e1.x }; // up × e1
+  // Movement d → [sideways, depth] on the level plane and height gained.
+  return (d) => ({ h: [dot3(d, e1), dot3(d, e2)], rise: dot3(d, up) });
+}
+
 // Forward / sideways travel of a punch path relative to an axis in the ground plane.
 function travel(path, axis) {
   let fwd = 0, lat = 0;
@@ -453,6 +465,9 @@ export class FormAnalyzer {
     this.round = emptyRound();
     this.active = false;
     this.hipTrail = [];
+    this.up = { x: 0, y: -1, z: 0 }; // body up (pose y points down), learned from hips over feet
+    this.upN = 0;
+    this.frame = bodyFrame(this.up);
     this.headTrail = [];
     this.torsoHist = [];
     this.headHist = [];
@@ -491,6 +506,8 @@ export class FormAnalyzer {
 
   endRound() {
     this.active = false;
+    // Camera tilt against the body's up, in degrees (a phone on the floor tilted up reads high).
+    this.calib.tilt = Math.round((Math.acos(Math.min(1, -this.up.y)) * 180) / Math.PI);
     return roundMetrics(this.round);
   }
 
@@ -531,8 +548,21 @@ export class FormAnalyzer {
       return null;
     }
     this.held('nobody', false, t);
+    // Up = feet → hips, averaged over time (hips sit over the feet in any stance).
+    if ((image[LM.L_ANK]?.visibility ?? 1) > 0.5 && (image[LM.R_ANK]?.visibility ?? 1) > 0.5) {
+      const v = norm3({
+        x: (world[LM.L_HIP].x + world[LM.R_HIP].x - world[LM.L_ANK].x - world[LM.R_ANK].x) / 2,
+        y: (world[LM.L_HIP].y + world[LM.R_HIP].y - world[LM.L_ANK].y - world[LM.R_ANK].y) / 2,
+        z: (world[LM.L_HIP].z + world[LM.R_HIP].z - world[LM.L_ANK].z - world[LM.R_ANK].z) / 2,
+      });
+      // Only believable directions (within 60° of the camera's up); fast at first, then steady.
+      if (v.y < -0.5) {
+        const k = Math.max(0.02, 1 / ++this.upN);
+        this.up = norm3({ x: this.up.x * (1 - k) + v.x * k, y: this.up.y * (1 - k) + v.y * k, z: this.up.z * (1 - k) + v.z * k });
+        this.frame = bodyFrame(this.up);
+      }
+    }
     const r = this.round;
-    const shMidY = (world[LM.L_SH].y + world[LM.R_SH].y) / 2;
     const nose = world[LM.NOSE];
 
     // --- Punch tracking per hand -------------------------------------------
@@ -551,7 +581,7 @@ export class FormAnalyzer {
       const recovering = h.returnSince != null && t - h.returnSince < 700;
       if (h.state !== 'idle' || recovering) { eligible = false; continue; }
       if ((image[h.wr]?.visibility ?? 1) < this.minVis) continue; // hidden hand: don't judge it
-      if (world[h.wr].y > shMidY + 0.06) bothUp = false;
+      if (this._below(world, world[h.wr]) > 0.06) bothUp = false;
     }
     if (eligible) {
       r.guardEligible++;
@@ -657,6 +687,12 @@ export class FormAnalyzer {
     return this.snapshot(world, image);
   }
 
+  // How far a point sits below shoulder height, measured along the body's up (metres).
+  _below(world, p) {
+    const sy = { x: (world[LM.L_SH].x + world[LM.R_SH].x) / 2, y: (world[LM.L_SH].y + world[LM.R_SH].y) / 2, z: (world[LM.L_SH].z + world[LM.R_SH].z) / 2 };
+    return -dot3({ x: p.x - sy.x, y: p.y - sy.y, z: p.z - sy.z }, this.up);
+  }
+
   _vis(idx) {
     if (!this.image) return 1;
     return idx.reduce((a, i) => a + (this.image[i]?.visibility ?? 1), 0) / idx.length;
@@ -685,7 +721,6 @@ export class FormAnalyzer {
       h.speed = h.speed * 0.4 + inst * 0.6;
     }
     const away = noseD > h.prevNoseD;
-    const shMidY = (world[LM.L_SH].y + world[LM.R_SH].y) / 2;
     const handSeen = (this.image?.[h.wr]?.visibility ?? 1) >= this.minVis * 0.7;
 
     if (h.state === 'idle') {
@@ -708,13 +743,14 @@ export class FormAnalyzer {
     if (h.state === 'punch') {
       h.peakSpeed = Math.max(h.peakSpeed, h.speed);
       const ext = dist3(sh, w) / (h.armLen || 1);
-      if (ext > h.peakExt) { h.peakDisp = [w.x - h.start.x, w.z - h.start.z]; h.peakT = t; }
+      const m = this.frame({ x: w.x - h.start.x, y: w.y - h.start.y, z: w.z - h.start.z });
+      if (ext > h.peakExt) { h.peakDisp = m.h; h.peakT = t; }
       h.peakExt = Math.max(h.peakExt, ext);
       h.peakAngle = Math.max(h.peakAngle, angleDeg(sh, el, w));
       h.maxNoseD = Math.max(h.maxNoseD, noseD);
-      h.maxRise = Math.max(h.maxRise, h.start.y - w.y);
+      h.maxRise = Math.max(h.maxRise, m.rise);
       // Forward vs sideways relative to where the boxer faces, so it works from any camera angle.
-      h.path.push([w.x - h.start.x, w.z - h.start.z]);
+      h.path.push(m.h);
       if (this.image) {
         const a = arm2d(this.image, h.sh, h.el, h.wr, this.aspect || 1);
         if (!h.i2start) h.i2start = a.W;
@@ -728,7 +764,7 @@ export class FormAnalyzer {
       if (rearSeen) h.rearSeen = true;
       if (role === 'lead' && this.active && !h.rearDropped && rearSeen) {
         const rear = world[this.hands.rear.wr];
-        if (rear.y > shMidY + 0.1) h.rearDropped = true;
+        if (this._below(world, rear) > 0.1) h.rearDropped = true;
       }
       const retracting = noseD < h.maxNoseD - 0.04;
       const slowed = h.speed < this.vTh * 0.5;
@@ -745,7 +781,7 @@ export class FormAnalyzer {
     }
     // Hand return: back in guard near the face.
     if (h.returnSince != null && h.state === 'idle') {
-      const done = w.y <= shMidY + 0.06 && noseD < 0.38 ? t - h.returnSince : t - h.returnSince > 1500 ? 1500 : null;
+      const done = this._below(world, w) <= 0.06 && noseD < 0.38 ? t - h.returnSince : t - h.returnSince > 1500 ? 1500 : null;
       if (done != null) {
         if (this.active) {
           this.round.returnTimes.push(done);
