@@ -82,7 +82,14 @@ export class FrameSheets {
     const w = (box.h * CW) / CH;
     g.fillStyle = '#000';
     g.fillRect(col * CW, row * CH, CW, CH);
-    g.drawImage(frame, box.cx - w / 2, box.cy - box.h / 2, w, box.h, col * CW, row * CH, CW, CH);
+    // Clamp the crop to the picture: iPhone Safari draws nothing at all when the source rectangle
+    // reaches outside the image (whole black frames near the edge of the shot).
+    const sx = box.cx - w / 2, sy = box.cy - box.h / 2;
+    const x0 = Math.max(0, sx), y0 = Math.max(0, sy), x1 = Math.min(W, sx + w), y1 = Math.min(H, sy + box.h);
+    if (x1 > x0 && y1 > y0) {
+      const kx = CW / w, ky = CH / box.h;
+      g.drawImage(frame, x0, y0, x1 - x0, y1 - y0, col * CW + (x0 - sx) * kx, row * CH + (y0 - sy) * ky, (x1 - x0) * kx, (y1 - y0) * ky);
+    }
     g.fillStyle = 'rgba(0,0,0,0.7)';
     g.fillRect(col * CW, row * CH, 52, 20);
     g.fillStyle = '#fff';
