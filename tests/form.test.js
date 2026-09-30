@@ -263,6 +263,25 @@ test('a left/right arm swap for a frame or two is undone, so it starts no false 
   }
 });
 
+test('hand wobble starts no more false punches at 60 fps than at 30 fps', () => {
+  // The tracker jitters a centimetre or two; per-frame speed made that look fast at 60 fps.
+  const falseStarts = (fps) => {
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5) * 2;
+    const an = new FormAnalyzer();
+    an.startRound();
+    for (let i = 0, t = 0; i < fps * 30; i++, t += 1000 / fps) {
+      const w = pose();
+      for (const k of [LM.L_WR, LM.R_WR, LM.L_EL, LM.R_EL]) w[k] = { x: w[k].x + rnd() * 0.015, y: w[k].y + rnd() * 0.015, z: w[k].z + rnd() * 0.03 };
+      an.update(w, image(w), t);
+    }
+    an.endRound();
+    return an.calib.punches.length + an.calib.rejected.length;
+  };
+  const at30 = falseStarts(30), at60 = falseStarts(60);
+  assert.ok(at60 <= Math.max(3, at30 * 1.5), `30 fps: ${at30}, 60 fps: ${at60}`);
+});
+
 test('punches are classified correctly from a side-on camera', () => {
   // Same jab and lead hook as the front-on test, but the boxer is filmed from the side.
   const rot = (w) => w.map((p) => ({ x: -p.z, y: p.y, z: p.x }));

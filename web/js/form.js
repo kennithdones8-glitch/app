@@ -475,6 +475,7 @@ export function refineAxis(feats, cal = null) {
   return axis;
 }
 
+const SPEED_WINDOW_MS = 30; // hand speed is measured over at least this much time
 const PUNCH_CONF = (vis, speed, vTh, margin) => 100 * (0.5 + 0.5 * vis) * (0.55 + 0.45 * Math.min(1, speed / (vTh * 1.8))) * (0.6 + 0.4 * Math.max(0, margin));
 
 export class FormAnalyzer {
@@ -537,7 +538,9 @@ export class FormAnalyzer {
   endRound() {
     this.active = false;
     // Camera tilt against the body's up, in degrees (a phone on the floor tilted up reads high).
-    this.calib.tilt = Math.round((Math.acos(Math.min(1, -this.up.y)) * 180) / Math.PI);
+    // Tilt only when it could be measured (feet in view); null otherwise, not a misleading 0.
+    this.calib.tilt = this.upN ? Math.round((Math.acos(Math.min(1, -this.up.y)) * 180) / Math.PI) : null;
+    if (this.calib.frames) this.calib.feetPct = Math.round((100 * (this.feetSeen || 0)) / this.calib.frames);
     return roundMetrics(this.round);
   }
 
@@ -584,7 +587,11 @@ export class FormAnalyzer {
     this.armPrev = { ...fixed.prev, t };
     if (fixed.swapped && this.active) this.calib.swaps = (this.calib.swaps || 0) + 1;
     // Up = feet → hips, averaged over time (hips sit over the feet in any stance).
-    if ((image[LM.L_ANK]?.visibility ?? 1) > 0.5 && (image[LM.R_ANK]?.visibility ?? 1) > 0.5) {
+    const feet = (image[LM.L_ANK]?.visibility ?? 1) > 0.5 && (image[LM.R_ANK]?.visibility ?? 1) > 0.5;
+    if (this.active && feet) this.feetSeen = (this.feetSeen || 0) + 1;
+    // Feet out of shot: stance, footwork and the tilt correction all need them.
+    if (this.active && this.held('noFeet', !feet, t) > 5000) this.cue('feet', "Step back, I can't see your feet", t);
+    if (feet) {
       const v = norm3({
         x: (world[LM.L_HIP].x + world[LM.R_HIP].x - world[LM.L_ANK].x - world[LM.R_ANK].x) / 2,
         y: (world[LM.L_HIP].y + world[LM.R_HIP].y - world[LM.L_ANK].y - world[LM.R_ANK].y) / 2,
@@ -750,11 +757,15 @@ export class FormAnalyzer {
     const arm = dist3(sh, el) + dist3(el, w);
     h.armLen = Math.max(h.armLen * 0.995, arm);
     const noseD = dist3(w, nose);
-    if (h.prev) {
-      const dt = Math.max(1, t - h.prevT) / 1000;
-      const inst = dist3(w, h.prev) / dt;
+    // Speed over at least ~30 ms, not frame to frame: at 60 fps the tracker's normal
+    // centimetre wobble divided by 16 ms looks like a fast hand and started fake punches.
+    h.trail = (h.trail || []).filter((p) => t - p.t <= 150);
+    const ref = h.trail.findLast((p) => t - p.t >= SPEED_WINDOW_MS) || h.trail[0]; // newest sample old enough
+    if (ref) {
+      const inst = dist3(w, ref) / (Math.max(1, t - ref.t) / 1000);
       h.speed = h.speed * 0.4 + inst * 0.6;
     }
+    h.trail.push({ t, x: w.x, y: w.y, z: w.z });
     const away = noseD > h.prevNoseD;
     const handSeen = (this.image?.[h.wr]?.visibility ?? 1) >= this.minVis * 0.7;
 
