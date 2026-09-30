@@ -55,8 +55,8 @@ export const STANCE_MIN = 0.9;
 export const STANCE_MAX = 2.2;
 export const BLADE_MIN_DEG = 12;
 
-const CUE_COOLDOWN_MS = 20000; // the same reminder at most every 20 s
-const GLOBAL_CUE_GAP_MS = 8000; // and any reminder at most every 8 s
+const CUE_COOLDOWN_MS = 45000; // the same reminder at most every 45 s
+const GLOBAL_CUE_GAP_MS = 15000; // and any reminder at most every 15 s
 
 const r2 = (x) => Math.round(x * 100) / 100;
 const median = (xs) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
@@ -575,7 +575,7 @@ export class FormAnalyzer {
 
   update(world, image, t) {
     if (!world || !image) {
-      if (this.active && this.held('nobody', true, t) > 3000) this.cue('visibility', 'Step back so I can see your whole body', t);
+      if (this.active && this.held('nobody', true, t) > 3000) this.cue('visibility', 'Step back, I need to see you', t);
       return null;
     }
     const visible = REQUIRED.every((i) => (image[i]?.visibility ?? 1) > this.minVis);
@@ -584,7 +584,7 @@ export class FormAnalyzer {
       if (visible) this.calib.tracked++;
     }
     if (!visible) {
-      if (this.active && this.held('nobody', true, t) > 3000) this.cue('visibility', 'Step back so I can see your whole body', t);
+      if (this.active && this.held('nobody', true, t) > 3000) this.cue('visibility', 'Step back, I need to see you', t);
       return null;
     }
     this.held('nobody', false, t);
@@ -597,7 +597,7 @@ export class FormAnalyzer {
     const feet = (image[LM.L_ANK]?.visibility ?? 1) > 0.5 && (image[LM.R_ANK]?.visibility ?? 1) > 0.5;
     if (this.active && feet) this.feetSeen = (this.feetSeen || 0) + 1;
     // Feet out of shot: stance, footwork and the tilt correction all need them.
-    if (this.active && this.held('noFeet', !feet, t) > 5000) this.cue('feet', "Step back, I can't see your feet", t);
+    if (this.active && this.held('noFeet', !feet, t) > 5000) this.cue('feet', 'Step back, show your feet', t);
     if (feet) {
       const v = norm3({
         x: (world[LM.L_HIP].x + world[LM.R_HIP].x - world[LM.L_ANK].x - world[LM.R_ANK].x) / 2,
@@ -671,8 +671,8 @@ export class FormAnalyzer {
         if (narrow) r.narrow++;
         if (wide) r.wide++;
         if (!crossed && !narrow && !wide) r.stanceOk++;
-        if (this.held('narrow', narrow, t) > 1500) this.cue('narrow', 'Widen your stance', t);
-        if (this.held('wide', wide, t) > 1500) this.cue('wide', 'Tighten up your stance', t);
+        if (this.held('narrow', narrow, t) > 1500) this.cue('narrow', 'Wider stance', t);
+        if (this.held('wide', wide, t) > 1500) this.cue('wide', 'Narrower stance', t);
       }
     }
 
@@ -687,7 +687,7 @@ export class FormAnalyzer {
       r.depthFrames++;
       if (lead === 'L') r.leftCloser++;
     }
-    if (this.held('squared', !bladed, t) > 2500) this.cue('squared', 'Turn your lead shoulder, stay bladed', t);
+    if (this.held('squared', !bladed, t) > 6000) this.cue('squared', 'Turn your shoulder', t);
 
 
     // --- Footwork and head movement, measured in the picture ------------------------------
@@ -726,7 +726,7 @@ export class FormAnalyzer {
     if (headMoving) r.headMoving++;
     if (r.t0 == null) r.t0 = t;
     r.t1 = t;
-    if (this.held('headStill', !headMoving, t) > 9000) this.cue('head', 'Move your head, slip after you punch', t);
+    if (this.held('headStill', !headMoving, t) > 9000) this.cue('head', 'Move your head', t);
     // Compact per-frame track (time in 0.1 s, nose relative to hips, hips in the picture; typical
     // torso lengths) so head-movement and footwork thresholds can be tuned against known drills.
     if (this.calib.track.length < 750) {
@@ -916,10 +916,10 @@ export class FormAnalyzer {
     this._calibPush('punches', [PUNCH_DIGIT[type], r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(h.maxRise), r2(lat), Math.round(conf), r2(fwd)]);
     if (role === 'lead') {
       if (h.rearSeen) this.round.leadPunches++;
-      if (h.rearDropped) {
-        this.round.rearDrops++;
-        this.cue('rearDrop', `Keep your ${this.rearName} hand home when you jab`, t);
-      }
+      if (h.rearDropped) this.round.rearDrops++;
+      // Only a habit is worth saying: 3 of the last 5 jabs, not one misread.
+      this.rearDropHist = [...(this.rearDropHist || []), h.rearDropped].slice(-5);
+      if (this.rearDropHist.filter(Boolean).length >= 3) this.cue('rearDrop', `${this.rearName[0].toUpperCase()}${this.rearName.slice(1)} hand home`, t);
     }
     this.onPunch(type, { t, conf });
   }
