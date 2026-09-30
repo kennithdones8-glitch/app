@@ -18,6 +18,8 @@ export function defaultState() {
     observations: [], // { source: coach | self | ai, kind: issue | positive | note, text, tags }
     patterns: [], // combinations being developed, tracked from drilling to sparring
     combos: [], // your own combos: { id, tokens, name, created }
+    refVideos: [], // YouTube links to study: { id, yt, name, added }
+    references: [], // analysed pro clips to compare against: { id, name, date, metrics, byType }
     decisions: [], // decision-drill answers
     hypotheses: [],
     checkins: [], // morning readiness: sleep, soreness, motivation, resting HR
@@ -25,7 +27,7 @@ export function defaultState() {
   };
 }
 
-const ARRAYS = ['sessions', 'weights', 'observations', 'patterns', 'combos', 'decisions', 'hypotheses', 'checkins', 'paused'];
+const ARRAYS = ['sessions', 'weights', 'observations', 'patterns', 'combos', 'refVideos', 'references', 'decisions', 'hypotheses', 'checkins', 'paused'];
 
 function merge(base, data) {
   // Earlier versions defaulted to kg; switch to lb if no weights were logged in kg yet.

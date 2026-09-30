@@ -483,7 +483,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .vid-stage { position: relative; width: 100%; margin: 0 auto 12px; border-radius: 12px; overflow: hidden; background: #000; }
 .vid-stage video, .vid-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .vid-stage.pick { cursor: pointer; outline: 3px solid var(--accent); outline-offset: 2px; }
-.vid-stage.pick::after { content: 'Tap yourself'; position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 700; white-space: nowrap; pointer-events: none; }
+.vid-stage.pick::after { content: attr(data-pick); position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 700; white-space: nowrap; pointer-events: none; }
 
 /* Combos */
 .cmb { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; }
@@ -506,3 +506,14 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .cb-type summary { cursor: pointer; margin-bottom: 8px; }
 .combo-row .grow > .small { margin-top: 4px; }
 .grow { flex: 1; min-width: 0; }
+
+/* Study */
+.ref-video + .ref-video { margin-top: 14px; }
+.yt { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; margin-top: 6px; }
+.yt iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.tbl.cmp { table-layout: fixed; width: 100%; }
+.tbl.cmp th, .tbl.cmp td.left { white-space: normal; overflow-wrap: anywhere; }
+.tbl.cmp th:first-child { width: 42%; }
+.tbl.cmp td { white-space: nowrap; }
+.tbl.cmp .badge { display: block; width: fit-content; margin: 2px auto 0; }
+a.chip { text-decoration: none; color: var(--ink); }

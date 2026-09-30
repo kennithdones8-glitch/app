@@ -23,6 +23,7 @@ import { renderBoxer } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
 import { renderVideo, videoBusy, trustedCal } from './views/video.js';
 import { renderCombos, comboHTML } from './views/combos.js';
+import { renderStudy } from './views/study.js';
 import { parseCombo, comboText, comboLabel, comboSpeech, comboKey, punchDigits, pickCombo, judgeCalls, sessionCombos } from './combos.js';
 
 let state = store.load();
@@ -257,9 +258,10 @@ let draft = null;
 
 function renderTrain() {
   const sub = subOf('session');
-  view.innerHTML = `${pageHead('Train', { nav: subnav('train', [['session', 'Live session'], ['combos', 'Combos'], ['video', 'Video']], sub) })}<div id="trainBody"></div>`;
+  view.innerHTML = `${pageHead('Train', { nav: subnav('train', [['session', 'Live'], ['combos', 'Combos'], ['study', 'Study'], ['video', 'Video']], sub) })}<div id="trainBody"></div>`;
   if (sub === 'video') return renderVideo($('#trainBody'), app);
   if (sub === 'combos') return renderCombos($('#trainBody'), app);
+  if (sub === 'study') return renderStudy($('#trainBody'), app);
   const body = $('#trainBody');
   const ctx = app.model();
   const f = state.profile.fight;
