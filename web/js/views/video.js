@@ -7,6 +7,7 @@ import { newId } from '../store.js';
 import { comboLabel, comboText, parseCombo, STARTERS } from '../combos.js';
 import { calibrateFromCombo } from '../calibrate.js';
 import { saveReference } from './study.js';
+import { takePreset } from './handoff.js';
 
 let job = null; // { analyzer, events, rounds, meta } after analysis
 let busy = false;
@@ -61,11 +62,18 @@ export function renderVideo(el, app) {
       </div>
     </section>`;
   const vf = $('#vidForm', el);
-  vf.subject.addEventListener('change', () => {
+  const syncSubject = () => {
     const pro = vf.subject.value === 'pro';
     $('.pro-only', el).hidden = !pro;
     if (vf.drill) vf.drill.closest('label').hidden = pro;
-  });
+  };
+  vf.subject.addEventListener('change', syncSubject);
+  const preset = takePreset();
+  if (preset) {
+    vf.subject.value = preset.subject;
+    vf.proName.value = preset.name;
+    syncSubject();
+  }
   $('#vidForm', el).addEventListener('submit', (e) => {
     e.preventDefault();
     const f = e.target;

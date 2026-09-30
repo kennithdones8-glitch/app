@@ -517,3 +517,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .tbl.cmp td { white-space: nowrap; }
 .tbl.cmp .badge { display: block; width: fit-content; margin: 2px auto 0; }
 a.chip { text-decoration: none; color: var(--ink); }
+.howto { margin: 4px 0 10px; }
+.howto summary { cursor: pointer; margin-bottom: 6px; }
+.howto ol { margin: 6px 0 8px; padding-left: 20px; }
+.howto li { margin: 4px 0; }
