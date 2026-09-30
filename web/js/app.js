@@ -25,6 +25,7 @@ import { renderCoachMe } from './views/coachme.js';
 import { renderBoxer, PROGRESS_SUBS } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
 import { renderVideo, videoBusy, trustedCal } from './views/video.js';
+import { personalFor } from './personal.js';
 import { renderCombos, comboHTML } from './views/combos.js';
 import { renderStudy } from './views/study.js';
 import { parseCombo, comboText, comboLabel, comboSpeech, comboKey, punchDigits, pickCombo, judgeCalls, sessionCombos } from './combos.js';
@@ -40,7 +41,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.30-14';
+export const APP_VERSION = '2026.09.30-15';
 
 const app = {
   version: APP_VERSION,
@@ -442,6 +443,7 @@ async function startSession(plan) {
       stance: state.profile.stance,
       sensitivity: state.profile.sensitivity,
       cal: trustedCal(state.profile.punchCal),
+      personal: personalFor(state.profile),
       onCue: (key, text) => {
         if (!state.settings.cues) return;
         showCue(text);
@@ -598,7 +600,7 @@ function onPhase(phase, round) {
 
 // Between rounds: simplify, push harder, or switch the stimulus, from how the round went.
 function adaptNextRound(round) {
-  if (!live || round >= live.timer.rounds || !live.plan.combos) return null;
+  if (!live || round >= live.timer.rounds) return null;
   const form = live.formRounds[live.formRounds.length - 1];
   const a = adjustNextRound({ form, first: live.formRounds[0], calls: live.roundCalls, coach: live.plan.coach, comboLevel: live.plan.comboLevel });
   if (a.action === 'keep') return null;

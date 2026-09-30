@@ -380,7 +380,7 @@ export function buildCoachSession({ state, ctx, minutes = 30, equipment = [], fe
     weaknesses, top, drill, adjust, headline, blocks,
     benchmarkDue: benchmarkDue(sessions, now),
     live: {
-      type, rounds: nRounds, roundSec, restSec, combos: true,
+      type, rounds: nRounds, roundSec, restSec, combos: !!state?.settings?.combos,
       comboLevel: !drill ? 2 : drill.level >= 3 ? 3 : drill.level === 2 ? 2 : 1,
       rounds_,
       coach: top ? { root: top.key, level: drill.level, finisher: ROOTS[top.key].finisher, metric: ROOTS[top.key].metric, drill: drill.name } : null,

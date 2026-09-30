@@ -1,3 +1,4 @@
+import { example as personalExample } from './personal.js';
 // Pose-based boxing form analysis. Pure logic: feed it pose landmarks each frame,
 // it counts/classifies punches, grades guard, stance and footwork, and emits live cues.
 //
@@ -484,7 +485,8 @@ const PAIR_MS = 120;
 const PUNCH_CONF = (vis, speed, vTh, margin) => 100 * (0.5 + 0.5 * vis) * (0.55 + 0.45 * Math.min(1, speed / (vTh * 1.8))) * (0.6 + 0.4 * Math.max(0, margin));
 
 export class FormAnalyzer {
-  constructor({ stance = 'orthodox', sensitivity = 1, onCue = () => {}, onPunch = () => {}, minVis = 0.5, cal = null, aspect = 1 } = {}) {
+  constructor({ stance = 'orthodox', sensitivity = 1, onCue = () => {}, onPunch = () => {}, minVis = 0.5, cal = null, aspect = 1, personal = null } = {}) {
+    this.personal = personal?.use ? personal : null; // reader trained on your own labelled punches (personal.js)
     this.aspect = aspect; // video width / height, for measuring angles in the picture
     this.cal = cal; // per-boxer punch calibration, see calibrateFromCombo
     this.stance = stance;
@@ -895,7 +897,20 @@ export class FormAnalyzer {
   _registerPunch(role, h, t) {
     const feats = { angle: h.peakAngle, ext: h.peakExt, rise: h.maxRise, path: h.path };
     const axis = this.axis();
-    const { kind, margin, fwd, lat } = classifyPunch(feats, axis, this.cal);
+    const base = classifyPunch(feats, axis, this.cal);
+    let { kind, margin } = base;
+    const { fwd, lat } = base;
+    const face = this.face ? [this.face.x, this.face.z] : null;
+    const i2 = h.i2 ? { ext: h.i2.ext, angle: h.i2.maxAngle, dx: h.i2.dx, dy: h.i2.dy, fore: h.i2.fore } : null;
+    if (this.personal) {
+      const p = this.personal.predict(personalExample({ f: feats, fwd, lat, i2, face }, null));
+      if (p.kind === 'none' && p.share >= 0.7) { // you've taught it this movement isn't a punch
+        this.hands[role].returnSince = null;
+        this._calibPush('rejected', [role === 'lead' ? 'L' : 'R', r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), 0, 'you']);
+        return;
+      }
+      if (p.kind !== 'none') { kind = p.kind; margin = p.share; }
+    }
     this.recent.push({ ...feats, disp: h.peakDisp });
     if (this.recent.length > 24) this.recent.shift();
     this.learnedAxis = refineAxis(this.recent, this.cal); // also used for which foot leads
@@ -908,10 +923,10 @@ export class FormAnalyzer {
     this.round.punchLog.push({ t, type });
     const r3 = (x) => Math.round(x * 1000) / 1000;
     this.event('punch', t, conf, {
-      type, role, vis, speed: h.peakSpeed,
+      type, role, vis, speed: h.peakSpeed, fwd, lat, baseKind: base.kind,
       f: { angle: h.peakAngle, ext: h.peakExt, rise: h.maxRise, path: h.path.map(([a, b]) => [r3(a), r3(b)]), disp: h.peakDisp.map(r3) },
       i2: h.i2 ? { ext: r3(h.i2.ext), angle: Math.round(h.i2.maxAngle), fore: r3(h.i2.fore), elbUp: r3(h.i2.elbUp), dx: r3(h.i2.dx), dy: r3(h.i2.dy), vis: r3(h.i2.vis) } : null,
-      face: this.face ? [r3(this.face.x), r3(this.face.z)] : null,
+      face: face ? face.map(r3) : null,
     });
     this._calibPush('punches', [PUNCH_DIGIT[type], r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(h.maxRise), r2(lat), Math.round(conf), r2(fwd)]);
     if (role === 'lead') {
@@ -937,12 +952,20 @@ export class FormAnalyzer {
       if (e.face) faceDev.push((Math.acos(Math.max(-1, Math.min(1, e.face[0] * axis.x + e.face[1] * axis.z))) * 180) / Math.PI);
       const c = classifyPunch(e.f, axis, this.cal);
       e.axis = axis;
-      const type = PUNCH_TYPE[c.kind][e.role];
-      if (type !== e.type) changed++;
-      e.type = type;
-      e.conf = Math.round(PUNCH_CONF(e.vis, e.speed, this.vTh, c.margin));
       e.fwd = c.fwd;
       e.lat = c.lat;
+      e.baseKind = c.kind;
+      let { kind, margin } = c;
+      if (this.personal) {
+        const p = this.personal.predict(personalExample(e, null));
+        if (p.kind === 'none' && p.share >= 0.7) { e.notPunch = true; margin = 0; } // starts unticked in review
+        else if (p.kind !== 'none') { kind = p.kind; margin = p.share; }
+      }
+      const type = PUNCH_TYPE[kind][e.role];
+      if (type !== e.type) changed++;
+      e.type = type;
+      e.conf = Math.round(PUNCH_CONF(e.vis, e.speed, this.vTh, margin));
+      if (e.notPunch) e.conf = Math.min(e.conf, 30);
     });
     // Keep calibration rows in step with the final decisions.
     this.calib.punches = punches.slice(0, 300).map((e) => [PUNCH_DIGIT[e.type], r2(e.speed), r2(e.f.ext), Math.round(e.f.angle), r2(e.f.rise), r2(e.lat ?? 0), e.conf, r2(e.fwd ?? 0)]);
