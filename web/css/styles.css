@@ -522,3 +522,14 @@ a.chip { text-decoration: none; color: var(--ink); }
 .howto summary { cursor: pointer; margin-bottom: 6px; }
 .howto ol, .howto ul { margin: 6px 0 8px; padding-left: 20px; }
 .howto li { margin: 4px 0; }
+
+/* Coach me */
+.coachme-btn { margin: 0 0 12px; font-size: 1.05rem; text-align: center; text-decoration: none; }
+.dnt { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+.dnt > div { background: var(--surface-2); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 0.82rem; }
+.dnt > div:first-child { background: var(--good-bg); }
+.dnt > div:last-child { background: var(--bad-bg); }
+.dnt b { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+.weak { border-top: 1px solid var(--line); padding: 10px 0; }
+.weak:first-of-type { border-top: 0; }
+details.why summary { cursor: pointer; margin-top: 2px; }

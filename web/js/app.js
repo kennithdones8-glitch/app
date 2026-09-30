@@ -20,6 +20,8 @@ import { $, $$, esc, fmtDate, shortDate, toast, scoreClass, scoreChip, subnav, s
 import { reviewFieldsHTML, bindReview, readReview } from './views/review.js';
 import { buildReport, reportSize } from './report.js';
 import { safetyNotes, isStandalone, isIOS, askPersist } from './safety.js';
+import { adjustNextRound, evaluateCoached, applyEvaluation, drillFor, BENCHMARK, applyOnboarding, ONBOARD, EQUIPMENT } from './coachme.js';
+import { renderCoachMe } from './views/coachme.js';
 import { renderBoxer } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
 import { renderVideo, videoBusy, trustedCal } from './views/video.js';
@@ -38,7 +40,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.30-8';
+export const APP_VERSION = '2026.09.30-9';
 
 const app = {
   version: APP_VERSION,
@@ -51,6 +53,9 @@ const app = {
     return modelCache.ctx;
   },
   rebuildPlan: () => rebuildPlan(currentPlan().gymDays),
+  // Start a Coach-me session (or the benchmark). The camera is on unless the boxer turned it off.
+  startCoached: (plan) => startSession({ tracking: state.settings.tracking === 'none' ? 'none' : 'camera', focus: null, ...plan }),
+  startBenchmark: () => startSession({ ...structuredClone(BENCHMARK), tracking: 'camera', focus: null }),
   showSummary: (s) => { s.scores = scoreSession(s, state.profile); renderSummary(s); },
   // Open the live-session setup with your combos (or just some of them) being called.
   drillCombos: (ids) => {
@@ -65,7 +70,7 @@ const app = {
 
 const routes = {
   home: renderHome, plan: renderPlan, train: renderTrain, log: renderLog,
-  boxer: () => renderBoxer(view, app), coach: () => renderCoach(view, app),
+  boxer: () => renderBoxer(view, app), coach: () => renderCoach(view, app), coachme: () => renderCoachMe(view, app),
   progress: () => { location.hash = '#boxer/charts'; },
 };
 
@@ -138,8 +143,9 @@ function renderHome() {
 
   view.innerHTML = `
     ${pageHead('Today', { eyebrow: esc(dateLine) })}
+    <a class="btn primary block big coachme-btn" href="#coachme">🥊 Coach me<span class="small" style="display:block;font-weight:500;opacity:.85">Time, gear, how you feel → today's session</span></a>
 
-    ${!sessions.length ? `
+    ${!sessions.length && !profile.onboarded ? onboardHTML() : !sessions.length ? `
       <section class="card hero">
         <h2>Welcome${profile.name ? `, ${esc(profile.name)}` : ''} 👊</h2>
         <p>Every session, sparring round and coach note becomes evidence about your boxing. The plan is built from that.</p>
@@ -209,6 +215,33 @@ function renderHome() {
     renderHome();
   });
   bindCheckin();
+  $('#onboard')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target;
+    state.profile = applyOnboarding(state.profile, { want: f.want.value, experience: f.experience.value, hand: f.hand.value, days: f.days.value });
+    state.coach.equipment = [...f.querySelectorAll('[name=eq]:checked')].map((x) => x.value);
+    rebuildPlan(currentPlan().gymDays);
+    persist();
+    toast('Set up. Tap Coach me whenever you train.');
+    renderHome();
+  });
+}
+
+// First open: plain questions, no boxing words needed.
+function onboardHTML() {
+  const radios = (name, obj, first) => Object.entries(obj).map(([k, v], i) => `<label class="radio"><input type="radio" name="${name}" value="${k}" ${i === first ? 'checked' : ''}> <span>${esc(v)}</span></label>`).join('');
+  return `
+    <section class="card hero">
+      <h2>Welcome 👊 Four quick questions</h2>
+      <form id="onboard" class="form">
+        <fieldset><legend>What do you want most?</legend>${radios('want', ONBOARD.want, 1)}</fieldset>
+        <fieldset><legend>How much have you boxed?</legend>${radios('experience', ONBOARD.experience, 0)}</fieldset>
+        <fieldset><legend>Which hand do you write with?</legend>${radios('hand', ONBOARD.hand, 0)}</fieldset>
+        <label>Days a week you can train<select name="days">${[2, 3, 4, 5, 6].map((n) => `<option ${n === 3 ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <fieldset><legend>What do you have? (tick any)</legend>${Object.entries(EQUIPMENT).filter(([k]) => k !== 'none').map(([k, v]) => `<label class="switch"><input type="checkbox" name="eq" value="${k}"> <span>${esc(v)}</span></label>`).join('')}</fieldset>
+        <button class="btn primary block" type="submit">Set me up</button>
+      </form>
+    </section>`;
 }
 
 function todayHTML(d) {
@@ -402,6 +435,7 @@ async function startSession(plan) {
     byType: tracking === 'camera' ? { jab: 0, cross: 0, leadHook: 0, rearHook: 0, leadUppercut: 0, rearUppercut: 0 } : null,
     completedRounds: 0, comboTimer: null, burstTimers: [], stopMotion: null, analyzer: null, tracker: null, wakeLock: null,
     medThreshold: med?.threshold || null, medCued: false, calls: [], callResults: [], lastComboId: null,
+    roundCalls: [], maxLen: null, adjustments: [], callN: 0,
   };
 
   try { live.wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* optional */ }
@@ -502,7 +536,8 @@ function closeRound() {
   live.perRound.push(live.roundPunches);
   if (live.analyzer) {
     live.formRounds.push(live.analyzer.endRound());
-    live.callResults.push(...judgeCalls(live.calls, live.analyzer.round.punchLog));
+    live.roundCalls = judgeCalls(live.calls, live.analyzer.round.punchLog);
+    live.callResults.push(...live.roundCalls);
   }
   live.calls = [];
   live.roundPunches = 0;
@@ -562,7 +597,9 @@ function onPhase(phase, round) {
     audio.vibrate([200, 100, 200]);
     live.completedRounds = round;
     closeRound();
-    const msg = roundReport(round);
+    let msg = roundReport(round);
+    const adj = adaptNextRound(round);
+    if (adj) msg += ` ${adj}`;
     showCue(msg);
     showConstraint(roundPlan(round + 1));
     setTimeout(() => audio.say(msg, { interrupt: true }), 1500);
@@ -575,6 +612,20 @@ function onPhase(phase, round) {
     finishSession();
   }
   updateClock();
+}
+
+// Between rounds: simplify, push harder, or switch the stimulus, from how the round went.
+function adaptNextRound(round) {
+  if (!live || round >= live.timer.rounds || !live.plan.combos) return null;
+  const form = live.formRounds[live.formRounds.length - 1];
+  const a = adjustNextRound({ form, first: live.formRounds[0], calls: live.roundCalls, coach: live.plan.coach, comboLevel: live.plan.comboLevel });
+  if (a.action === 'keep') return null;
+  if (typeof live.plan.comboLevel === 'number') live.plan.comboLevel = a.comboLevel;
+  live.maxLen = a.maxLen;
+  const next = live.plan.rounds_?.[round];
+  if (a.switchTo && next) Object.assign(next, { constraint: a.switchTo, why: 'Switched: fatigue was breaking your technique.' });
+  live.adjustments.push([round, a.action]);
+  return a.say;
 }
 
 function showConstraint(rp) {
@@ -601,18 +652,28 @@ function scheduleCombos(rp) {
     const mine = level === 'only' ? state.combos.filter((x) => live.plan.comboIds?.includes(x.id)) : state.combos;
     const useMine = mine.length && (level === 'mine' || level === 'only' || (level === 'mix' && Math.random() < 0.5));
     let tokens = null, text, speech;
-    if (useMine) {
-      const pick = pickCombo(mine, live.lastComboId);
-      live.lastComboId = pick.id;
-      tokens = pick.tokens;
-    } else {
-      if (opp && Math.random() < 0.3) text = opp.prompts[Math.floor(Math.random() * opp.prompts.length)];
-      else if (c?.combos) text = c.combos[Math.floor(Math.random() * c.combos.length)];
-      else text = nextCombo(typeof level === 'number' ? level : 3, live.plan.focus);
-      tokens = parseCombo(text);
+    // After a hard round the adjuster may cap combos at two punches; try a few picks to respect it.
+    const fits = (tk) => !live.maxLen || !tk || tk.filter((x) => /^[1-6]b?$/.test(x)).length <= live.maxLen;
+    for (let tries = 0; tries < 6; tries++) {
+      if (useMine) {
+        const pick = pickCombo(mine, live.lastComboId);
+        live.lastComboId = pick.id;
+        tokens = pick.tokens;
+        text = null;
+      } else {
+        if (opp && Math.random() < 0.3) text = opp.prompts[Math.floor(Math.random() * opp.prompts.length)];
+        else if (c?.combos) text = c.combos[Math.floor(Math.random() * c.combos.length)];
+        else text = nextCombo(live.maxLen ? 1 : typeof level === 'number' ? level : 3, live.plan.focus);
+        tokens = parseCombo(text);
+      }
+      if (fits(tokens)) break;
     }
     if (tokens) { text = comboText(tokens); speech = comboSpeech(tokens); } else speech = comboToSpeech(text);
-    $('#liveCombo').innerHTML = tokens ? comboHTML(tokens) : esc(text);
+    // Next-rep coaching: every other call ends with the fix you're working on.
+    let finisher = live.plan.coach?.finisher && live.callN++ % 2 === 0 ? live.plan.coach.finisher : null;
+    if (finisher && finisher.split(/[ ,]+/).some((w) => w.length > 3 && String(text).toLowerCase().includes(w))) finisher = null; // the call already says it
+    if (finisher) speech += `, ${finisher}`;
+    $('#liveCombo').innerHTML = (tokens ? comboHTML(tokens) : esc(text)) + (finisher ? ` <span class="small">→ ${esc(finisher)}</span>` : '');
     audio.say(speech, { rate: 1.3, interrupt: true }); // a call you don't hear can't be judged
     // With the camera on, remember the call so we can check what was actually thrown.
     if (tokens && live.analyzer) live.calls.push({ t: performance.now(), key: comboKey(tokens), digits: punchDigits(tokens) });
@@ -675,6 +736,9 @@ function finishSession() {
     constraints: constraints.length ? constraints : undefined,
     calib: l.analyzer?.calib.frames ? l.analyzer.calib : undefined,
     comboCalls: l.callResults.length ? l.callResults.slice(0, 400) : undefined,
+    coach: l.plan.coach ? { ...l.plan.coach } : undefined,
+    benchmark: l.plan.benchmark || undefined,
+    adjustments: l.adjustments.length ? l.adjustments : undefined,
     rpe: 7, notes: '',
   };
   teardownLive();
@@ -779,6 +843,19 @@ function sessionDetailHTML(s, fb) {
     ${s.notes ? `<p class="notes">${esc(s.notes)}</p>` : ''}`;
 }
 
+// Coach-me result on the summary: the drill's success condition and what happens next.
+function coachedHTML(session) {
+  if (!session.coach) return session.benchmark ? '<div class="pr">📏 Benchmark done: compare it in Coach me.</div>' : '';
+  const ev = evaluateCoached(session, session.coach);
+  if (!ev) return '';
+  const l = state.coach?.levels?.[ev.root] || { level: 1, pass: 0, fail: 0 };
+  const next = ev.pass == null ? '' : ev.pass
+    ? (l.pass + 1 >= 2 && ev.level < 4 ? ` Next session: level ${ev.level + 1}, ${drillFor(ev.root, ev.level + 1).name}.` : ' One more pass like this and the drill levels up.')
+    : (l.fail + 1 >= 2 && ev.level > 1 ? ` Next session: back to ${drillFor(ev.root, ev.level - 1).name} to rebuild it.` : ' Same level next time.');
+  const adj = (session.adjustments || []).map(([r, a]) => `after R${r}: ${a}`).join(', ');
+  return `<div class="pr ${ev.pass === false ? 'warn' : ''}">🎯 ${esc(session.coach.drill)} (level ${ev.level}): ${esc(ev.text)}${esc(next)}${adj ? `<br><span class="small">Adjusted live ${esc(adj)}.</span>` : ''}</div>`;
+}
+
 function renderSummary(session) {
   const { memory: preview, events } = updateMemory(state.memory, session, state.profile);
   const fb = feedback(session, state.sessions, preview, state.profile);
@@ -790,6 +867,7 @@ function renderSummary(session) {
       ${events.newPRs.length ? `<div class="pr">🏆 New personal record: ${events.newPRs.map(esc).join(', ')}</div>` : ''}
       ${events.resolved.length ? `<div class="pr">✅ Habit fixed: ${events.resolved.map((k) => esc(INSIGHTS[k].text)).join(' ')}</div>` : ''}
       ${events.confirmed.length ? `<div class="pr warn">🧠 I'm noticing a pattern: ${events.confirmed.map((k) => esc(INSIGHTS[k].text)).join(' ')}</div>` : ''}
+      ${coachedHTML(session)}
       ${sessionDetailHTML(session, fb)}
     </section>
     <section class="card">
@@ -869,6 +947,11 @@ function saveSession(session) {
   session.scores = session.type in BOXING_TYPES ? scoreSession(session, state.profile) : {};
   const { memory } = updateMemory(state.memory, session, state.profile);
   session.feedback = feedback(session, state.sessions, memory, state.profile);
+  if (session.coach) {
+    const ev = evaluateCoached(session, session.coach);
+    session.coach.eval = ev;
+    state.coach = applyEvaluation(state.coach, ev, session.date);
+  }
   state.memory = memory;
   state.sessions.push(session);
   state.sessions.sort((a, b) => new Date(a.date) - new Date(b.date));

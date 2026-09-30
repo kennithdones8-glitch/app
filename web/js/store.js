@@ -24,6 +24,7 @@ export function defaultState() {
     hypotheses: [],
     checkins: [], // morning readiness: sleep, soreness, motivation, resting HR
     paused: [], // priorities parked to avoid skill interference
+    coach: { equipment: [], levels: {}, overrides: [], assigned: {} }, // Coach me: drill ladder, coach overrides, gear
   };
 }
 
@@ -37,6 +38,7 @@ function merge(base, data) {
     ...data,
     profile: { ...base.profile, ...(data.profile || {}), fight: { ...base.profile.fight, ...(data.profile?.fight || {}) } },
     settings: { ...base.settings, ...(data.settings || {}) },
+    coach: { ...base.coach, ...(data.coach || {}) },
     memory: { ...base.memory, ...(data.memory || {}) },
     ...Object.fromEntries(ARRAYS.map((k) => [k, Array.isArray(data[k]) ? data[k] : []])),
     plans: data.plans && typeof data.plans === 'object' ? data.plans : {},
