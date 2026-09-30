@@ -40,7 +40,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.30-9';
+export const APP_VERSION = '2026.09.30-10';
 
 const app = {
   version: APP_VERSION,
@@ -717,6 +717,7 @@ function teardownLive() {
 function finishSession() {
   if (!live) return;
   const l = live;
+  l.liveModel = l.tracker?.model || null;
   const t = l.timer;
   const constraints = (l.plan.rounds_ || []).slice(0, l.completedRounds).map((r, i) => {
     const f = l.formRounds[i];
@@ -734,7 +735,7 @@ function finishSession() {
     intensity: l.intensity.length ? Math.round(l.intensity.reduce((a, b) => a + b, 0) / l.intensity.length) : null,
     form: l.formRounds.some((r) => r.frames > 30) ? combineRounds(l.formRounds) : null,
     constraints: constraints.length ? constraints : undefined,
-    calib: l.analyzer?.calib.frames ? l.analyzer.calib : undefined,
+    calib: l.analyzer?.calib.frames ? { ...l.analyzer.calib, model: l.liveModel || undefined } : undefined,
     comboCalls: l.callResults.length ? l.callResults.slice(0, 400) : undefined,
     coach: l.plan.coach ? { ...l.plan.coach } : undefined,
     benchmark: l.plan.benchmark || undefined,

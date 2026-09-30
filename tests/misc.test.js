@@ -93,3 +93,19 @@ test('round timer: time the phone was asleep carries over correctly', async () =
   assert.ok(Math.abs(t.workMs - 540000) < 400, `total work ${t.workMs}`);
   assert.deepEqual(phases, ['prep0', 'work1', 'rest1', 'work2', 'rest2', 'work3', 'done3']);
 });
+
+test('live camera uses the full model unless this phone proved too slow for it', async () => {
+  const { pickLiveModel, tooSlow, LIVE_SLOW_MS } = await import('../web/js/pose.js');
+  const m = new Map();
+  const st = { getItem: (k) => m.get(k) ?? null };
+  assert.equal(pickLiveModel(st), 'full');
+  const now = Date.now();
+  m.set('boxcoach.liveModel', `lite@${now - 3 * 86400000}`);
+  assert.equal(pickLiveModel(st, now), 'lite');
+  m.set('boxcoach.liveModel', `lite@${now - 15 * 86400000}`);
+  assert.equal(pickLiveModel(st, now), 'full', 'tries the full model again after two weeks');
+  assert.equal(tooSlow(Array(10).fill(80)), null, 'not enough frames to judge');
+  assert.equal(tooSlow(Array(40).fill(LIVE_SLOW_MS - 10)), false);
+  assert.equal(tooSlow([...Array(25).fill(20), ...Array(15).fill(90)]), false, 'a few slow frames at start-up are fine');
+  assert.equal(tooSlow(Array(40).fill(70)), true);
+});

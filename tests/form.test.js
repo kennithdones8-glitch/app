@@ -246,6 +246,23 @@ test('dropped hands held forward still read as dropped with the camera tilted up
   }
 });
 
+test('a left/right arm swap for a frame or two is undone, so it starts no false punches', () => {
+  const swapArms = (w) => { const o = w.slice(); for (const [a, b] of [[13, 14], [15, 16]]) { o[a] = w[b]; o[b] = w[a]; } return o; };
+  for (const step of [33, 66, 100]) {
+    const an = new FormAnalyzer();
+    an.startRound();
+    let t = 0;
+    const f = (frames) => { for (const w of frames) { an.update(w, image(w), t); t += step; } };
+    f(still(30));
+    f(still(2).map(swapArms));
+    f(still(20));
+    an.endRound();
+    const c = an.calib;
+    assert.deepEqual([c.punches.length, c.rejected.length, c.nearMiss.length], [0, 0, 0], `${step} ms/frame`);
+    assert.ok(c.swaps >= 1, 'swap counted for the report');
+  }
+});
+
 test('punches are classified correctly from a side-on camera', () => {
   // Same jab and lead hook as the front-on test, but the boxer is filmed from the side.
   const rot = (w) => w.map((p) => ({ x: -p.z, y: p.y, z: p.x }));
