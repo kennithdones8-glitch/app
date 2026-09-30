@@ -6,7 +6,7 @@ import { scoreClips } from '../scripts/accuracy.mjs';
 const { clips } = JSON.parse(fs.readFileSync(new URL('./fixtures/clips.json', import.meta.url)));
 
 // Accuracy on the boxer's real clips may only go up. When a change improves it, raise the floor.
-const FLOOR = { 'pads-side-on': 21, 'shadow-front-on': 44 };
+const FLOOR = { 'pads-side-on': 23, 'shadow-front-on': 52 };
 
 test('punch types on real labelled clips never get worse', () => {
   for (const s of scoreClips(clips)) {

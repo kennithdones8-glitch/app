@@ -491,3 +491,10 @@ test('a jab that jolts the rear hand forward counts once; a fast one-two still c
   const oneTwo = [...jab.slice(0, 7), ...jab.slice(7).map((w, i) => { const o = [...w]; o[LM.R_WR] = cross[i][LM.R_WR]; o[LM.R_EL] = cross[i][LM.R_EL]; return o; }), ...cross.slice(4)];
   assert.deepEqual(run(oneTwo).got, ['jab', 'cross']);
 });
+
+test('a locked-out arm reads as a straight even when a low camera makes it seem to rise', async () => {
+  const { classifyFeatures } = await import('../web/js/form.js');
+  assert.equal(classifyFeatures({ ext: 0.97, angle: 162, rise: 0.25 }, 0.05, 0.2).kind, 'straight');
+  // A bent arm that rises is still an uppercut.
+  assert.equal(classifyFeatures({ ext: 0.75, angle: 95, rise: 0.25 }, 0.05, 0.1).kind, 'uppercut');
+});

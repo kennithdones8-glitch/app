@@ -441,7 +441,9 @@ export function classifyPunch(p, axis, cal = null) {
 export function classifyFeatures(p, fwd, lat, cal = null) {
   const T = cal?.ratio ?? DEFAULT_STRAIGHT_RATIO;
   const straightish = p.rise < 0.15 && p.ext >= 0.55 && fwd > 0.08 && fwd >= T * lat;
-  if ((p.angle >= 145 && p.ext >= 0.8 && p.rise < 0.15) || straightish) {
+  // A locked-out arm is a straight even when it seems to rise: a low phone (or a tilt the body
+  // frame missed) makes straights look like they go up. Hooks and uppercuts keep the elbow bent.
+  if ((p.angle >= 145 && p.ext >= 0.8) || straightish) {
     const byDir = straightish ? 0.5 + (fwd / Math.max(lat, 0.01) - T) / (2 * T) : 0;
     return { kind: 'straight', fwd, lat, margin: Math.min(1, Math.max((p.angle - 135) / 35, byDir)) };
   }
