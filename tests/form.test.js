@@ -100,7 +100,8 @@ test('crossed feet and squaring up are flagged', () => {
   const cues = [];
   const an = new FormAnalyzer({ onCue: (k) => cues.push(k) });
   an.startRound();
-  feed(an, still(120, {
+  // 12 s: reminders are spaced out (at most one every 8 s), so both need time to come up.
+  feed(an, still(360, {
     [LM.L_ANK]: { x: -0.25 }, [LM.R_ANK]: { x: 0.25 },
     [LM.L_SH]: { z: 0 }, [LM.R_SH]: { z: 0 },
   }), 0);

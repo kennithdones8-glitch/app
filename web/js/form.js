@@ -55,8 +55,8 @@ export const STANCE_MIN = 0.9;
 export const STANCE_MAX = 2.2;
 export const BLADE_MIN_DEG = 12;
 
-const CUE_COOLDOWN_MS = 7000;
-const GLOBAL_CUE_GAP_MS = 2500;
+const CUE_COOLDOWN_MS = 20000; // the same reminder at most every 20 s
+const GLOBAL_CUE_GAP_MS = 8000; // and any reminder at most every 8 s
 
 const r2 = (x) => Math.round(x * 100) / 100;
 const median = (xs) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };

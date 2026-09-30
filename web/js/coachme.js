@@ -265,8 +265,8 @@ export function evaluateCoached(session, coach) {
   const pass = meets(metric, value, target);
   const m = METRICS[metric];
   const text = value == null
-    ? `${m.name} wasn't measured (camera off or out of frame), so the level stays.`
-    : `${m.name}: ${value}${m.unit} (target ${METRICS[metric].better === 'down' ? '≤' : '≥'} ${target}${m.unit}): ${pass ? 'passed' : 'not yet'}.`;
+    ? 'Not measured (camera off or out of frame).'
+    : `${m.name} ${value}${m.unit} (target ${METRICS[metric].better === 'down' ? '≤' : '≥'} ${target}${m.unit}) ${pass ? '✓' : '✗'}`;
   return { root: coach.root, level: coach.level, metric, target, value, pass, text };
 }
 
@@ -399,20 +399,17 @@ export function adjustNextRound({ form, first, calls = [], coach = null, comboLe
   const lvl = typeof comboLevel === 'number' ? comboLevel : 2;
   // Fatigue is wrecking the technique: stop adding difficulty, rebuild the guard.
   if (measured && first?.guard != null && form.guard != null && first.guard - form.guard >= 15) {
-    return { action: 'switch', switchTo: 'guardRecovery', comboLevel: Math.max(1, lvl - 1), maxLen: 3, say: `Your guard dropped from ${first.guard} to ${form.guard} percent. Next round: guard recovery only, at 70 percent pace.` };
+    return { action: 'switch', switchTo: 'guardRecovery', comboLevel: Math.max(1, lvl - 1), maxLen: 3, say: 'Guard dropping. Next round: guard only, slower.' };
   }
   const key = coach?.metric;
   const target = coach ? drillFor(coach.root, coach.level).success.target : null;
   const value = measured && key && key !== 'guardFade' && key !== 'opener' ? form[key] : null;
   const ok = value == null ? null : meets(key, value, target);
   if ((rate != null && rate < 0.4) || ok === false) {
-    const bits = [];
-    if (rate != null && rate < 0.4) bits.push(`you threw ${exact} of ${called} called combos right`);
-    if (ok === false) bits.push(`${METRICS[key].name.toLowerCase()} was ${value}${METRICS[key].unit.trim() === '%' ? ' percent' : ''}`);
-    return { action: 'simplify', comboLevel: Math.max(1, lvl - 1), maxLen: 2, say: `Simplify: ${bits.join(' and ')}. Next round, two-punch combos${coach?.finisher ? `, and ${coach.finisher} every time` : ''}.` };
+    return { action: 'simplify', comboLevel: Math.max(1, lvl - 1), maxLen: 2, say: `Next round: two-punch combos${coach?.finisher ? `, ${coach.finisher}` : ''}.`, why: { exact, called, value } };
   }
   if ((rate == null || rate >= 0.75) && (ok === true || (ok == null && rate != null))) {
-    return { action: 'progress', comboLevel: Math.min(3, lvl + 1), maxLen: null, say: 'That was clean. Harder next round: longer combinations.' };
+    return { action: 'progress', comboLevel: Math.min(3, lvl + 1), maxLen: null, say: 'Clean. Longer combos next round.' };
   }
   return { action: 'keep', comboLevel: lvl, maxLen: null, say: null };
 }
