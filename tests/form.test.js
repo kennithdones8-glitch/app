@@ -498,3 +498,14 @@ test('a locked-out arm reads as a straight even when a low camera makes it seem 
   // A bent arm that rises is still an uppercut.
   assert.equal(classifyFeatures({ ext: 0.75, angle: 95, rise: 0.25 }, 0.05, 0.1).kind, 'uppercut');
 });
+
+test('a fast move with the arm still folded (guard adjusting) is not a punch', () => {
+  const an = new FormAnalyzer();
+  an.startRound();
+  let t = feed(an, still(10), 0);
+  // Rear fist snaps out to the side, away from the face: fast, but it stays by the shoulder.
+  t = feed(an, punch(LM.R_WR, LM.R_EL, { x: -0.3, y: -0.4, z: -0.1 }, { x: -0.3, y: -0.2, z: 0.05 }, 2, 4), t);
+  feed(an, still(15), t);
+  an.endRound();
+  assert.equal(an.calib.punches.length, 0, JSON.stringify(an.calib.rejected));
+});
