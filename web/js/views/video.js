@@ -8,6 +8,7 @@ import { comboLabel, comboText, parseCombo, STARTERS } from '../combos.js';
 import { calibrateFromCombo } from '../calibrate.js';
 import { saveReference } from './study.js';
 import { takePreset } from './handoff.js';
+import { drawGloves } from '../pose.js';
 import { buildReport } from '../report.js';
 import { FrameSheets, aiKey, checkWithClaude, applyAi, AI_MODELS } from '../aicheck.js';
 
@@ -175,8 +176,8 @@ function nextFrame(video, ms = 3000) {
   });
 }
 
-const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
-
+// Over the video: a rounded box around each person (the one being followed in red) and the
+// tracked boxer's gloves. Clearer than skeleton lines, and a box is easy to tap.
 function drawPeople(canvas, video, people, chosen) {
   // Overlay at most 720 px too: a 4K canvas redrawn every frame is heavy on a phone.
   const k = Math.min(1, 720 / Math.max(video.videoWidth || 1, video.videoHeight || 1));
@@ -185,14 +186,21 @@ function drawPeople(canvas, video, people, chosen) {
   const g = canvas.getContext('2d');
   g.clearRect(0, 0, canvas.width, canvas.height);
   people.forEach((pts, i) => {
-    g.strokeStyle = i === chosen ? '#ff4655' : 'rgba(255,255,255,0.45)';
-    g.lineWidth = Math.max(3, canvas.width / 160);
-    for (const [a, b] of BONES) {
-      g.beginPath();
-      g.moveTo(pts[a].x * canvas.width, pts[a].y * canvas.height);
-      g.lineTo(pts[b].x * canvas.width, pts[b].y * canvas.height);
-      g.stroke();
-    }
+    const seen = pts.filter((p) => (p.visibility ?? 1) > 0.3);
+    if (seen.length < 5) return;
+    const xs = seen.map((p) => p.x * cw), ys = seen.map((p) => p.y * ch);
+    const pad = cw * 0.03;
+    const x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad, x1 = Math.max(...xs) + pad, y1 = Math.max(...ys) + pad;
+    const on = i === chosen;
+    if (chosen >= 0 && !on) return; // once you're picked, only you are marked
+    g.lineWidth = Math.max(3, cw / 180);
+    g.strokeStyle = on ? '#ff4655' : 'rgba(255,255,255,0.7)';
+    g.setLineDash(on || chosen >= 0 ? [] : [10, 8]);
+    g.beginPath();
+    g.roundRect ? g.roundRect(x0, y0, x1 - x0, y1 - y0, 14) : g.rect(x0, y0, x1 - x0, y1 - y0);
+    g.stroke();
+    g.setLineDash([]);
+    if (on) drawGloves(g, pts, cw, ch);
   });
 }
 
@@ -540,7 +548,7 @@ function sendToClaude(j, app) {
   let copied = null;
   try {
     const text = buildReport(buildSession(j), app.state, app.version);
-    copied = navigator.clipboard?.writeText(text);
+    copied = navigator.clipboard?.writeText(text).then(() => true, () => false) ?? null; // refused copy is handled, never thrown
   } catch { copied = null; }
   saveFrames(j, copied);
 }
@@ -548,7 +556,7 @@ function sendToClaude(j, app) {
 // Share the contact sheets (iPhone: Save Images to Photos), or download them where sharing files isn't possible.
 async function saveFrames(j, copied = null) {
   const files = j.filesReady;
-  const copyNote = async () => ((await copied?.then(() => true, () => false)) ? 'Report copied. ' : '');
+  const copyNote = async () => ((await copied) ? 'Report copied. ' : '');
   if (!files) return toast(`${await copyNote()}Getting the photos ready. Tap again in a moment.`);
   if (!files.length) return toast(`${await copyNote()}No frames were captured.`);
   // Called with no await before it, so the tap still counts for the share sheet.

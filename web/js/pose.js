@@ -75,10 +75,29 @@ export function detectVideoFrame(lm, source) {
   return lm.detectForVideo(source, videoLastTs);
 }
 
-const BONES = [
-  [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
-  [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28],
-];
+// What's drawn over the camera: just the two gloves, green when that hand is up at guard height
+// and red when it has dropped. Less clutter than a skeleton, and it shows the one thing a boxer
+// checks at a glance.
+export function gloveState(pts) {
+  const sh = (pts[11].y + pts[12].y) / 2, hip = (pts[23].y + pts[24].y) / 2;
+  const limit = sh + (hip - sh) * 0.3; // a little below the shoulders still counts as up
+  return [15, 16].map((i) => ({ i, up: pts[i].y <= limit, seen: (pts[i].visibility ?? 1) >= 0.5 }));
+}
+
+export function drawGloves(g, pts, w, h, { dim = false } = {}) {
+  const shW = Math.hypot((pts[11].x - pts[12].x) * w, (pts[11].y - pts[12].y) * h);
+  const r = Math.max(8, shW * 0.22);
+  for (const { i, up, seen } of gloveState(pts)) {
+    if (!seen) continue;
+    g.beginPath();
+    g.arc(pts[i].x * w, pts[i].y * h, r, 0, Math.PI * 2);
+    g.fillStyle = dim ? 'rgba(255,255,255,0.35)' : up ? 'rgba(34,197,94,0.55)' : 'rgba(239,68,68,0.6)';
+    g.fill();
+    g.lineWidth = Math.max(2, r * 0.18);
+    g.strokeStyle = dim ? 'rgba(255,255,255,0.6)' : up ? '#22c55e' : '#ef4444';
+    g.stroke();
+  }
+}
 
 export class PoseTracker {
   constructor(video, canvas) {
@@ -162,22 +181,7 @@ export class PoseTracker {
     }
     const g = c.getContext('2d');
     g.clearRect(0, 0, c.width, c.height);
-    if (!pts) return;
-    g.lineWidth = 4;
-    g.strokeStyle = 'rgba(255,255,255,0.85)';
-    for (const [a, b] of BONES) {
-      if ((pts[a].visibility ?? 1) < 0.5 || (pts[b].visibility ?? 1) < 0.5) continue;
-      g.beginPath();
-      g.moveTo(pts[a].x * c.width, pts[a].y * c.height);
-      g.lineTo(pts[b].x * c.width, pts[b].y * c.height);
-      g.stroke();
-    }
-    g.fillStyle = '#ff3b3b';
-    for (const i of [15, 16]) {
-      g.beginPath();
-      g.arc(pts[i].x * c.width, pts[i].y * c.height, 9, 0, Math.PI * 2);
-      g.fill();
-    }
+    if (pts) drawGloves(g, pts, c.width, c.height);
   }
 
   stopCamera() {

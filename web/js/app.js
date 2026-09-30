@@ -22,7 +22,7 @@ import { buildReport, reportSize } from './report.js';
 import { safetyNotes, isStandalone, isIOS, askPersist } from './safety.js';
 import { adjustNextRound, evaluateCoached, applyEvaluation, drillFor, BENCHMARK, applyOnboarding, ONBOARD, EQUIPMENT } from './coachme.js';
 import { renderCoachMe } from './views/coachme.js';
-import { renderBoxer } from './views/boxer.js';
+import { renderBoxer, PROGRESS_SUBS } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
 import { renderVideo, videoBusy, trustedCal } from './views/video.js';
 import { renderCombos, comboHTML } from './views/combos.js';
@@ -40,7 +40,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.30-10';
+export const APP_VERSION = '2026.09.30-11';
 
 const app = {
   version: APP_VERSION,
@@ -69,9 +69,12 @@ const app = {
 // Routing
 
 const routes = {
-  home: renderHome, plan: renderPlan, train: renderTrain, log: renderLog,
-  boxer: () => renderBoxer(view, app), coach: () => renderCoach(view, app), coachme: () => renderCoachMe(view, app),
-  progress: () => { location.hash = '#boxer/charts'; },
+  home: renderHome, plan: renderPlan, train: renderTrain,
+  progress: () => (subOf('history') === 'history' ? renderLog() : renderBoxer(view, app)),
+  // Older links: the Log and Boxer tabs are now Progress.
+  log: () => location.replace(`#progress/history${location.hash.split('/')[1] ? `/${location.hash.split('/')[1]}` : ''}`),
+  boxer: () => location.replace(`#progress/${location.hash.split('/')[1] || 'skills'}`),
+  coach: () => renderCoach(view, app), coachme: () => renderCoachMe(view, app),
 };
 
 // A finished session waiting on the summary screen. Leaving it any way other than Discard saves it,
@@ -92,7 +95,8 @@ function route() {
   savePendingSummary();
   const name = (location.hash.slice(1) || 'home').split('/')[0];
   const fn = routes[name] || renderHome;
-  $$('.tabs a').forEach((a) => a.classList.toggle('active', a.dataset.tab === name));
+  const tab = { plan: 'home', coachme: 'home', log: 'progress', boxer: 'progress' }[name] || name;
+  $$('.tabs a').forEach((a) => a.classList.toggle('active', a.dataset.tab === tab));
   fn();
   renderStreak();
   window.scrollTo(0, 0);
@@ -110,7 +114,8 @@ function renderStreak() {
 // ---------------------------------------------------------------------------
 // Today
 
-let showToday = false;
+let showCheckin = false;
+let trainOptsOpen = false;
 
 const STATUS_WORD = { fresh: 'Fresh', normal: 'Ready to train', strained: 'Go lighter today', deload: 'Deload needed' };
 
@@ -139,19 +144,18 @@ function renderHome() {
   if (ws?.status === 'fast' || ws?.status === 'behind') notes.push(['⚖️', ws.status === 'fast' ? 'Cutting weight too fast' : 'Weight trending above target', ws.message, '#plan/weight']);
   notes.unshift(...safetyNotes({ standalone: isStandalone(), ios: isIOS(), sessions: sessions.length, lastBackup: state.settings.lastBackup }));
   const decay = ctx.decay[0];
-  if (decay) notes.push(['📉', decay.kind === 'fatigue' ? 'Breaks down under fatigue' : 'Technical weakness', decay.text, '#boxer/analysis']);
+  if (decay) notes.push(['📉', decay.kind === 'fatigue' ? 'Breaks down under fatigue' : 'Technical weakness', decay.text, '#progress/analysis']);
 
   view.innerHTML = `
     ${pageHead('Today', { eyebrow: esc(dateLine) })}
-    <a class="btn primary block big coachme-btn" href="#coachme">🥊 Coach me<span class="small" style="display:block;font-weight:500;opacity:.85">Time, gear, how you feel → today's session</span></a>
+    <a class="coachme-btn" href="#coachme"><b>🥊 Coach me</b><span>Today: ${esc(day.objective)}</span></a>
 
     ${!sessions.length && !profile.onboarded ? onboardHTML() : !sessions.length ? `
       <section class="card hero">
         <h2>Welcome${profile.name ? `, ${esc(profile.name)}` : ''} 👊</h2>
         <p>Every session, sparring round and coach note becomes evidence about your boxing. The plan is built from that.</p>
         <ol class="steps">
-          <li>Do the check-in below.</li>
-          <li>Run a camera session from <a href="#train">Train</a> so I can measure you.</li>
+          <li>Tap <b>Coach me</b> and do the session with the camera on.</li>
           <li>Log sparring and your coach's feedback.</li>
         </ol>
       </section>` : ''}
@@ -161,22 +165,11 @@ function renderHome() {
         <div class="ready-row">
           <div class="ring ${rec.status}" style="--v:${rec.readiness ?? 0}"><b>${rec.readiness ?? '–'}</b></div>
           <div class="ready-text"><b>${esc(STATUS_WORD[rec.status])}</b><span>${esc(rec.advice)}</span></div>
+          <button class="linkbtn small" id="redoCheckin">Edit</button>
         </div>
-        ${rec.reasons.length ? `<ul class="small">${rec.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
-        <div class="card-head" style="margin-top:10px"><span class="muted small">Load ${rec.load.acute} this week${rec.load.ratio != null ? ` · ${rec.load.ratio}× usual` : ''}</span><button class="linkbtn small" id="redoCheckin">Edit check-in</button></div>`
-        : `<div class="card-head"><h2>Morning check-in</h2><span class="muted small">30 seconds</span></div>${checkinForm()}`}
-    </section>
-
-    <section class="card objective">
-      <div class="eyebrow">What should I train today?</div>
-      <h2>${esc(day.objective)}</h2>
-      ${day.why[0] ? `<p class="small muted">${esc(day.why[0])}</p>` : ''}
-      <div class="meta"><span>${day.minutes} min</span>${day.priorityOrder.map((c) => `<span>${esc(c)}</span>`).join('')}</div>
-      ${showToday ? todayHTML(day) : ''}
-      <div class="row2" style="margin-top:12px">
-        <button class="btn ghost" id="whatToday">${showToday ? 'Hide plan' : 'Session plan'}</button>
-        <button class="btn primary" id="startToday">Start rounds</button>
-      </div>
+        ${rec.reasons.length ? `<details class="howto"><summary class="small">Why</summary><ul class="small">${rec.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul><p class="small muted">Load ${rec.load.acute} this week${rec.load.ratio != null ? ` · ${rec.load.ratio}× usual` : ''}</p></details>` : ''}`
+        : showCheckin ? `<div class="card-head"><h2>Morning check-in</h2><button class="linkbtn small" id="hideCheckin">Later</button></div>${checkinForm()}`
+        : '<button class="rowbtn" id="openCheckin" type="button"><b>Morning check-in</b><span>Sleep, soreness, motivation · 30 s</span><span class="chev">›</span></button>'}
     </section>
 
     <section class="card">
@@ -187,7 +180,7 @@ function renderHome() {
     ${notes.length ? `
     <section class="card">
       <h2>Coach notes</h2>
-      <ul class="rows notes-list">${notes.slice(0, 4).map(([ico, title, sub, href]) => `
+      <ul class="rows notes-list">${notes.slice(0, 2).map(([ico, title, sub, href]) => `
         <li><span class="row-ico">${ico}</span><a class="row-main" href="${href}" style="color:inherit;font-weight:400"><b>${esc(title)}</b><span>${esc(sub)}</span></a><span class="chev">›</span></li>`).join('')}</ul>
     </section>` : ''}
 
@@ -202,13 +195,8 @@ function renderHome() {
       <div class="bar"><div style="width:${Math.min(100, (wk.days / profile.weeklyGoal) * 100)}%"></div></div>
     </section>`;
 
-  $('#whatToday').addEventListener('click', () => { showToday = !showToday; renderHome(); });
-  $('#startToday').addEventListener('click', () => {
-    startSession({
-      type: 'shadow', rounds: day.rounds.length, roundSec: 180, restSec: 60, tracking: state.settings.tracking === 'motion' ? 'camera' : state.settings.tracking,
-      combos: true, comboLevel: 3, focus: state.memory.focus?.area || null, rounds_: day.rounds,
-    });
-  });
+  $('#openCheckin')?.addEventListener('click', () => { showCheckin = true; renderHome(); });
+  $('#hideCheckin')?.addEventListener('click', () => { showCheckin = false; renderHome(); });
   $('#redoCheckin')?.addEventListener('click', () => {
     state.checkins = state.checkins.filter((c) => c.date !== today);
     persist();
@@ -242,15 +230,6 @@ function onboardHTML() {
         <button class="btn primary block" type="submit">Set me up</button>
       </form>
     </section>`;
-}
-
-function todayHTML(d) {
-  return `
-    <div class="today">
-      ${d.why.length > 1 ? `<p class="small"><b>Why:</b> ${d.why.slice(1).map(esc).join(' ')}</p>` : ''}
-      <ol class="blocks">${d.blocks.map((b) => `<li><b>${esc(b.name)}</b> <span class="muted small">· ${b.minutes} min</span><br><span class="small muted">${esc(b.detail)}</span></li>`).join('')}</ol>
-      ${d.avoid.length ? `<h3>Do not add</h3><ul class="avoid">${d.avoid.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>` : ''}
-    </div>`;
 }
 
 function checkinForm() {
@@ -326,6 +305,8 @@ function renderTrain() {
           <label>Rest<select name="restSec">${rests.map((s) => opt(s, draft.restSec, fmt(s))).join('')}</select></label>
         </div>
       </section>
+      <details class="options" ${trainOptsOpen ? 'open' : ''}>
+      <summary class="card rowbtn"><b>Options</b><span id="optSummary"></span><span class="chev">›</span></summary>
       <section class="card form">
         <h2>Rounds</h2>
         <label class="switch"><input type="checkbox" name="constraints" ${draft.constraints ? 'checked' : ''}> <span>Constraint rounds</span></label>
@@ -349,6 +330,7 @@ function renderTrain() {
             <span><b>Timer only</b> — rounds and effort, optional tap counting.</span></label>
         </fieldset>
       </section>
+      </details>
       <button class="btn primary block big" type="submit">Start · <span id="totalTime"></span></button>
     </form>`;
 
@@ -362,11 +344,13 @@ function renderTrain() {
       comboIds: draft.comboIds, constraints: fd.get('constraints') === 'on',
     };
     $('#totalTime').textContent = fmt(draft.rounds * draft.roundSec + (draft.rounds - 1) * draft.restSec);
+    $('#optSummary').textContent = [{ camera: 'Camera coach', motion: 'Motion sensor', none: 'Timer only' }[draft.tracking], draft.constraints ? 'constraint rounds' : null, draft.combos ? 'combos called' : null].filter(Boolean).join(' · ');
     const usable = draft.constraints && ['shadow', 'bag', 'mitts'].includes(draft.type);
     rounds = usable ? generateFor(draft.rounds, ctx) : [];
     $('#roundPreview').innerHTML = rounds.length ? `<ol class="blocks">${rounds.map((r) => `<li><b>${esc(CONSTRAINTS[r.constraint].name)}</b>${r.opponent ? ` <span class="muted small">vs ${esc(OPPONENTS[r.opponent].name.toLowerCase())}</span>` : ''}<br><span class="small muted">${esc(r.why)}</span></li>`).join('')}</ol>` : '';
   };
   form.addEventListener('change', sync);
+  $('.options', form).addEventListener('toggle', (e) => { trainOptsOpen = e.target.open; });
   sync();
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -1044,7 +1028,7 @@ function planItemHTML(it, st) {
         <p>${esc(it.detail)}${it.rescheduled ? ` <i>(moved from ${DAY_NAMES[(new Date(it.from + 'T12:00:00').getDay() + 6) % 7]})</i>` : ''}</p>
       </div>
       ${canStart ? `<button class="btn primary" data-action="start-item" data-id="${it.id}">Start</button>`
-        : canLog ? `<a class="btn ghost" href="#log/${LOG_TYPE[it.kind] || 'conditioning'}">Log</a>` : ''}
+        : canLog ? `<a class="btn ghost" href="#progress/history/${LOG_TYPE[it.kind] || 'conditioning'}">Log</a>` : ''}
     </div>`;
 }
 
@@ -1158,7 +1142,7 @@ function renderLog() {
     groups[groups.length - 1].items.push(s);
   }
   view.innerHTML = `
-    ${pageHead('Log', { eyebrow: `${list.length} sessions` })}
+    ${pageHead('Progress', { eyebrow: `${list.length} sessions`, nav: subnav('progress', PROGRESS_SUBS, 'history') })}
     <section class="card">
       <details class="add">
         <summary class="btn primary block" style="margin-top:0">+ Log a session</summary>
@@ -1193,7 +1177,7 @@ function renderLog() {
     <dialog id="detail"></dialog>`;
 
   const mf = $('#manual');
-  const pre = location.hash.split('/')[1];
+  const pre = location.hash.split('/')[2];
   if (pre && pre in ALL_TYPES) {
     mf.type.value = pre;
     mf.closest('details').open = true;

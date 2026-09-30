@@ -7,7 +7,7 @@ import * as store from '../store.js';
 import { $, $$, esc, shortDate, subnav, subOf, toast, opt, scoreClass, pageHead } from '../ui.js';
 import { aiKey, aiModel, setAi, AI_MODELS } from '../aicheck.js';
 
-const SUBS = [['memory', 'Memory'], ['hypotheses', 'Hypotheses'], ['priorities', 'Priorities'], ['iq', 'Fight IQ']];
+const SUBS = [['memory', 'Memory'], ['hypotheses', 'Tests'], ['priorities', 'Priorities'], ['iq', 'Fight IQ']];
 
 // Pro weight-class limits in pounds.
 export const WEIGHT_CLASSES = [
@@ -28,6 +28,13 @@ export function renderCoach(view, app) {
 // ---------------------------------------------------------------------------
 // Memory: coach feedback, your observations, AI observations and measured data are kept apart.
 
+// A list card showing the newest few, the rest one tap away.
+function listCard(title, items, render, empty = '', sub = '') {
+  const first = items.slice(0, 3), rest = items.slice(3);
+  return `<section class="card"><h2>${esc(title)}</h2>${sub && items.length ? `<p class="muted small" style="margin-top:0">${esc(sub)}</p>` : ''}
+    ${items.length ? `<ul class="obs-list">${first.map(render).join('')}</ul>${rest.length ? `<details class="howto"><summary class="small">Show ${rest.length} more</summary><ul class="obs-list">${rest.map(render).join('')}</ul></details>` : ''}` : `<p class="muted small">${esc(empty)}</p>`}</section>`;
+}
+
 function memory(el, app) {
   const state = app.state;
   const ctx = app.model();
@@ -46,9 +53,9 @@ function memory(el, app) {
   const strong = ctx.skills.filter((s) => s.confidence === 'high' || s.confidence === 'medium');
 
   el.innerHTML = `
-    <section class="card">
-      <h2>Add to memory</h2>
-      <form id="obsForm" class="form">
+    <details class="options card">
+      <summary class="rowbtn"><b>+ Add a note</b><span>What your coach said, or what you noticed</span><span class="chev">›</span></summary>
+      <form id="obsForm" class="form" style="margin-top:12px">
         <div class="seg wide" role="radiogroup" aria-label="Who said it">
           <label><input type="radio" name="source" value="coach" checked><span>Coach said</span></label>
           <label><input type="radio" name="source" value="self"><span>My observation</span></label>
@@ -60,15 +67,15 @@ function memory(el, app) {
         </div>
         <button class="btn primary" type="submit">Remember this</button>
       </form>
-    </section>
-    <section class="card"><h2>🗣️ Coach said</h2>${by('coach').length ? `<ul class="obs-list">${by('coach').map(note).join('')}</ul>` : '<p class="muted small">Log what your coach tells you. I\'ll track whether it improves.</p>'}</section>
-    <section class="card"><h2>🙋 Your observations</h2>${by('self').length ? `<ul class="obs-list">${by('self').map(note).join('')}</ul>` : '<p class="muted small">Your own notes about how things feel.</p>'}</section>
-    <section class="card"><h2>🤖 AI observations</h2><p class="muted small">Patterns I inferred from your data. Treat them as hypotheses, not facts.</p>${by('ai').length ? `<ul class="obs-list">${by('ai').map(note).join('')}</ul>` : '<p class="muted small">None yet.</p>'}</section>
-    <section class="card"><h2>📏 Measured data</h2>
+    </details>
+    ${listCard('Coach said', by('coach'), note, "Log what your coach tells you. I'll track whether it improves.")}
+    ${by('self').length ? listCard('Your notes', by('self'), note) : ''}
+    ${listCard('What I noticed', by('ai'), note, 'Patterns from your data show up here after a few sessions.', 'Inferred from your data: treat as hypotheses, not facts.')}
+    <section class="card"><h2>Measured</h2>
       ${measured.length ? `<div class="areas">${measured.map((a) => `<div class="area"><span>${AREAS[a]}</span><div class="bd-bar"><div class="${scoreClass(state.memory.ema[a], TARGETS[a])}" style="width:${state.memory.ema[a]}%"></div><i style="left:${TARGETS[a]}%"></i></div><b>${state.memory.ema[a]}</b></div>`).join('')}</div><p class="muted small">Camera-measured recent averages; the tick is the target.</p>` : '<p class="muted small">Camera sessions produce measured data.</p>'}
-      ${Object.keys(state.memory.insights).length ? `<h3>Measured habits</h3><ul class="habits">${Object.entries(state.memory.insights).map(([k, v]) => `<li>${esc(INSIGHTS[k].text)} <span class="muted">· ${v.count}× · last ${shortDate(v.lastSeen)}</span></li>`).join('')}</ul>` : ''}
+      ${Object.keys(state.memory.insights).length ? `<details class="howto"><summary class="small">Habits seen (${Object.keys(state.memory.insights).length})</summary><ul class="habits">${Object.entries(state.memory.insights).map(([k, v]) => `<li>${esc(INSIGHTS[k].text)} <span class="muted">· ${v.count}× · last ${shortDate(v.lastSeen)}</span></li>`).join('')}</ul></details>` : ''}
       ${state.memory.resolved.length ? `<h3>Fixed 💪</h3><ul class="habits good">${state.memory.resolved.slice(0, 5).map((r) => `<li>${esc(INSIGHTS[r.key]?.text || r.key)} <span class="muted">· ${shortDate(r.date)}</span></li>`).join('')}</ul>` : ''}
-      ${strong.length ? `<p class="muted small">${strong.length} skills have enough evidence for a confident rating — see the Boxer tab.</p>` : ''}
+      ${strong.length ? `<p class="muted small">${strong.length} skills have enough evidence for a confident rating — see Progress → Skills.</p>` : ''}
     </section>`;
 
   $('#obsForm', el).addEventListener('submit', (e) => {
