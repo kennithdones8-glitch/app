@@ -23,6 +23,9 @@ function drillCombo(app, value) {
   return c;
 }
 
+// A saved punch calibration is only used if it proved itself (60%+ against a drilled combo).
+export const trustedCal = (cal) => (cal?.acc >= 0.6 ? cal : null);
+
 const pctOf = (n, d) => (d ? Math.round((n / d) * 100) : 0);
 const fmtT = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
 
@@ -43,7 +46,7 @@ export function renderVideo(el, app) {
         <p class="muted small" style="margin:0">Pick the whole sequence you repeated. Punch types then follow your combo, and the camera checks and trains itself against it. Build your own in Train → Combos.</p>
         <div class="row2">
           <label>Rounds of<select name="roundSec">${opt(0, 0, 'Whole video')}${opt(120, 0, '2 min')}${opt(180, 0, '3 min')}</select></label>
-          <label>Detail<select name="fps">${opt(10, 15, 'Fast')}${opt(15, 15, 'Normal')}${opt(24, 15, 'Precise')}</select></label>
+          <label>Detail<select name="fps">${opt(10, 15, 'Fast')}${opt(15, 15, 'Normal')}${opt(24, 15, 'Precise (slow)')}</select></label>
         </div>
         <button class="btn primary block" type="submit">Analyse</button>
       </form>
@@ -159,10 +162,12 @@ async function analyse(file, video, opts, el, app) {
     }
     stage.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
     stage.style.width = `min(100%, ${Math.round((380 * video.videoWidth) / video.videoHeight)}px)`;
-    status.textContent = 'Loading pose model…';
+    // Bigger model for more detail: body tracking is what everything else rests on.
+    const model = opts.fps >= 24 ? 'heavy' : opts.fps >= 15 ? 'full' : 'lite';
+    status.textContent = model === 'heavy' ? 'Loading the precise pose model (30 MB, first time only)…' : 'Loading pose model…';
     const { getVideoLandmarker, detectVideoFrame } = await import('../pose.js');
-    const lm = await getVideoLandmarker();
-    const analyzer = new FormAnalyzer({ stance: opts.stance, sensitivity: opts.sensitivity, minVis: 0.3, cal: app.state.profile.punchCal || null, aspect: video.videoWidth / video.videoHeight || 1 });
+    const lm = await getVideoLandmarker(model);
+    const analyzer = new FormAnalyzer({ stance: opts.stance, sensitivity: opts.sensitivity, minVis: 0.3, cal: trustedCal(app.state.profile.punchCal), aspect: video.videoWidth / video.videoHeight || 1 });
     const durMs = video.duration * 1000;
     const roundMs = opts.roundSec ? opts.roundSec * 1000 : durMs + 1;
     const rounds = [];
@@ -282,7 +287,7 @@ async function analyse(file, video, opts, el, app) {
       const punchEvents = () => analyzer.events.filter((e) => e.kind === 'punch' && e.f);
       const prior = app.state.profile.punchCal || null;
       // 1) How the camera did on its own; this also pins forward from the known straights.
-      comboCheck = calibrateFromCombo(punchEvents(), opts.drill.tokens, prior);
+      comboCheck = calibrateFromCombo(punchEvents(), opts.drill.tokens, trustedCal(prior));
       comboCheck.combo = comboLabel(opts.drill.tokens);
       // 2) Re-read with the combo as a guide (forward pinned), current straight/hook boundary.
       analyzer.reclassify();
@@ -294,7 +299,9 @@ async function analyse(file, video, opts, el, app) {
         analyzer.cal = cal;
         analyzer.reclassify();
         const tuned = calibrateFromCombo(punchEvents(), opts.drill.tokens, cal).agree;
-        if (tuned > comboCheck.guided) {
+        // Keep it only if it clearly reads your punches: 60%+ right and a real gain, not noise.
+        cal.acc = Math.round((tuned / comboCheck.matched) * 100) / 100;
+        if (cal.acc >= 0.6 && tuned >= comboCheck.guided + Math.max(3, comboCheck.matched * 0.05)) {
           comboCheck.tuned = tuned;
           comboCheck.saved = true;
           app.state.profile.punchCal = cal;
@@ -325,7 +332,7 @@ async function analyse(file, video, opts, el, app) {
     job = {
       done: true, url, type: opts.type, roundSec: opts.roundSec || Math.round(durMs / 1000), durMs,
       rounds, events: analyzer.events.map((e, i) => ({ ...e, i, keep: e.conf >= 50, fix: e.type })),
-      calib: { ...analyzer.calib, who, multi: frames ? Math.round((multi / frames) * 100) : 0, comboCheck: comboCheck || undefined, cal: analyzer.cal || undefined },
+      calib: { ...analyzer.calib, model, who, multi: frames ? Math.round((multi / frames) * 100) : 0, comboCheck: comboCheck || undefined, cal: analyzer.cal || undefined },
       comboCheck,
       frames, tracked: frames ? Math.round((tracked / frames) * 100) : 0, multi: frames ? Math.round((multi / frames) * 100) : 0,
       date: new Date(file.lastModified || Date.now()).toISOString(),

@@ -2,7 +2,8 @@
 
 const VERSION = '0.10.14';
 const BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VERSION}`;
-const MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
+const modelUrl = (size) => `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${size}/float16/1/pose_landmarker_${size}.task`;
+const MODEL = modelUrl('lite'); // live camera: must keep up in real time
 
 let landmarkerPromise = null;
 
@@ -29,24 +30,26 @@ export async function getLandmarker() {
 
 // Separate instance for video files: up to 2 people (pads/sparring), and its own timestamp
 // clock so it never conflicts with the live camera (MediaPipe needs increasing timestamps).
-let videoLandmarkerPromise = null;
+// Videos aren't real-time, so they can use a bigger, more accurate model:
+// 'lite' (6 MB, fastest), 'full' (9 MB), 'heavy' (30 MB, most accurate, slowest).
+const videoLandmarkers = {};
 let videoLastTs = 0;
 
-export async function getVideoLandmarker() {
-  if (!videoLandmarkerPromise) {
-    videoLandmarkerPromise = (async () => {
+export async function getVideoLandmarker(size = 'full') {
+  if (!videoLandmarkers[size]) {
+    videoLandmarkers[size] = (async () => {
       const { FilesetResolver, PoseLandmarker } = await import(`${BASE}/vision_bundle.mjs`);
       const fileset = await FilesetResolver.forVisionTasks(`${BASE}/wasm`);
-      const opts = (delegate) => ({ baseOptions: { modelAssetPath: MODEL, delegate }, runningMode: 'VIDEO', numPoses: 2 });
+      const opts = (delegate) => ({ baseOptions: { modelAssetPath: modelUrl(size), delegate }, runningMode: 'VIDEO', numPoses: 2 });
       try {
         return await PoseLandmarker.createFromOptions(fileset, opts('GPU'));
       } catch {
         return await PoseLandmarker.createFromOptions(fileset, opts('CPU'));
       }
     })();
-    videoLandmarkerPromise.catch(() => { videoLandmarkerPromise = null; });
+    videoLandmarkers[size].catch(() => { delete videoLandmarkers[size]; });
   }
-  return videoLandmarkerPromise;
+  return videoLandmarkers[size];
 }
 
 export function detectVideoFrame(lm, source) {

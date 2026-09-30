@@ -316,3 +316,16 @@ test('side-on footage leaves blade and stance width unmeasured; front-on measure
   assert.ok(sd.crossedPct != null, 'crossed feet still checked');
   assert.ok(combineRounds([sd]).sidePct > 90, 'carried into the session');
 });
+
+test('a few front-on moments in a side-on clip are not enough to judge blade or stance', async () => {
+  const { roundMetrics } = await import('../web/js/form.js');
+  const base = { frames: 100, guardEligible: 0, guardUp: 0, stanceOk: 5, footFrames: 100, narrow: 3, wide: 1, crossed: 0, bladeOk: 1, moving: 0, headMoving: 0, sideFrames: 90,
+    punches: { jab: 0, cross: 0, leadHook: 0, rearHook: 0, leadUppercut: 0, rearUppercut: 0 }, returnTimes: [], returnLead: [], returnRear: [], leadPunches: 0, rearDrops: 0, punchLog: [], leftCloser: 0, depthFrames: 0 };
+  const few = roundMetrics({ ...base, stanceFrames: 10, bladeFrames: 10 });
+  assert.equal(few.blade, null);
+  assert.equal(few.stance, null);
+  assert.equal(few.narrowPct, null);
+  const many = roundMetrics({ ...base, stanceFrames: 40, bladeFrames: 40, stanceOk: 30, bladeOk: 30, sideFrames: 60 });
+  assert.equal(many.blade, 75);
+  assert.equal(many.stance, 75);
+});
