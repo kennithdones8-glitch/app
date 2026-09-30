@@ -190,7 +190,8 @@ export function updateMemory(prev, session, profile = {}) {
   const events = { newPRs: [], resolved: [], confirmed: [] };
 
   // Streak counts consecutive days with any training.
-  if (mem.streak.lastDay !== today) {
+  // A back-dated session (an old video, yesterday's gym logged today) doesn't touch the streak.
+  if (mem.streak.lastDay !== today && !(mem.streak.lastDay && today < mem.streak.lastDay)) {
     const gap = mem.streak.lastDay ? daysBetween(mem.streak.lastDay, today) : null;
     mem.streak.count = gap === 1 ? mem.streak.count + 1 : 1;
     mem.streak.lastDay = today;

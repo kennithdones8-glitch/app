@@ -67,7 +67,22 @@ const routes = {
   progress: () => { location.hash = '#boxer/charts'; },
 };
 
+// A finished session waiting on the summary screen. Leaving it any way other than Discard saves it,
+// so a tab tap or a swipe back never loses a session (or a whole video analysis).
+let pendingSummary = null;
+function savePendingSummary() {
+  if (!pendingSummary) return;
+  const { session, form } = pendingSummary;
+  pendingSummary = null;
+  readReview(form, session, state);
+  session.rpe = +form.rpe.value;
+  session.notes = form.notes.value.trim();
+  saveSession(session);
+  toast('Session saved.');
+}
+
 function route() {
+  savePendingSummary();
   const name = (location.hash.slice(1) || 'home').split('/')[0];
   const fn = routes[name] || renderHome;
   $$('.tabs a').forEach((a) => a.classList.toggle('active', a.dataset.tab === name));
@@ -787,10 +802,11 @@ function renderSummary(session) {
       </form>
     </section>`;
   const f = $('#saveForm');
+  pendingSummary = { session, form: f };
   bindReview(f);
   f.rpe.addEventListener('input', () => { $('#rpeOut').textContent = f.rpe.value; });
   $('#discard').addEventListener('click', () => {
-    if (confirm('Discard this session?')) { location.hash = '#home'; route(); }
+    if (confirm('Discard this session?')) { pendingSummary = null; location.hash = '#home'; route(); }
   });
   $('#copyReport').addEventListener('click', () => {
     readReview(f, session, state);
@@ -800,6 +816,7 @@ function renderSummary(session) {
   });
   f.addEventListener('submit', (e) => {
     e.preventDefault();
+    pendingSummary = null;
     readReview(f, session, state);
     session.rpe = +f.rpe.value;
     session.notes = f.notes.value.trim();
@@ -849,6 +866,7 @@ function saveSession(session) {
   state.memory = memory;
   state.sessions.push(session);
   state.sessions.sort((a, b) => new Date(a.date) - new Date(b.date));
+  store.trimDiagnostics(state.sessions);
   persist();
   afterDataChange();
 }
@@ -1178,7 +1196,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   const hadController = !!navigator.serviceWorker.controller;
   let reloaded = false, updateReady = false;
   const applyUpdate = () => {
-    if (updateReady && !reloaded && !live && !videoBusy()) { reloaded = true; location.reload(); }
+    if (updateReady && !reloaded && !live && !videoBusy() && !pendingSummary) { reloaded = true; location.reload(); }
   };
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadController) return;

@@ -72,6 +72,19 @@ export function importJSON(text) {
   return merge(defaultState(), data);
 }
 
+// Per-punch diagnostics (calib) are only needed for recent coach reports. Keep them on the latest
+// few sessions and slim older ones, so months of camera sessions don't fill the phone's storage.
+export function trimDiagnostics(sessions, keep = 12) {
+  let seen = 0;
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    const c = sessions[i].calib;
+    if (!c) continue;
+    if (++seen <= keep) continue;
+    for (const k of ['punches', 'vec', 'vec2', 'rejected', 'nearMiss', 'fixes', 'labels']) delete c[k];
+  }
+  return sessions;
+}
+
 export function newId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }

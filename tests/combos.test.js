@@ -104,3 +104,10 @@ test('picks combos without repeating the last one', () => {
   assert.equal(pickCombo([], null), null);
   assert.equal(comboKey(['1', '2']), '1-2');
 });
+
+test('a pause in a combo allows any gap there', () => {
+  const full = parseCombo('1-3-2 roll 2-3 pause 1 pause 3b roll 6-3-2 roll 2');
+  assert.equal(countCombo('1-3-2~2-3 1 3~6-3-2~2 1-3-2~2-3~1~3~6-3-2~2', full).exact, 2);
+  assert.equal(countCombo('1-3-2~2-3 1-3~6-3-2~2', full).exact, 1, 'no pause needed, but allowed');
+  assert.equal(countCombo('1-3 2~2', parseCombo('1-3-2 roll 2')).exact, 0, 'a real break still splits a tight combo');
+});

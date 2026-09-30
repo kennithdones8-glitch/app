@@ -61,3 +61,15 @@ test('coach report is compact JSON with calibration data', async () => {
   assert.match(data.fatigue, /held your form/);
   assert.ok(text.length < 4000);
 });
+
+test('old sessions lose their per-punch diagnostics, recent ones keep them', async () => {
+  const { trimDiagnostics } = await import('../web/js/store.js');
+  const sessions = Array.from({ length: 15 }, (_, i) => ({ id: i, calib: { vTh: 1.6, frames: 100, punches: [[1]], vec: [[1]], vec2: [[1]] } }));
+  sessions.splice(5, 0, { id: 'run' });
+  trimDiagnostics(sessions, 12);
+  const withData = sessions.filter((s) => s.calib?.punches).map((s) => s.id);
+  assert.equal(withData.length, 12);
+  assert.deepEqual(withData.slice(0, 2), [3, 4]);
+  assert.equal(sessions[0].calib.frames, 100, 'summary numbers stay');
+  assert.equal(sessions[0].calib.punches, undefined);
+});
