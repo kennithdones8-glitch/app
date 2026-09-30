@@ -8,6 +8,7 @@ import { comboLabel, comboText, parseCombo, STARTERS } from '../combos.js';
 import { calibrateFromCombo } from '../calibrate.js';
 import { saveReference } from './study.js';
 import { takePreset } from './handoff.js';
+import { FrameSheets, aiKey, checkWithClaude, applyAi, AI_MODELS } from '../aicheck.js';
 
 let job = null; // { analyzer, events, rounds, meta } after analysis
 let busy = false;
@@ -36,7 +37,7 @@ export function renderVideo(el, app) {
   el.innerHTML = `
     <section class="card">
       <h2>Analyse a video</h2>
-      <p class="muted small">Shadowboxing, pads, bag or sparring. It's analysed on your phone and never uploaded. Best results: whole body in frame, camera still, filmed from the front or a 45° angle.</p>
+      <p class="muted small">Shadowboxing, pads, bag or sparring. It's analysed on your phone; nothing is uploaded unless you switch on the Claude check. Best results: whole body in frame, camera still, filmed from the front or a 45° angle.</p>
       <div class="msg" style="margin:0 0 12px">📋 Want Claude to review it? After saving, open the session in <b>Log</b> and tap <b>Copy report for coach</b>, then paste it into your chat. Only the measurements are shared, never the video.</div>
       <form id="vidForm" class="form">
         <label>Video<input type="file" name="file" accept="video/*" required></label>
@@ -52,6 +53,9 @@ export function renderVideo(el, app) {
           <label>Rounds of<select name="roundSec">${opt(0, 0, 'Whole video')}${opt(120, 0, '2 min')}${opt(180, 0, '3 min')}</select></label>
           <label>Detail<select name="fps">${opt(10, 15, 'Fast')}${opt(15, 15, 'Normal')}${opt(24, 15, 'Precise (slow)')}</select></label>
         </div>
+        ${aiKey()
+          ? '<label class="switch"><input type="checkbox" name="ai" checked> <span>Check every punch with Claude (sends cropped frames of the boxer to Anthropic)</span></label>'
+          : '<p class="muted small" style="margin:0">Want Claude to check every punch and find missed ones? Add your API key in <a href="#coach/settings">Coach → Settings</a>.</p>'}
         <button class="btn primary block" type="submit">Analyse</button>
       </form>
       <div id="vidProgress" hidden>
@@ -90,7 +94,7 @@ export function renderVideo(el, app) {
     analyse(file, video, {
       type: f.type.value, roundSec: +f.roundSec.value, fps: +f.fps.value,
       drill: f.subject.value === 'pro' ? null : drillCombo(app, f.drill?.value),
-      subject: f.subject.value, proName: f.proName.value.trim(),
+      subject: f.subject.value, proName: f.proName.value.trim(), ai: !!(f.ai?.checked && aiKey()),
       stance: app.state.profile.stance, sensitivity: app.state.profile.sensitivity,
     }, el, app);
   });
@@ -213,7 +217,8 @@ async function analyse(file, video, opts, el, app) {
     const rounds = [];
     let roundEnd = roundMs, frames = 0, tracked = 0, multi = 0, lastT = -1;
     const tracker = new PersonTracker();
-    let who = 'auto';
+    let who = 'auto', nobody = 0, lost = 0;
+    const sheets = opts.ai ? new FrameSheets() : null;
 
     // Find people in the first frames; with more than one, ask the boxer to tap themselves.
     status.textContent = 'Finding you in the video…';
@@ -248,6 +253,7 @@ async function analyse(file, video, opts, el, app) {
       stage.classList.remove('pick');
       if (cancelled || i < 0) throw new Error('cancelled');
       tracker.lockOn(first[i], colors[i]);
+      tracker.crowd = true;
       who = 'tap';
       drawPeople(overlay, video, first, i);
     } else if (first.length === 1) {
@@ -277,6 +283,9 @@ async function analyse(file, video, opts, el, app) {
       const image = idx >= 0 ? people[idx] : null;
       const world = idx >= 0 ? r.worldLandmarks?.[idx] : null;
       if (image) tracked++;
+      else if (people.length) lost++;
+      else nobody++;
+      if (sheets) sheets.add(frame, image, t);
       if (people.length > 1) multi++;
       frames++;
       analyzer.update(world || null, image, t);
@@ -337,6 +346,7 @@ async function analyse(file, video, opts, el, app) {
     }
     rounds.push(analyzer.endRound());
     video.pause();
+    sheets?.flush();
     analyzer.reclassify();
     // Drilled a known combo: check the camera against it and learn this boxer's straight/hook boundary.
     let comboCheck = null;
@@ -389,10 +399,12 @@ async function analyse(file, video, opts, el, app) {
     job = {
       done: true, url, type: opts.type, subject: opts.subject, proName: opts.proName, roundSec: opts.roundSec || Math.round(durMs / 1000), durMs,
       rounds, events: analyzer.events.map((e, i) => ({ ...e, i, keep: e.conf >= 50, fix: e.type })),
-      calib: { ...analyzer.calib, model, who, multi: frames ? Math.round((multi / frames) * 100) : 0, comboCheck: comboCheck || undefined, cal: analyzer.cal || undefined },
+      calib: { ...analyzer.calib, model, who, seen: [frames, nobody, lost], multi: frames ? Math.round((multi / frames) * 100) : 0, comboCheck: comboCheck || undefined, cal: analyzer.cal || undefined },
       comboCheck,
       frames, tracked: frames ? Math.round((tracked / frames) * 100) : 0, multi: frames ? Math.round((multi / frames) * 100) : 0,
       date: new Date(file.lastModified || Date.now()).toISOString(),
+      stance: opts.stance, drill: opts.drill ? comboText(opts.drill.tokens) : null,
+      sheets: sheets?.sheets || null, ai: sheets ? { state: 'pending' } : null,
     };
     app.rerender();
   } catch (err) {
@@ -434,6 +446,7 @@ function renderReview(el, app) {
         <li>Stance detected: ${esc(stanceTxt)}</li>
         <li>${punches.length} punches detected, average confidence ${avgConf ?? '–'}%</li>
         ${j.comboCheck ? comboCheckHTML(j.comboCheck) : ''}
+        ${j.ai ? `<li id="aiStatus">${aiStatusHTML(j.ai)}</li>` : ''}
         <li>${others.filter((e) => e.kind === 'guardDrop').length} guard drops · ${others.filter((e) => e.kind === 'crossedFeet').length} crossed-feet moments</li>
       </ul>
       <p class="muted small">Computer vision isn't perfect. Tap a time to jump there, fix the punch type, or untick anything that's wrong. Low-confidence detections start unticked.</p>
@@ -450,12 +463,15 @@ function renderReview(el, app) {
             ? `<select data-fix="${e.i}">${Object.entries(PUNCH_NAMES).map(([k, n]) => opt(k, e.fix, n)).join('')}</select>`
             : `<span>${e.kind === 'guardDrop' ? 'Guard drop' : 'Crossed feet'}</span>`}
           <span class="badge ${e.conf >= 80 ? 'good' : e.conf >= 60 ? 'warn' : 'bad'}">${e.conf}%</span>
+          ${e.ai ? `<span class="badge ai" title="Checked by Claude">${e.ai === 'added' ? 'Claude: missed' : e.ai === 'none' ? 'Claude: not a punch' : e.ai === 'same' ? 'Claude ✓' : 'Claude fixed'}</span>` : ''}
         </li>`).join('')}</ul>
     </section>
     <section class="card">
       <div class="row2"><button class="btn ghost" id="vidDiscard">Discard</button><button class="btn primary" id="vidSave">${j.subject === 'pro' ? 'Save for comparison' : 'Save session'}</button></div>
     </section>`;
 
+  $('#aiRetry', el)?.addEventListener('click', () => runAi(el, app));
+  if (j.ai?.state === 'pending') runAi(el, app);
   $('#uncertain', el).addEventListener('change', (e) => { el.dataset.uncertain = e.target.checked ? '1' : ''; renderReview(el, app); });
   $$('[data-seek]', el).forEach((b) => b.addEventListener('click', () => {
     const v = $('#vidPreview', el);
@@ -471,11 +487,14 @@ function renderReview(el, app) {
   $$('[data-fix]', el).forEach((s) => s.addEventListener('change', () => { j.events[+s.dataset.fix].fix = s.value; j.events[+s.dataset.fix].edited = true; }));
   $('#vidDiscard', el).addEventListener('click', () => {
     if (!confirm('Discard this analysis?')) return;
+    j.aiAbort?.abort();
     URL.revokeObjectURL(j.url);
     job = null;
     app.rerender();
   });
   $('#vidSave', el).addEventListener('click', () => {
+    if (j.ai?.state === 'running' && !confirm('Claude is still checking. Save without its check?')) return;
+    j.aiAbort?.abort();
     const session = buildSession(j);
     URL.revokeObjectURL(j.url);
     job = null;
@@ -488,6 +507,48 @@ function renderReview(el, app) {
     }
     app.showSummary(session);
   });
+}
+
+function aiStatusHTML(a) {
+  if (a.state === 'pending' || a.state === 'running') {
+    return `Claude is checking every punch${a.total ? ` (part ${Math.min(a.done + 1, a.total)} of ${a.total})` : ''}… <span class="muted">You can review below meanwhile.</span>`;
+  }
+  if (a.state === 'error') return `Claude check didn't finish: ${esc(a.msg)} <button class="linkbtn" id="aiRetry">Try again</button>`;
+  return `Claude checked the punches (${esc(AI_MODELS[a.model] || a.model)}): ${a.same} confirmed, ${a.retyped} punch types corrected, ${a.removed} not punches (unticked), ${a.added} missed punches added.`;
+}
+
+// Send the captured frames to Claude and apply its verdicts to the review list.
+async function runAi(el, app) {
+  const j = job;
+  if (!j?.sheets?.length || j.ai?.state === 'running') return;
+  const ctrl = new AbortController();
+  j.aiAbort = ctrl;
+  j.ai = { state: 'running', done: 0, total: 0 };
+  const show = () => { const li = $('#aiStatus', el); if (li && job === j) li.innerHTML = aiStatusHTML(j.ai); };
+  show();
+  // Only the camera's own detections go in; punches Claude added on an earlier try are replaced.
+  j.events = j.events.filter((e) => !e.aiAdded);
+  const detected = j.events.filter((e) => e.kind === 'punch');
+  try {
+    const r = await checkWithClaude({
+      sheets: j.sheets, stance: j.stance, drill: j.drill, subject: j.subject, signal: ctrl.signal,
+      punches: detected.map((e) => ({ id: e.i, t: e.t, role: e.role, type: e.type })),
+      onProgress: (done, total) => { j.ai.done = done; j.ai.total = total; show(); },
+    });
+    if (job !== j) return;
+    const tally = applyAi(j, r);
+    j.ai = { state: 'done', model: r.model, ...tally };
+    j.calib.ai = {
+      model: r.model, sheets: r.sheets, usage: r.usage, ...tally,
+      // Per camera detection, in calib.punches order: Claude's punch number, '.' not a punch, '?' no answer.
+      labels: detected.map((e) => (e.i in r.verdicts ? (r.verdicts[e.i] ? PUNCH_DIGIT[r.verdicts[e.i]] : '.') : '?')).join(''),
+      added: r.added.map((a) => [Math.round(a.t / 100), PUNCH_DIGIT[a.type]]),
+    };
+  } catch (err) {
+    if (job !== j || err.message === 'cancelled' || ctrl.signal.aborted) return;
+    j.ai = { state: 'error', msg: err.message || 'unknown error' };
+  }
+  if (job === j) app.rerender();
 }
 
 // Apply the boxer's corrections to the per-round metrics and build a session.

@@ -148,6 +148,7 @@ main { padding: 0 var(--gutter); max-width: 640px; margin: 0 auto; outline: none
 .badge.good { background: var(--good-bg); color: var(--good); }
 .badge.warn { background: var(--warn-bg); color: var(--warn); }
 .badge.bad { background: var(--bad-bg); color: var(--bad); }
+.badge.ai { background: var(--accent-soft); color: var(--accent); }
 
 .msg { border-radius: 12px; padding: 10px 12px; font-size: 0.88rem; margin: 10px 0 0; background: var(--surface-2); }
 .msg.fast, .msg.behind { background: var(--warn-bg); }

@@ -90,6 +90,7 @@ export class PersonTracker {
   constructor() {
     this.target = null;
     this.lostSince = null;
+    this.crowd = false; // ever seen more than one person
   }
 
   get locked() {
@@ -106,6 +107,13 @@ export class PersonTracker {
     if (!this.target || !people?.length) {
       if (this.target && this.lostSince == null) this.lostSince = t;
       return -1;
+    }
+    if (people.length > 1) this.crowd = true;
+    // Nobody else has ever been in shot: the one person found is the boxer, however their
+    // position, size or colours changed (a wrong first look used to lose them for good).
+    if (people.length === 1 && !this.crowd) {
+      this.lockOn(people[0], colors[0] || this.target.color);
+      return 0;
     }
     const lost = this.lostSince != null && t - this.lostSince > 1000;
     let best = -1, bestScore = Infinity;

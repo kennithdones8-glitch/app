@@ -273,6 +273,12 @@ test('PersonTracker follows the boxer through side swaps and occlusion', async (
   t += 1500;
   const back = tr.pick([person(0.3), person(0.55)], [BLACK, RED], t);
   assert.equal(back, 1);
+
+  // Alone in the video: a bad first look (wrong colour, other spot) never loses the boxer.
+  const solo = new PersonTracker();
+  solo.lockOn(person(0.2, 0.6), BLACK);
+  for (let i = 0; i < 20; i++) assert.equal(solo.pick([person(0.7)], [RED], i * 33), 0, `solo frame ${i}`);
+  assert.equal(solo.pick([], [], 700), -1);
 });
 
 test('head movement: punching alone is not head movement, slips are', () => {
