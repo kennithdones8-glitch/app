@@ -349,3 +349,22 @@ test('hand return is timed from full extension, and a hidden rear hand is not ju
   for (const w of [...still(10), ...punch(LM.L_WR, LM.L_EL, { x: 0.16, y: -0.49, z: -0.61 }, { x: 0.17, y: -0.47, z: -0.33 }), ...still(15)]) { hid.update(w, hide(w), t2); t2 += 33; }
   assert.equal(hid.endRound().rearDropPct, null);
 });
+
+test('rolling in place is head movement, not footwork', () => {
+  const an = new FormAnalyzer();
+  an.startRound();
+  // A roll: head and shoulders dip and come back while the hips and feet stay put. Seen in the
+  // picture, the torso looks shorter at the bottom of the roll.
+  const roll = (k) => pose({ [LM.NOSE]: { x: 0.12 * k, y: -0.62 + 0.3 * k }, [LM.L_EAR]: { y: -0.63 + 0.3 * k }, [LM.R_EAR]: { y: -0.63 + 0.3 * k },
+    [LM.L_SH]: { y: -0.45 + 0.2 * k }, [LM.R_SH]: { y: -0.45 + 0.2 * k } });
+  let t = 0;
+  const run = (frames) => { for (const w of frames) { an.update(w, w.map((p) => ({ x: 0.5 + p.x * 0.3, y: 0.5 + p.y * 0.3, visibility: 0.99 })), t); t += 33; } };
+  for (let rep = 0; rep < 10; rep++) {
+    run([0.3, 0.6, 1, 1, 0.6, 0.3, 0].map(roll));
+    run(still(40));
+  }
+  const m = an.endRound();
+  assert.ok(m.footwork < 10, `footwork ${m.footwork}%`);
+  assert.ok(m.headPerMin >= 8, `head moves/min ${m.headPerMin}`);
+  assert.ok(m.head > 40, `head ${m.head}%`);
+});

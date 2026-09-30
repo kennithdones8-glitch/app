@@ -2,6 +2,7 @@
 import { $, $$, esc, toast } from '../ui.js';
 import { newId } from '../store.js';
 import { outputPpm } from '../coach.js';
+import { presetProVideo } from './handoff.js';
 
 // Accepts youtu.be/ID, youtube.com/watch?v=ID, /shorts/ID, /embed/ID, /live/ID. Returns the ID or null.
 export function youTubeId(url) {
@@ -68,11 +69,14 @@ export function renderStudy(el, app) {
   const mine = yourMetrics(st.sessions);
   el.innerHTML = `
     <section class="card">
+      <div class="eyebrow">Step 1</div>
       <h2>Watch the pros</h2>
+      <p class="muted small" style="margin-top:0">For watching and copying their movement. Links play here; the app can't measure a YouTube video (see step 2 for numbers).</p>
       ${videos.length ? videos.map((v) => `
         <div class="ref-video">
           <div class="card-head"><b>${esc(v.name)}</b><button class="linkbtn" data-delvid="${v.id}" aria-label="Remove ${esc(v.name)}">✕</button></div>
           <div class="yt"><iframe src="${embedUrl(v.yt)}" title="${esc(v.name)}" loading="lazy" allow="encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
+          <button class="btn ghost sm block" data-numbers="${esc(proName(v.name))}">Get his numbers from a clip of this →</button>
         </div>`).join('') : '<p class="muted small">Add YouTube links to study here. Use the ⚙️ in the player to slow it down to 0.5× or 0.25×.</p>'}
       <form id="vidAdd" class="form" style="margin-top:12px">
         <label>YouTube link<input name="url" inputmode="url" autocomplete="off" placeholder="Paste from YouTube: Share → Copy link"></label>
@@ -84,7 +88,18 @@ export function renderStudy(el, app) {
     </section>
 
     <section class="card">
+      <div class="eyebrow">Step 2</div>
       <h2>You vs the pros</h2>
+      <details class="howto" ${refs.length ? '' : 'open'}><summary class="small"><b>How to get a pro's numbers</b></summary>
+        <ol class="small">
+          <li>The app measures video <b>files on your phone</b>, not YouTube links.</li>
+          <li>Get a clip onto your phone, e.g. play the YouTube video full-screen and use iPhone <b>Screen Recording</b> (Control Centre), then trim it to just the boxing in Photos.</li>
+          <li>Tap <b>Analyse a pro's clip</b> below, pick the clip, tap the boxer, then <b>Save for comparison</b>.</li>
+          <li>His numbers appear in this table next to yours. They never go into your training log.</li>
+        </ol>
+        <p class="small muted" style="margin:0">Front-on or 45° clips give the best numbers. Side-on clips still give output and rhythm.</p>
+      </details>
+      <button class="btn primary block" data-numbers="">Analyse a pro's clip →</button>
       ${refs.length ? `
         <p class="muted small">Your average over your last ${mine.n || 0} camera/video sessions. Numbers come from the same camera analysis, so the same limits apply to both.</p>
         <div class="tbl-wrap"><table class="tbl cmp">
@@ -92,18 +107,23 @@ export function renderStudy(el, app) {
           <tbody>${METRICS.map(([k, label, better]) => `<tr><td class="left">${esc(label)}</td><td><b>${fmtV(mine.values[k])}</b></td>${refs.map((r) => `<td>${fmtV(r.metrics[k])}${gap(mine.values[k], r.metrics[k], better)}</td>`).join('')}</tr>`).join('')}</tbody>
         </table></div>
         ${refs.some((r) => r.sidePct >= 60) ? '<p class="small muted">Clips filmed side-on: punch types (jab share) are unreliable; output, rhythm and combinations still count.</p>' : ''}`
-        : `<p class="muted small">Analyse a pro's clip to compare: <a href="#train/video">Train → Video</a>, choose <b>"A pro to compare against"</b>, tap the pro, then save. It won't go into your training log.</p>`}
+        : ''}
     </section>`;
 
   $('#vidAdd', el).addEventListener('submit', (e) => {
     e.preventDefault();
     const f = e.target;
     const yt = youTubeId(f.url.value);
-    if (!yt) return toast("That doesn't look like a YouTube link.");
+    if (!yt) return toast('Paste a YouTube link: in YouTube tap Share → Copy link, then paste it here.');
     st.refVideos.push({ id: newId(), yt, name: f.name.value.trim() || 'Reference', added: new Date().toISOString() });
     app.persist();
+    toast('Added: tap play on the video above.');
     app.rerender();
   });
+  $$('[data-numbers]', el).forEach((b) => b.addEventListener('click', () => {
+    presetProVideo(b.dataset.numbers);
+    location.hash = '#train/video';
+  }));
   $$('[data-delvid]', el).forEach((b) => b.addEventListener('click', () => {
     st.refVideos = st.refVideos.filter((v) => v.id !== b.dataset.delvid);
     app.persist();
@@ -117,6 +137,8 @@ export function renderStudy(el, app) {
   }));
 }
 
+// "Floyd Mayweather shadowboxing" → "Floyd Mayweather" for the comparison table.
+const proName = (s) => String(s || '').replace(/\s+(shadow ?boxing|pad work|mitt work|training|highlights|drill).*$/i, '').trim();
 const fmtV = (v) => (v == null ? '–' : String(v));
 function gap(mine, theirs, better) {
   if (mine == null || theirs == null || !better || !theirs) return '';

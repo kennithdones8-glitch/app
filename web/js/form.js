@@ -34,6 +34,7 @@ const CUE_COOLDOWN_MS = 7000;
 const GLOBAL_CUE_GAP_MS = 2500;
 
 const r2 = (x) => Math.round(x * 100) / 100;
+const median = (xs) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
 const norm2 = (v) => { const l = Math.hypot(v.x, v.z) || 1; return { x: v.x / l, z: v.z / l }; };
 
 export function dist3(a, b) {
@@ -222,7 +223,7 @@ export function leadSide(world, forward = null) {
 function emptyRound() {
   return {
     frames: 0, guardEligible: 0, guardUp: 0, stanceFrames: 0, stanceOk: 0, footFrames: 0,
-    narrow: 0, wide: 0, crossed: 0, bladeOk: 0, bladeFrames: 0, moving: 0, headMoving: 0, sideFrames: 0,
+    narrow: 0, wide: 0, crossed: 0, bladeOk: 0, bladeFrames: 0, moving: 0, headMoving: 0, headMoves: 0, t0: null, t1: null, sideFrames: 0,
     punches: { jab: 0, cross: 0, leadHook: 0, rearHook: 0, leadUppercut: 0, rearUppercut: 0 },
     returnTimes: [], returnLead: [], returnRear: [], leadPunches: 0, rearDrops: 0,
     punchLog: [], leftCloser: 0, depthFrames: 0,
@@ -312,6 +313,7 @@ export function roundMetrics(r) {
     sidePct: pct(r.sideFrames || 0, r.frames),
     footwork: pct(r.moving, r.frames),
     head: pct(r.headMoving, r.frames),
+    headPerMin: r.t1 > r.t0 ? Math.round(((r.headMoves || 0) / ((r.t1 - r.t0) / 60000)) * 10) / 10 : null,
     handReturnMs: avgReturn,
     leadReturnMs: avg(r.returnLead),
     rearReturnMs: avg(r.returnRear),
@@ -329,7 +331,7 @@ export function roundMetrics(r) {
 export function combineRounds(rounds) {
   const valid = rounds.filter((r) => r.frames > 0);
   const out = { perRound: rounds };
-  const keys = ['guard', 'stance', 'crossedPct', 'narrowPct', 'widePct', 'blade', 'footwork', 'head', 'handReturnMs', 'leadReturnMs', 'rearReturnMs', 'rearDropPct', 'leftLeadPct', 'sidePct'];
+  const keys = ['guard', 'stance', 'crossedPct', 'narrowPct', 'widePct', 'blade', 'footwork', 'head', 'handReturnMs', 'leadReturnMs', 'rearReturnMs', 'rearDropPct', 'leftLeadPct', 'sidePct', 'headPerMin'];
   for (const k of keys) {
     let sum = 0, w = 0;
     for (const r of valid) {
@@ -444,6 +446,10 @@ export class FormAnalyzer {
     this.active = false;
     this.hipTrail = [];
     this.headTrail = [];
+    this.torsoHist = [];
+    this.headHist = [];
+    this.headOut = false;
+    this.lastHeadMove = -Infinity;
     this.since = {};
     this.lastCue = {};
     this.lastAnyCue = -Infinity;
@@ -596,31 +602,49 @@ export class FormAnalyzer {
     if (this.held('squared', !bladed, t) > 2500) this.cue('squared', 'Turn your lead shoulder, stay bladed', t);
 
 
-    // --- Footwork and head movement, measured in the picture in torso lengths -------------
-    // (so it doesn't matter how far the camera is). Head movement is the nose relative to the
-    // feet: a punch turns the head with the hips, a slip, roll or pull moves it off the feet.
+    // --- Footwork and head movement, measured in the picture ------------------------------
+    // Scale: your typical torso length over the last few seconds, not this frame's (bending
+    // into a roll makes the torso look shorter, which made every roll read as a big step).
     const A = this.aspect || 1;
     const I = (k) => ({ x: image[k].x * A, y: image[k].y });
     const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
     const shM = mid(I(LM.L_SH), I(LM.R_SH)), hipM = mid(I(LM.L_HIP), I(LM.R_HIP));
-    const torso = Math.hypot(shM.x - hipM.x, shM.y - hipM.y) || 1;
-    const hipRange = this._trailRange(this.hipTrail, { x: hipM.x / torso, y: hipM.y / torso, t }, 1500);
-    const moving = hipRange > 0.16;
+    const torsoNow = Math.hypot(shM.x - hipM.x, shM.y - hipM.y) || 1;
+    this.torsoHist.push({ v: torsoNow, t });
+    while (this.torsoHist.length && t - this.torsoHist[0].t > 3000) this.torsoHist.shift();
+    const torso = median(this.torsoHist.map((q) => q.v)) || torsoNow;
+
+    // Footwork: the hips travelling sideways in the picture (rolls move them up and down).
+    const hipRange = this._trailRange(this.hipTrail, { x: hipM.x, y: 0, t }, 1500) / torso; // distance moved, in torsos
+    const moving = hipRange > 0.4;
     if (moving) r.moving++;
     if (this.held('static', !moving, t) > 7000) this.cue('static', 'Move your feet', t);
 
-    const base = anklesVisible ? mid(I(LM.L_ANK), I(LM.R_ANK)) : hipM;
+    // Head movement: distinct moves of the head away from where it usually sits over the hips
+    // (slips, rolls, pull-backs, level changes). Checked against a pad round with known rolls:
+    // 20 detected vs ~22 thrown in 47 s. "head" = share of time with a move in the last 2 s.
     const n = I(LM.NOSE);
-    const headRange = this._trailRange(this.headTrail, { x: (n.x - base.x) / torso, y: (n.y - base.y) / torso, t }, 2000);
-    const headMoving = headRange > 0.3;
+    const rel = { x: (n.x - hipM.x) / torso, y: (n.y - hipM.y) / torso, t };
+    this.headHist.push(rel);
+    while (this.headHist.length && t - this.headHist[0].t > 2000) this.headHist.shift();
+    const hist = this.headHist.slice(0, -1);
+    const headOff = hist.length >= 5 ? Math.hypot(rel.x - median(hist.map((q) => q.x)), rel.y - median(hist.map((q) => q.y))) : 0;
+    if (!this.headOut && headOff > 0.4 && t - this.lastHeadMove > 500) {
+      this.headOut = true;
+      this.lastHeadMove = t;
+      r.headMoves++;
+    } else if (this.headOut && headOff < 0.2) this.headOut = false;
+    const headMoving = t - this.lastHeadMove < 2000;
     if (headMoving) r.headMoving++;
+    if (r.t0 == null) r.t0 = t;
+    r.t1 = t;
     if (this.held('headStill', !headMoving, t) > 9000) this.cue('head', 'Move your head, slip after you punch', t);
-    // Compact per-frame track (time in 0.1 s, nose relative to hips, hips in the picture; torso
-    // lengths) so head-movement and footwork thresholds can be tuned against known drills.
+    // Compact per-frame track (time in 0.1 s, nose relative to hips, hips in the picture; typical
+    // torso lengths) so head-movement and footwork thresholds can be tuned against known drills.
     if (this.calib.track.length < 750) {
-      this.calib.track.push([Math.round(t / 100), r2((n.x - hipM.x) / torso), r2((n.y - hipM.y) / torso), r2(hipM.x / torso), r2(hipM.y / torso)]);
+      this.calib.track.push([Math.round(t / 100), r2(rel.x), r2(rel.y), r2(hipM.x / torso), r2(hipM.y / torso)]);
     }
-    if (r.frames % 15 === 0 && this.calib.motion.length < 300) this.calib.motion.push([r2(headRange), r2(hipRange), sideOn ? 1 : 0]); // for tuning from reports
+    if (r.frames % 15 === 0 && this.calib.motion.length < 300) this.calib.motion.push([r2(headOff), r2(hipRange), sideOn ? 1 : 0]); // for tuning from reports
 
     return this.snapshot(world, image);
   }
