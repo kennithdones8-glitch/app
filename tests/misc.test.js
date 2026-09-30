@@ -73,3 +73,23 @@ test('old sessions lose their per-punch diagnostics, recent ones keep them', asy
   assert.equal(sessions[0].calib.frames, 100, 'summary numbers stay');
   assert.equal(sessions[0].calib.punches, undefined);
 });
+
+test('round timer: time the phone was asleep carries over correctly', async () => {
+  const { RoundTimer } = await import('../web/js/timer.js');
+  const phases = [];
+  const t = new RoundTimer({ rounds: 3, roundSec: 180, restSec: 60, prepSec: 10, onPhase: (p, r) => phases.push(`${p}${r}`) });
+  t._enter('prep');
+  // Asleep for 10 s prep + a 180 s round + 30 s of rest.
+  t._last = performance.now() - 220000;
+  t._loop();
+  assert.equal(t.phase, 'rest');
+  assert.equal(t.round, 1);
+  assert.ok(Math.abs(t.remainingMs - 30000) < 200, `rest left ${t.remainingMs}`);
+  assert.ok(Math.abs(t.workMs - 180000) < 200, `work ${t.workMs}`);
+  // Asleep through everything else: finishes, work counts only the rounds.
+  t._last = performance.now() - 1e6;
+  t._loop();
+  assert.equal(t.phase, 'done');
+  assert.ok(Math.abs(t.workMs - 540000) < 400, `total work ${t.workMs}`);
+  assert.deepEqual(phases, ['prep0', 'work1', 'rest1', 'work2', 'rest2', 'work3', 'done3']);
+});

@@ -30,7 +30,8 @@ function addDays(d, n) {
 
 export function phaseFor(profile = {}, now = new Date()) {
   const date = profile.fightDate ? new Date(profile.fightDate + 'T12:00:00') : null;
-  if (!date || date < weekStart(now)) {
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  if (!date || date < today) { // no fight booked, or it's behind you
     return {
       key: 'base', name: 'Competitive base', volume: 1, camp: false,
       note: 'Building your engine and fixing habits so you are always close to fight-ready.',

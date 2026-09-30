@@ -145,3 +145,11 @@ test('a back-dated session does not reset the streak', async () => {
   mem = updateMemory(mem, at('2026-09-30')).memory;
   assert.equal(mem.streak.count, 4);
 });
+
+test('pad work and drilled combos do not produce punch-mix habits', async () => {
+  const { detectPatterns } = await import('../web/js/coach.js');
+  const by = { jab: 4, cross: 40, leadHook: 30, rearHook: 0, leadUppercut: 0, rearUppercut: 6 };
+  assert.ok(detectPatterns({ type: 'bag', punches: { byType: by } }).includes('lightJab'));
+  assert.ok(!detectPatterns({ type: 'mitts', punches: { byType: by } }).includes('lightJab'));
+  assert.ok(!detectPatterns({ type: 'shadow', calib: { labels: '12..' }, punches: { byType: by } }).includes('lightJab'));
+});

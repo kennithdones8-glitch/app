@@ -41,11 +41,19 @@ export class RoundTimer {
     this._last = now;
     if (this.paused || this.phase === 'done') return;
     const before = Math.ceil(this.remainingMs / 1000);
-    this.remainingMs -= dt;
-    if (this.phase === 'work') this.workMs += dt;
+    // Step through the phases: if the phone slept, several may have passed, and only time spent
+    // in a round counts as work.
+    let left = dt;
+    while (this.phase !== 'done') {
+      const step = Math.max(0, Math.min(left, this.remainingMs));
+      this.remainingMs -= step;
+      left -= step;
+      if (this.phase === 'work') this.workMs += step;
+      if (this.remainingMs > 0) break;
+      this._advance();
+    }
     const after = Math.ceil(this.remainingMs / 1000);
-    if (before !== after) this.onTick(this.phase, Math.max(0, after), this.round);
-    if (this.remainingMs <= 0) this._advance();
+    if (before !== after && this.phase !== 'done') this.onTick(this.phase, Math.max(0, after), this.round);
   }
 
   _advance() {

@@ -609,7 +609,7 @@ function scheduleCombos(rp) {
     }
     if (tokens) { text = comboText(tokens); speech = comboSpeech(tokens); } else speech = comboToSpeech(text);
     $('#liveCombo').innerHTML = tokens ? comboHTML(tokens) : esc(text);
-    audio.say(speech, { rate: 1.3 });
+    audio.say(speech, { rate: 1.3, interrupt: true }); // a call you don't hear can't be judged
     // With the camera on, remember the call so we can check what was actually thrown.
     if (tokens && live.analyzer) live.calls.push({ t: performance.now(), key: comboKey(tokens), digits: punchDigits(tokens) });
   };
@@ -755,6 +755,7 @@ function sessionDetailHTML(s, fb) {
       ${s.completedRounds != null ? scoreChip('Rounds', `${s.completedRounds}/${s.plan?.rounds ?? s.completedRounds}`, -1) : ''}
     </div>
     ${s.source === 'video' ? `<p class="small muted">From video analysis${s.corrections ? ` · ${s.corrections} detections corrected by you` : ''}.</p>` : ''}
+    ${s.form?.sidePct >= 60 ? '<p class="small muted">Filmed side-on: blade and stance width need a front view, so they weren\'t measured this time.</p>' : ''}
     ${areaChips ? `<h3>Breakdown</h3><div class="scores">${areaChips}</div>` : ''}
     ${fb ? `
       ${fb.wins.length ? `<h3>What went well</h3><ul class="fb good">${fb.wins.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}

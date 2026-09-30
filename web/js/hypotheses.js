@@ -1,6 +1,7 @@
 // Training hypotheses: form one from evidence, run an intervention, measure, conclude. Pure logic.
 import { roundDims, hitShare } from './analysis.js';
 import { returnScore } from './coach.js';
+import { localDay } from './plan.js';
 
 const DAY = 86400000;
 const BASELINE_DAYS = 21;
@@ -92,7 +93,7 @@ export function evaluateHypothesis(h, state, now = new Date()) {
   const start = +new Date(h.created);
   if (t.observational) {
     const sleepBy = Object.fromEntries((state.checkins || []).map((c) => [c.date, c.sleep]));
-    const scored = (state.sessions || []).filter((s) => s.scores?.overall != null).map((s) => ({ v: s.scores.overall, sleep: sleepBy[s.date.slice(0, 10)] }));
+    const scored = (state.sessions || []).filter((s) => s.scores?.overall != null).map((s) => ({ v: s.scores.overall, sleep: sleepBy[localDay(s.date)] })); // check-ins use local dates
     const good = scored.filter((x) => x.sleep >= 7).map((x) => x.v), bad = scored.filter((x) => x.sleep != null && x.sleep < 7).map((x) => x.v);
     if (good.length < 3 || bad.length < 3) return { phase: 'collecting', baseline: { n: bad.length }, test: { n: good.length }, verdict: null };
     const effect = Math.round(((mean(good) - mean(bad)) / mean(bad)) * 100);

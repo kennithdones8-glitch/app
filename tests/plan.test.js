@@ -114,3 +114,11 @@ test('mid-week plans schedule from today and keep past days on rebuild', () => {
   for (const i of rebuilt.items) counts[i.kind] = (counts[i.kind] || 0) + 1;
   assert.ok((counts.fightSim || 0) <= 1);
 });
+
+test('after the fight date the app leaves fight-week mode', async () => {
+  const { phaseFor } = await import('../web/js/plan.js');
+  const now = new Date('2026-10-08T12:00:00'); // Thursday
+  assert.equal(phaseFor({ fightDate: '2026-10-06' }, now).key, 'base', 'fight was Tuesday');
+  assert.equal(phaseFor({ fightDate: '2026-10-08' }, now).key, 'taper', 'fight day itself');
+  assert.equal(phaseFor({ fightDate: '2026-10-10' }, now).key, 'taper');
+});

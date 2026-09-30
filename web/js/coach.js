@@ -145,7 +145,8 @@ export function detectPatterns(session) {
   }
   const per = session.punches?.perRound || [];
   if (per.length >= 3 && per[0] >= 20 && per[per.length - 1] < per[0] * 0.7) found.push('outputFade');
-  const by = session.punches?.byType;
+  // Punch mix on pads or in a drilled combo is set by the holder or the combo, not your habits.
+  const by = session.type === 'mitts' || session.calib?.labels ? null : session.punches?.byType;
   if (by) {
     const total = Object.values(by).reduce((a, b) => a + b, 0);
     if (total >= 40) {
