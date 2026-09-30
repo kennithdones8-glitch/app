@@ -453,7 +453,7 @@ export class FormAnalyzer {
     this.learnedAxis = null;
     this.roundNo = 0;
     // Raw measurements behind each punch decision, for tuning thresholds to a real boxer.
-    this.calib = { vTh: Math.round(this.vTh * 100) / 100, punches: [], rejected: [], nearMiss: [], motion: [], frames: 0, tracked: 0 };
+    this.calib = { vTh: Math.round(this.vTh * 100) / 100, punches: [], rejected: [], nearMiss: [], motion: [], track: [], frames: 0, tracked: 0 };
   }
 
   _hand(side) {
@@ -615,6 +615,11 @@ export class FormAnalyzer {
     const headMoving = headRange > 0.3;
     if (headMoving) r.headMoving++;
     if (this.held('headStill', !headMoving, t) > 9000) this.cue('head', 'Move your head, slip after you punch', t);
+    // Compact per-frame track (time in 0.1 s, nose relative to hips, hips in the picture; torso
+    // lengths) so head-movement and footwork thresholds can be tuned against known drills.
+    if (this.calib.track.length < 750) {
+      this.calib.track.push([Math.round(t / 100), r2((n.x - hipM.x) / torso), r2((n.y - hipM.y) / torso), r2(hipM.x / torso), r2(hipM.y / torso)]);
+    }
     if (r.frames % 15 === 0 && this.calib.motion.length < 300) this.calib.motion.push([r2(headRange), r2(hipRange), sideOn ? 1 : 0]); // for tuning from reports
 
     return this.snapshot(world, image);
@@ -665,13 +670,13 @@ export class FormAnalyzer {
         h.startT = t;
         h.peakExt = 0; h.peakAngle = 0; h.maxNoseD = noseD; h.maxRise = 0; h.maxLat = 0; h.maxFwd = 0; h.peakSpeed = 0;
         h.path = []; h.peakDisp = [0, 0]; h.i2 = null; h.i2start = h.prevW2 || null; // fist in the picture just before the punch
-        h.rearDropped = false;
+        h.rearDropped = false; h.rearSeen = false; h.peakT = t;
       }
     }
     if (h.state === 'punch') {
       h.peakSpeed = Math.max(h.peakSpeed, h.speed);
       const ext = dist3(sh, w) / (h.armLen || 1);
-      if (ext > h.peakExt) h.peakDisp = [w.x - h.start.x, w.z - h.start.z];
+      if (ext > h.peakExt) { h.peakDisp = [w.x - h.start.x, w.z - h.start.z]; h.peakT = t; }
       h.peakExt = Math.max(h.peakExt, ext);
       h.peakAngle = Math.max(h.peakAngle, angleDeg(sh, el, w));
       h.maxNoseD = Math.max(h.maxNoseD, noseD);
@@ -685,7 +690,11 @@ export class FormAnalyzer {
         if (!h.i2 || a.ext > h.i2.ext) h.i2 = { ...a, dx: (a.W.x - h.i2start.x) / a.torso, dy: (a.W.y - h.i2start.y) / a.torso };
         h.i2.maxAngle = Math.max(h.i2.maxAngle || 0, a.angle);
       }
-      if (role === 'lead' && this.active && !h.rearDropped) {
+      // Rear hand during a jab: only judged when the camera can actually see it (side-on, it's
+      // often hidden behind the body and its estimated position is a guess).
+      const rearSeen = (this.image?.[this.hands.rear.wr]?.visibility ?? 1) >= this.minVis;
+      if (rearSeen) h.rearSeen = true;
+      if (role === 'lead' && this.active && !h.rearDropped && rearSeen) {
         const rear = world[this.hands.rear.wr];
         if (rear.y > shMidY + 0.1) h.rearDropped = true;
       }
@@ -735,7 +744,7 @@ export class FormAnalyzer {
     // Visibility counts for half: side-on the far arm is partly hidden even on clean punches.
     const conf = PUNCH_CONF(vis, h.peakSpeed, this.vTh, margin);
     const type = PUNCH_TYPE[kind][role];
-    h.returnSince = t;
+    h.returnSince = h.peakT ?? t; // hand return is timed from impact (full extension)
     if (!this.active) return;
     this.round.punches[type]++;
     this.round.punchLog.push({ t, type });
@@ -748,7 +757,7 @@ export class FormAnalyzer {
     });
     this._calibPush('punches', [PUNCH_DIGIT[type], r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(h.maxRise), r2(lat), Math.round(conf), r2(fwd)]);
     if (role === 'lead') {
-      this.round.leadPunches++;
+      if (h.rearSeen) this.round.leadPunches++;
       if (h.rearDropped) {
         this.round.rearDrops++;
         this.cue('rearDrop', `Keep your ${this.rearName} hand home when you jab`, t);

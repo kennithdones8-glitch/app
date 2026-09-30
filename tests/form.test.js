@@ -329,3 +329,23 @@ test('a few front-on moments in a side-on clip are not enough to judge blade or 
   assert.equal(many.blade, 75);
   assert.equal(many.stance, 75);
 });
+
+test('hand return is timed from full extension, and a hidden rear hand is not judged', () => {
+  const an = new FormAnalyzer();
+  an.startRound();
+  let t = feed(an, still(10), 0);
+  t = feed(an, punch(LM.L_WR, LM.L_EL, { x: 0.16, y: -0.49, z: -0.61 }, { x: 0.17, y: -0.47, z: -0.33 }, 5, 8), t);
+  feed(an, still(15), t);
+  const m = an.endRound();
+  // 8 frames back at 33 ms: the hand is home ~200+ ms after full extension, not one frame later.
+  assert.ok(m.leadReturnMs >= 150, `lead return ${m.leadReturnMs} ms`);
+  assert.ok(an.calib.track.length > 20);
+
+  // Rear hand hidden (low visibility) while jabbing: rear-drop is not judged at all.
+  const hid = new FormAnalyzer();
+  hid.startRound();
+  const hide = (w) => w.map((p, i) => ({ x: 0.5 + p.x * 0.3, y: 0.5 + p.y * 0.3, visibility: i === LM.R_WR ? 0.1 : 0.99 }));
+  let t2 = 0;
+  for (const w of [...still(10), ...punch(LM.L_WR, LM.L_EL, { x: 0.16, y: -0.49, z: -0.61 }, { x: 0.17, y: -0.47, z: -0.33 }), ...still(15)]) { hid.update(w, hide(w), t2); t2 += 33; }
+  assert.equal(hid.endRound().rearDropPct, null);
+});

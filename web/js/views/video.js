@@ -6,6 +6,7 @@ import { $, $$, esc, opt, toast } from '../ui.js';
 import { newId } from '../store.js';
 import { comboLabel, comboText, parseCombo, STARTERS } from '../combos.js';
 import { calibrateFromCombo } from '../calibrate.js';
+import { saveReference } from './study.js';
 
 let job = null; // { analyzer, events, rounds, meta } after analysis
 let busy = false;
@@ -38,6 +39,8 @@ export function renderVideo(el, app) {
       <div class="msg" style="margin:0 0 12px">📋 Want Claude to review it? After saving, open the session in <b>Log</b> and tap <b>Copy report for coach</b>, then paste it into your chat. Only the measurements are shared, never the video.</div>
       <form id="vidForm" class="form">
         <label>Video<input type="file" name="file" accept="video/*" required></label>
+        <label>Whose video?<select name="subject">${opt('me', 'me', 'Me')}${opt('pro', 'me', 'A pro to compare against')}</select></label>
+        <label class="pro-only" hidden>Name<input name="proName" maxlength="60" placeholder="e.g. Floyd Mayweather"></label>
         <label>Type<select name="type">${['shadow', 'mitts', 'bag', 'sparring'].map((t) => opt(t, 'shadow', ALL_TYPES[t])).join('')}</select></label>
         <p class="muted small" style="margin:0">Someone else in the video (pads, sparring)? You'll tap yourself before the analysis starts, and it follows you even when you move around or swap sides.</p>
         <label>Drilling one combo on repeat? (optional)<select name="drill">${opt('', '', 'No / mixed punches')}${
@@ -57,6 +60,12 @@ export function renderVideo(el, app) {
         <button class="btn ghost" id="vidCancel" type="button">Cancel</button>
       </div>
     </section>`;
+  const vf = $('#vidForm', el);
+  vf.subject.addEventListener('change', () => {
+    const pro = vf.subject.value === 'pro';
+    $('.pro-only', el).hidden = !pro;
+    if (vf.drill) vf.drill.closest('label').hidden = pro;
+  });
   $('#vidForm', el).addEventListener('submit', (e) => {
     e.preventDefault();
     const f = e.target;
@@ -72,7 +81,8 @@ export function renderVideo(el, app) {
     video.play().then(() => video.pause()).catch(() => {});
     analyse(file, video, {
       type: f.type.value, roundSec: +f.roundSec.value, fps: +f.fps.value,
-      drill: drillCombo(app, f.drill?.value),
+      drill: f.subject.value === 'pro' ? null : drillCombo(app, f.drill?.value),
+      subject: f.subject.value, proName: f.proName.value.trim(),
       stance: app.state.profile.stance, sensitivity: app.state.profile.sensitivity,
     }, el, app);
   });
@@ -190,7 +200,9 @@ async function analyse(file, video, opts, el, app) {
     if (cancelled) throw new Error('cancelled');
     if (first.length > 1) {
       drawPeople(overlay, video, first, -1);
-      status.innerHTML = '<b>Tap yourself</b> in the video to start.';
+      const target = opts.subject === 'pro' ? 'the boxer' : 'yourself';
+      status.innerHTML = `<b>Tap ${target}</b> in the video to start.`;
+      stage.dataset.pick = `Tap ${target}`;
       stage.classList.add('pick');
       stage.scrollIntoView({ behavior: 'smooth', block: 'center' });
       // 'click' rather than 'pointerdown' so scrolling past the video with a finger doesn't pick anyone.
@@ -330,7 +342,7 @@ async function analyse(file, video, opts, el, app) {
       delete comboCheck.labels;
     }
     job = {
-      done: true, url, type: opts.type, roundSec: opts.roundSec || Math.round(durMs / 1000), durMs,
+      done: true, url, type: opts.type, subject: opts.subject, proName: opts.proName, roundSec: opts.roundSec || Math.round(durMs / 1000), durMs,
       rounds, events: analyzer.events.map((e, i) => ({ ...e, i, keep: e.conf >= 50, fix: e.type })),
       calib: { ...analyzer.calib, model, who, multi: frames ? Math.round((multi / frames) * 100) : 0, comboCheck: comboCheck || undefined, cal: analyzer.cal || undefined },
       comboCheck,
@@ -396,7 +408,7 @@ function renderReview(el, app) {
         </li>`).join('')}</ul>
     </section>
     <section class="card">
-      <div class="row2"><button class="btn ghost" id="vidDiscard">Discard</button><button class="btn primary" id="vidSave">Save session</button></div>
+      <div class="row2"><button class="btn ghost" id="vidDiscard">Discard</button><button class="btn primary" id="vidSave">${j.subject === 'pro' ? 'Save for comparison' : 'Save session'}</button></div>
     </section>`;
 
   $('#uncertain', el).addEventListener('change', (e) => { el.dataset.uncertain = e.target.checked ? '1' : ''; renderReview(el, app); });
@@ -422,6 +434,13 @@ function renderReview(el, app) {
     const session = buildSession(j);
     URL.revokeObjectURL(j.url);
     job = null;
+    if (j.subject === 'pro') {
+      // A pro's clip is for comparison only: it never enters your log, stats or plan.
+      saveReference(app, session, j.proName);
+      toast(`Saved ${j.proName || 'the pro'} for comparison.`);
+      location.hash = '#train/study';
+      return;
+    }
     app.showSummary(session);
   });
 }
