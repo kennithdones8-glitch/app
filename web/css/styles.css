@@ -554,3 +554,5 @@ details.options.card > summary.rowbtn { padding: 0; box-shadow: none; margin: 0;
 .subnav[style*="--n:5"], .subnav[style*="--n:6"] { display: flex; overflow-x: auto; scrollbar-width: none; }
 .subnav[style*="--n:5"] a, .subnav[style*="--n:6"] a { flex: 1 0 auto; padding: 8px 12px; overflow: visible; }
 .subnav::-webkit-scrollbar { display: none; }
+details.weak > summary::after { content: '›'; margin-left: 8px; font-size: 1.3rem; color: var(--muted); }
+details.weak[open] > summary::after { transform: rotate(90deg); }
