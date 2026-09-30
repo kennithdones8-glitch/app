@@ -163,3 +163,25 @@ test('end to end: wrong face direction, straights and hooks still read right, st
   assert.ok(right >= want.length * 0.95, `after re-read ${right}/${want.length}: ${all.join(',')}`);
   assert.ok(m.leftLeadPct > 50, `orthodox from the learned axis: ${m.leftLeadPct}%`);
 });
+
+test('records 2D arm measurements per punch for the report', () => {
+  const an = new FormAnalyzer({ aspect: 9 / 16 });
+  an.startRound();
+  let t = 0;
+  // Side-on picture: the boxer faces +x in the image, so the 2D view is the world x/y plane.
+  const img = (w) => w.map((p) => ({ x: 0.5 + p.x * 0.5, y: 0.5 + p.y * 0.3, visibility: 0.95 }));
+  const run = (frames) => { for (const w of frames) { an.update(w, img(w), t); t += 33; } };
+  run(Array.from({ length: 12 }, guard));
+  run(JAB()); run(Array.from({ length: 12 }, guard));
+  run(JAB()); run(Array.from({ length: 12 }, guard));
+  run(HOOK()); run(Array.from({ length: 12 }, guard));
+  an.endRound();
+  an.reclassify();
+  const ps = an.events.filter((e) => e.kind === 'punch');
+  assert.ok(ps.length >= 2);
+  for (const e of ps) {
+    assert.ok(e.i2 && e.i2.ext > 0 && e.i2.angle > 0 && e.i2.vis > 0.9, JSON.stringify(e.i2));
+  }
+  assert.equal(an.calib.vec2.length, ps.length);
+  assert.equal(an.calib.vec2[0].length, 8);
+});

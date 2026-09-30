@@ -145,7 +145,8 @@ export function detectPatterns(session) {
   }
   const per = session.punches?.perRound || [];
   if (per.length >= 3 && per[0] >= 20 && per[per.length - 1] < per[0] * 0.7) found.push('outputFade');
-  const by = session.punches?.byType;
+  // Punch mix on pads or in a drilled combo is set by the holder or the combo, not your habits.
+  const by = session.type === 'mitts' || session.calib?.labels ? null : session.punches?.byType;
   if (by) {
     const total = Object.values(by).reduce((a, b) => a + b, 0);
     if (total >= 40) {
@@ -190,7 +191,8 @@ export function updateMemory(prev, session, profile = {}) {
   const events = { newPRs: [], resolved: [], confirmed: [] };
 
   // Streak counts consecutive days with any training.
-  if (mem.streak.lastDay !== today) {
+  // A back-dated session (an old video, yesterday's gym logged today) doesn't touch the streak.
+  if (mem.streak.lastDay !== today && !(mem.streak.lastDay && today < mem.streak.lastDay)) {
     const gap = mem.streak.lastDay ? daysBetween(mem.streak.lastDay, today) : null;
     mem.streak.count = gap === 1 ? mem.streak.count + 1 : 1;
     mem.streak.lastDay = today;

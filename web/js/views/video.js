@@ -1,13 +1,27 @@
 // Video intelligence: analyse an uploaded shadowboxing/sparring/bag video on-device,
 // show every detection with a confidence score, let the boxer correct it, then save.
-import { FormAnalyzer, combineRounds, sequencesFrom, streamFrom, comboStats, PUNCH_NAMES, choosePose, PersonTracker, personAt } from '../form.js';
+import { FormAnalyzer, PUNCH_DIGIT, combineRounds, sequencesFrom, streamFrom, comboStats, PUNCH_NAMES, choosePose, PersonTracker, personAt } from '../form.js';
 import { ALL_TYPES } from '../coach.js';
 import { $, $$, esc, opt, toast } from '../ui.js';
 import { newId } from '../store.js';
-import { comboLabel } from '../combos.js';
+import { comboLabel, comboText, parseCombo, STARTERS } from '../combos.js';
 import { calibrateFromCombo } from '../calibrate.js';
 
 let job = null; // { analyzer, events, rounds, meta } after analysis
+let busy = false;
+// True while a video is being analysed or waits for review: an app update must not reload then.
+export const videoBusy = () => busy || !!job;
+
+// Quick adds not saved yet can be picked straight from the video form; picking one saves it.
+const unsavedStarters = (app) => STARTERS.filter((t) => !app.state.combos.some((c) => comboText(c.tokens) === comboText(parseCombo(t))));
+function drillCombo(app, value) {
+  if (!value) return null;
+  if (!value.startsWith('s:')) return app.state.combos.find((c) => c.id === value) || null;
+  const c = { id: newId(), tokens: parseCombo(value.slice(2)), name: '', created: new Date().toISOString() };
+  app.state.combos.push(c);
+  app.persist();
+  return c;
+}
 
 const pctOf = (n, d) => (d ? Math.round((n / d) * 100) : 0);
 const fmtT = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
@@ -23,8 +37,10 @@ export function renderVideo(el, app) {
         <label>Video<input type="file" name="file" accept="video/*" required></label>
         <label>Type<select name="type">${['shadow', 'mitts', 'bag', 'sparring'].map((t) => opt(t, 'shadow', ALL_TYPES[t])).join('')}</select></label>
         <p class="muted small" style="margin:0">Someone else in the video (pads, sparring)? You'll tap yourself before the analysis starts, and it follows you even when you move around or swap sides.</p>
-        ${app.state.combos.length ? `<label>Drilling one combo on repeat? (optional)<select name="drill">${opt('', '', 'No / mixed punches')}${app.state.combos.map((c) => opt(c.id, '', comboLabel(c.tokens))).join('')}</select></label>
-        <p class="muted small" style="margin:0">Pick it and the camera checks itself against what you threw, and learns to read your straights and hooks better next time. Save the whole sequence you repeated as one combo in Train → Combos.</p>` : ''}
+        <label>Drilling one combo on repeat? (optional)<select name="drill">${opt('', '', 'No / mixed punches')}${
+          app.state.combos.map((c) => opt(c.id, '', comboLabel(c.tokens))).join('')}${
+          unsavedStarters(app).map((t) => opt(`s:${t}`, '', comboLabel(parseCombo(t)))).join('')}</select></label>
+        <p class="muted small" style="margin:0">Pick the whole sequence you repeated. Punch types then follow your combo, and the camera checks and trains itself against it. Build your own in Train → Combos.</p>
         <div class="row2">
           <label>Rounds of<select name="roundSec">${opt(0, 0, 'Whole video')}${opt(120, 0, '2 min')}${opt(180, 0, '3 min')}</select></label>
           <label>Detail<select name="fps">${opt(10, 15, 'Fast')}${opt(15, 15, 'Normal')}${opt(24, 15, 'Precise')}</select></label>
@@ -53,7 +69,7 @@ export function renderVideo(el, app) {
     video.play().then(() => video.pause()).catch(() => {});
     analyse(file, video, {
       type: f.type.value, roundSec: +f.roundSec.value, fps: +f.fps.value,
-      drill: app.state.combos.find((c) => c.id === f.drill?.value) || null,
+      drill: drillCombo(app, f.drill?.value),
       stance: app.state.profile.stance, sensitivity: app.state.profile.sensitivity,
     }, el, app);
   });
@@ -124,6 +140,7 @@ function drawPeople(canvas, video, people, chosen) {
 }
 
 async function analyse(file, video, opts, el, app) {
+  busy = true;
   $('#vidForm', el).hidden = true;
   $('#vidProgress', el).hidden = false;
   const status = $('#vidStatus', el);
@@ -145,7 +162,7 @@ async function analyse(file, video, opts, el, app) {
     status.textContent = 'Loading pose model…';
     const { getVideoLandmarker, detectVideoFrame } = await import('../pose.js');
     const lm = await getVideoLandmarker();
-    const analyzer = new FormAnalyzer({ stance: opts.stance, sensitivity: opts.sensitivity, minVis: 0.3, cal: app.state.profile.punchCal || null });
+    const analyzer = new FormAnalyzer({ stance: opts.stance, sensitivity: opts.sensitivity, minVis: 0.3, cal: app.state.profile.punchCal || null, aspect: video.videoWidth / video.videoHeight || 1 });
     const durMs = video.duration * 1000;
     const roundMs = opts.roundSec ? opts.roundSec * 1000 : durMs + 1;
     const rounds = [];
@@ -288,6 +305,22 @@ async function analyse(file, video, opts, el, app) {
         }
       }
       if (!lined) comboCheck.poorFit = true;
+      // You told us what you threw: punches that line up with the combo take their type from it.
+      // The camera's own reading is kept in the report (calib.punches) so it can keep improving.
+      if (lined) {
+        const byDigit = Object.fromEntries(Object.entries(PUNCH_DIGIT).map(([t, d]) => [d, t]));
+        let set = 0;
+        punchEvents().forEach((e, i) => {
+          const d = comboCheck.labels[i];
+          if (!d) return;
+          e.type = byDigit[d];
+          e.conf = Math.max(e.conf, 75);
+          set++;
+        });
+        comboCheck.labelled = set;
+      }
+      analyzer.calib.labels = comboCheck.labels.map((d) => d || '.').join('');
+      delete comboCheck.labels;
     }
     job = {
       done: true, url, type: opts.type, roundSec: opts.roundSec || Math.round(durMs / 1000), durMs,
@@ -303,6 +336,8 @@ async function analyse(file, video, opts, el, app) {
     URL.revokeObjectURL(url);
     if (err.message !== 'cancelled') toast(err.message || 'Video analysis failed.');
     app.rerender();
+  } finally {
+    busy = false;
   }
 }
 
@@ -312,6 +347,7 @@ function comboCheckHTML(c) {
   const final = c.tuned ?? c.guided ?? c.agree;
   return `<li>Combo check (${esc(c.combo)}): ${c.matched} of ${c.total} punches lined up with it.
     On its own the camera read ${p(c.agree)}% of those as the right punch; using your combo as a guide, ${p(final)}%.
+    ${c.labelled ? `Punch types for those ${c.labelled} follow your combo.` : ''}
     ${c.saved ? 'It learned how your straights and hooks look on camera and will use that from now on.' : ''}
     ${c.poorFit ? "Most punches didn't line up with this combo, so nothing was learned. Was it the right combo, thrown on repeat?" : ''}</li>`;
 }

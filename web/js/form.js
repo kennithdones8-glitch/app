@@ -221,8 +221,8 @@ export function leadSide(world, forward = null) {
 
 function emptyRound() {
   return {
-    frames: 0, guardEligible: 0, guardUp: 0, stanceFrames: 0, stanceOk: 0,
-    narrow: 0, wide: 0, crossed: 0, bladeOk: 0, moving: 0, headMoving: 0,
+    frames: 0, guardEligible: 0, guardUp: 0, stanceFrames: 0, stanceOk: 0, footFrames: 0,
+    narrow: 0, wide: 0, crossed: 0, bladeOk: 0, bladeFrames: 0, moving: 0, headMoving: 0, sideFrames: 0,
     punches: { jab: 0, cross: 0, leadHook: 0, rearHook: 0, leadUppercut: 0, rearUppercut: 0 },
     returnTimes: [], returnLead: [], returnRear: [], leadPunches: 0, rearDrops: 0,
     punchLog: [], leftCloser: 0, depthFrames: 0,
@@ -299,11 +299,14 @@ export function roundMetrics(r) {
   return {
     frames: r.frames,
     guard: pct(r.guardUp, r.guardEligible),
+    // Stance width and blade need depth, which is only usable when the camera sees you from the
+    // front; side-on they're left unmeasured (null) rather than guessed.
     stance: pct(r.stanceOk, r.stanceFrames),
-    crossedPct: pct(r.crossed, r.stanceFrames),
+    crossedPct: pct(r.crossed, r.footFrames ?? r.stanceFrames),
     narrowPct: pct(r.narrow, r.stanceFrames),
     widePct: pct(r.wide, r.stanceFrames),
-    blade: pct(r.bladeOk, r.frames),
+    blade: pct(r.bladeOk, r.bladeFrames ?? r.frames),
+    sidePct: pct(r.sideFrames || 0, r.frames),
     footwork: pct(r.moving, r.frames),
     head: pct(r.headMoving, r.frames),
     handReturnMs: avgReturn,
@@ -323,7 +326,7 @@ export function roundMetrics(r) {
 export function combineRounds(rounds) {
   const valid = rounds.filter((r) => r.frames > 0);
   const out = { perRound: rounds };
-  const keys = ['guard', 'stance', 'crossedPct', 'narrowPct', 'widePct', 'blade', 'footwork', 'head', 'handReturnMs', 'leadReturnMs', 'rearReturnMs', 'rearDropPct', 'leftLeadPct'];
+  const keys = ['guard', 'stance', 'crossedPct', 'narrowPct', 'widePct', 'blade', 'footwork', 'head', 'handReturnMs', 'leadReturnMs', 'rearReturnMs', 'rearDropPct', 'leftLeadPct', 'sidePct'];
   for (const k of keys) {
     let sum = 0, w = 0;
     for (const r of valid) {
@@ -341,6 +344,28 @@ export function combineRounds(rounds) {
   Object.assign(out, comboStats(out.sequences));
   return out;
 }
+
+// 2D (image-plane) arm measurements. The 3D depth estimate is too weak on side-on pad footage to
+// tell straights from hooks, while the flat picture is tracked much more precisely. `A` converts
+// x to the same units as y (video width / height). Lengths are in torso heights.
+function arm2d(image, sh, el, wr, A) {
+  const P = (k) => ({ x: image[k].x * A, y: image[k].y });
+  const S = P(sh), E = P(el), W = P(wr);
+  const mid = (a, b) => ({ x: (image[a].x + image[b].x) * A / 2, y: (image[a].y + image[b].y) / 2 });
+  const torso = Math.hypot(...Object.values(sub2(mid(LM.L_SH, LM.R_SH), mid(LM.L_HIP, LM.R_HIP)))) || 1;
+  const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) / torso;
+  const u = sub2(S, E), f = sub2(W, E);
+  const cos = (u.x * f.x + u.y * f.y) / ((Math.hypot(u.x, u.y) * Math.hypot(f.x, f.y)) || 1);
+  return {
+    W, torso,
+    ext: d(S, W), // shoulder → wrist
+    angle: (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI, // elbow angle as seen
+    fore: d(E, W) / (d(S, E) || 1), // forearm vs upper arm as seen: short when it points at the camera
+    elbUp: (S.y - E.y) / torso, // elbow height relative to the shoulder
+    vis: Math.min(image[el].visibility ?? 1, image[wr].visibility ?? 1),
+  };
+}
+const sub2 = (a, b) => ({ x: a.x - b.x, y: a.y - b.y });
 
 // Forward / sideways travel of a punch path relative to an axis in the ground plane.
 function travel(path, axis) {
@@ -398,7 +423,8 @@ export function refineAxis(feats, cal = null) {
 const PUNCH_CONF = (vis, speed, vTh, margin) => 100 * (0.5 + 0.5 * vis) * (0.55 + 0.45 * Math.min(1, speed / (vTh * 1.8))) * (0.6 + 0.4 * Math.max(0, margin));
 
 export class FormAnalyzer {
-  constructor({ stance = 'orthodox', sensitivity = 1, onCue = () => {}, onPunch = () => {}, minVis = 0.5, cal = null } = {}) {
+  constructor({ stance = 'orthodox', sensitivity = 1, onCue = () => {}, onPunch = () => {}, minVis = 0.5, cal = null, aspect = 1 } = {}) {
+    this.aspect = aspect; // video width / height, for measuring angles in the picture
     this.cal = cal; // per-boxer punch calibration, see calibrateFromCombo
     this.stance = stance;
     this.minVis = minVis; // video filmed side-on hides the far arm, so video analysis accepts lower visibility
@@ -424,7 +450,7 @@ export class FormAnalyzer {
     this.learnedAxis = null;
     this.roundNo = 0;
     // Raw measurements behind each punch decision, for tuning thresholds to a real boxer.
-    this.calib = { vTh: Math.round(this.vTh * 100) / 100, punches: [], rejected: [], nearMiss: [], frames: 0, tracked: 0 };
+    this.calib = { vTh: Math.round(this.vTh * 100) / 100, punches: [], rejected: [], nearMiss: [], motion: [], frames: 0, tracked: 0 };
   }
 
   _hand(side) {
@@ -524,17 +550,14 @@ export class FormAnalyzer {
     } else if (!downFor) this.guardEventOpen = false;
 
     // --- Stance / feet -------------------------------------------------------
+    // Side-on (face pointing across the picture), depth-based widths are unreliable.
+    const sideOn = this.face ? Math.abs(this.face.x) > 0.7 : false;
+    if (sideOn) r.sideFrames++;
     const anklesVisible = (image[LM.L_ANK]?.visibility ?? 1) > 0.5 && (image[LM.R_ANK]?.visibility ?? 1) > 0.5;
     if (anklesVisible) {
-      r.stanceFrames++;
-      const ratio = stanceRatio(world);
+      r.footFrames++;
       const crossed = feetCrossed(world);
-      const narrow = !crossed && ratio < STANCE_MIN;
-      const wide = ratio > STANCE_MAX;
       if (crossed) r.crossed++;
-      if (narrow) r.narrow++;
-      if (wide) r.wide++;
-      if (!crossed && !narrow && !wide) r.stanceOk++;
       const crossedFor = this.held('crossed', crossed, t);
       if (crossedFor > 400) {
         if (!this.crossEventOpen) {
@@ -543,13 +566,25 @@ export class FormAnalyzer {
         }
         this.cue('crossed', "Don't cross your feet", t);
       } else if (!crossedFor) this.crossEventOpen = false;
-      if (this.held('narrow', narrow, t) > 1500) this.cue('narrow', 'Widen your stance', t);
-      if (this.held('wide', wide, t) > 1500) this.cue('wide', 'Tighten up your stance', t);
+      if (!sideOn) {
+        r.stanceFrames++;
+        const ratio = stanceRatio(world);
+        const narrow = !crossed && ratio < STANCE_MIN;
+        const wide = ratio > STANCE_MAX;
+        if (narrow) r.narrow++;
+        if (wide) r.wide++;
+        if (!crossed && !narrow && !wide) r.stanceOk++;
+        if (this.held('narrow', narrow, t) > 1500) this.cue('narrow', 'Widen your stance', t);
+        if (this.held('wide', wide, t) > 1500) this.cue('wide', 'Tighten up your stance', t);
+      }
     }
 
     // --- Blade (not squared up) ---------------------------------------------
-    const bladed = bladeAngle(world) >= BLADE_MIN_DEG;
-    if (bladed) r.bladeOk++;
+    const bladed = sideOn || bladeAngle(world) >= BLADE_MIN_DEG;
+    if (!sideOn) {
+      r.bladeFrames++;
+      if (bladed) r.bladeOk++;
+    }
     const lead = leadSide(world, this.learnedAxis);
     if (lead) {
       r.depthFrames++;
@@ -557,17 +592,27 @@ export class FormAnalyzer {
     }
     if (this.held('squared', !bladed, t) > 2500) this.cue('squared', 'Turn your lead shoulder, stay bladed', t);
 
-    // --- Footwork: hip centre movement in the image -------------------------
-    const hip = { x: (image[LM.L_HIP].x + image[LM.R_HIP].x) / 2, y: (image[LM.L_HIP].y + image[LM.R_HIP].y) / 2, t };
-    const moving = this._trailRange(this.hipTrail, hip, 1500) > 0.04;
+
+    // --- Footwork and head movement, measured in the picture in torso lengths -------------
+    // (so it doesn't matter how far the camera is). Head movement is the nose relative to the
+    // feet: a punch turns the head with the hips, a slip, roll or pull moves it off the feet.
+    const A = this.aspect || 1;
+    const I = (k) => ({ x: image[k].x * A, y: image[k].y });
+    const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    const shM = mid(I(LM.L_SH), I(LM.R_SH)), hipM = mid(I(LM.L_HIP), I(LM.R_HIP));
+    const torso = Math.hypot(shM.x - hipM.x, shM.y - hipM.y) || 1;
+    const hipRange = this._trailRange(this.hipTrail, { x: hipM.x / torso, y: hipM.y / torso, t }, 1500);
+    const moving = hipRange > 0.16;
     if (moving) r.moving++;
     if (this.held('static', !moving, t) > 7000) this.cue('static', 'Move your feet', t);
 
-    // --- Head movement: nose off the hip line in the ground plane (camera-angle independent)
-    const head = { x: nose.x, y: nose.z, t };
-    const headMoving = this._trailRange(this.headTrail, head, 2000) > 0.07;
+    const base = anklesVisible ? mid(I(LM.L_ANK), I(LM.R_ANK)) : hipM;
+    const n = I(LM.NOSE);
+    const headRange = this._trailRange(this.headTrail, { x: (n.x - base.x) / torso, y: (n.y - base.y) / torso, t }, 2000);
+    const headMoving = headRange > 0.3;
     if (headMoving) r.headMoving++;
     if (this.held('headStill', !headMoving, t) > 9000) this.cue('head', 'Move your head, slip after you punch', t);
+    if (r.frames % 15 === 0 && this.calib.motion.length < 300) this.calib.motion.push([r2(headRange), r2(hipRange), sideOn ? 1 : 0]); // for tuning from reports
 
     return this.snapshot(world, image);
   }
@@ -616,7 +661,7 @@ export class FormAnalyzer {
         h.start = h.prev || w;
         h.startT = t;
         h.peakExt = 0; h.peakAngle = 0; h.maxNoseD = noseD; h.maxRise = 0; h.maxLat = 0; h.maxFwd = 0; h.peakSpeed = 0;
-        h.path = []; h.peakDisp = [0, 0];
+        h.path = []; h.peakDisp = [0, 0]; h.i2 = null; h.i2start = h.prevW2 || null; // fist in the picture just before the punch
         h.rearDropped = false;
       }
     }
@@ -630,6 +675,13 @@ export class FormAnalyzer {
       h.maxRise = Math.max(h.maxRise, h.start.y - w.y);
       // Forward vs sideways relative to where the boxer faces, so it works from any camera angle.
       h.path.push([w.x - h.start.x, w.z - h.start.z]);
+      if (this.image) {
+        const a = arm2d(this.image, h.sh, h.el, h.wr, this.aspect || 1);
+        if (!h.i2start) h.i2start = a.W;
+        // Keep the frame where the arm reaches furthest in the picture.
+        if (!h.i2 || a.ext > h.i2.ext) h.i2 = { ...a, dx: (a.W.x - h.i2start.x) / a.torso, dy: (a.W.y - h.i2start.y) / a.torso };
+        h.i2.maxAngle = Math.max(h.i2.maxAngle || 0, a.angle);
+      }
       if (role === 'lead' && this.active && !h.rearDropped) {
         const rear = world[this.hands.rear.wr];
         if (rear.y > shMidY + 0.1) h.rearDropped = true;
@@ -659,6 +711,7 @@ export class FormAnalyzer {
       }
     }
     h.prev = { x: w.x, y: w.y, z: w.z };
+    h.prevW2 = this.image ? { x: this.image[h.wr].x * (this.aspect || 1), y: this.image[h.wr].y } : null;
     h.prevT = t;
     h.prevNoseD = noseD;
   }
@@ -687,6 +740,7 @@ export class FormAnalyzer {
     this.event('punch', t, conf, {
       type, role, vis, speed: h.peakSpeed,
       f: { angle: h.peakAngle, ext: h.peakExt, rise: h.maxRise, path: h.path.map(([a, b]) => [r3(a), r3(b)]), disp: h.peakDisp.map(r3) },
+      i2: h.i2 ? { ext: r3(h.i2.ext), angle: Math.round(h.i2.maxAngle), fore: r3(h.i2.fore), elbUp: r3(h.i2.elbUp), dx: r3(h.i2.dx), dy: r3(h.i2.dy), vis: r3(h.i2.vis) } : null,
       face: this.face ? [r3(this.face.x), r3(this.face.z)] : null,
     });
     this._calibPush('punches', [PUNCH_DIGIT[type], r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(h.maxRise), r2(lat), Math.round(conf), r2(fwd)]);
@@ -724,6 +778,8 @@ export class FormAnalyzer {
     this.calib.punches = punches.slice(0, 300).map((e) => [PUNCH_DIGIT[e.type], r2(e.speed), r2(e.f.ext), Math.round(e.f.angle), r2(e.f.rise), r2(e.lat ?? 0), e.conf, r2(e.fwd ?? 0)]);
     // Raw ground-plane vectors (camera frame) so the axis maths can be checked from a report.
     this.calib.vec = punches.slice(0, 100).map((e) => [e.role === 'lead' ? 'L' : 'R', ...e.f.disp.map(r2), ...(e.face || [0, 0]).map(r2), ...e.f.path.flat().map(r2)]);
+    // 2D arm measurements per punch: [hand, stretch, elbow angle, forearm/upper arm, elbow height, fist dx, fist dy, visibility].
+    this.calib.vec2 = punches.slice(0, 200).map((e) => (e.i2 ? [e.role === 'lead' ? 'L' : 'R', r2(e.i2.ext), e.i2.angle, r2(e.i2.fore), r2(e.i2.elbUp), r2(e.i2.dx), r2(e.i2.dy), r2(e.i2.vis)] : [e.role === 'lead' ? 'L' : 'R']));
     faceDev.sort((a, b) => a - b);
     this.calib.faceDev = faceDev.length ? Math.round(faceDev[Math.floor(faceDev.length / 2)]) : null;
     this.calib.reclassified = changed;

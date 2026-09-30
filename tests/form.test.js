@@ -274,3 +274,45 @@ test('PersonTracker follows the boxer through side swaps and occlusion', async (
   const back = tr.pick([person(0.3), person(0.55)], [BLACK, RED], t);
   assert.equal(back, 1);
 });
+
+test('head movement: punching alone is not head movement, slips are', () => {
+  const run = (withSlips) => {
+    const an = new FormAnalyzer();
+    an.startRound();
+    let t = 0;
+    for (let rep = 0; rep < 8; rep++) {
+      t = feed(an, punch(LM.L_WR, LM.L_EL, { x: 0.16, y: -0.49, z: -0.61 }, { x: 0.17, y: -0.47, z: -0.33 }), t);
+      if (withSlips) {
+        // Slip: head and shoulders move ~20 cm to the side, feet stay put.
+        const slip = (dx) => pose({ [LM.NOSE]: { x: dx }, [LM.L_EAR]: { x: 0.07 + dx }, [LM.R_EAR]: { x: -0.07 + dx }, [LM.L_SH]: { x: 0.18 + dx * 0.7 }, [LM.R_SH]: { x: -0.15 + dx * 0.7 } });
+        t = feed(an, [slip(0.1), slip(0.2), slip(0.2), slip(0.1), pose()], t);
+      }
+      t = feed(an, still(20), t);
+    }
+    return an.endRound();
+  };
+  const still_ = run(false), slipping = run(true);
+  assert.ok(still_.head < 25, `punching only: ${still_.head}%`);
+  assert.ok(slipping.head > still_.head + 15, `with slips: ${slipping.head}% vs ${still_.head}%`);
+});
+
+test('side-on footage leaves blade and stance width unmeasured; front-on measures them', () => {
+  const front = new FormAnalyzer();
+  front.startRound();
+  feed(front, still(60), 0);
+  const f = front.endRound();
+  assert.ok(f.blade != null && f.stance != null, 'front view measured');
+  assert.equal(f.sidePct, 0);
+
+  // Same boxer, face pointing across the picture (camera at the side).
+  const side = new FormAnalyzer();
+  side.startRound();
+  const prof = (w) => { w[LM.NOSE] = { x: 0.12, y: -0.62, z: 0.02 }; w[LM.L_EAR] = { x: 0.0, y: -0.63, z: 0.03 }; w[LM.R_EAR] = { x: 0.0, y: -0.63, z: 0.01 }; return w; };
+  feed(side, still(60).map(prof), 0);
+  const sd = side.endRound();
+  assert.equal(sd.blade, null);
+  assert.equal(sd.stance, null);
+  assert.ok(sd.sidePct > 90);
+  assert.ok(sd.crossedPct != null, 'crossed feet still checked');
+  assert.ok(combineRounds([sd]).sidePct > 90, 'carried into the session');
+});

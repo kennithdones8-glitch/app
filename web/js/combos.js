@@ -5,12 +5,12 @@ import { PUNCH_DIGIT, streamFrom } from './form.js';
 export { streamFrom };
 
 export const PUNCH_WORDS = { 1: 'Jab', 2: 'Cross', 3: 'Hook', 4: 'Rear hook', 5: 'Uppercut', 6: 'Rear uppercut' };
-export const DEFENSE = ['slip', 'roll', 'pull', 'pivot', 'step out', 'feint'];
+export const DEFENSE = ['slip', 'roll', 'pull', 'pivot', 'step out', 'feint', 'pause'];
 
 // Quick adds. The last three are from your pad round (the last one is the whole round).
 export const STARTERS = [
   '1-2', '1-1-2', '1-2-3', '1-2-3-2', '2-3-2', '1-6-3-2', '3b-3', '1-2 slip 2', '1-2 roll 3-2', '5-2-3',
-  '1-3-2 roll 2-3', '3b roll 6-3-2 roll 2', '1-3-2 roll 2-3 1 3b roll 6-3-2 roll 2',
+  '1-3-2 roll 2-3', '3b roll 6-3-2 roll 2', '1-3-2 roll 2-3 pause 1 pause 3b roll 6-3-2 roll 2',
 ];
 
 export const isPunch = (t) => /^[1-6]b?$/.test(t);
@@ -56,9 +56,9 @@ export function comboSpeech(tokens) {
 // Punches only, with whether a defence move sits before each one.
 function plan(tokens) {
   const out = [];
-  let def = false;
+  let def = false, pause = false;
   for (const t of tokens) {
-    if (isPunch(t)) { out.push({ d: t[0], def }); def = false; } else if (out.length) def = true;
+    if (isPunch(t)) { out.push({ d: t[0], def, pause }); def = pause = false; } else if (out.length) { def = true; pause ||= t === 'pause'; }
   }
   return out;
 }
@@ -90,7 +90,8 @@ export function countCombo(stream, tokens) {
     let fits = bounded;
     for (let k = 1; fits && k < n; k++) {
       const g = S[i + k - 1];
-      if (g === ' ' || (!p[k].def && g !== '-')) fits = false;
+      // A pause allows any gap; a slip or roll up to 1.6 s; otherwise punches come back to back.
+      if ((g === ' ' && !p[k].pause) || (!p[k].def && g !== '-')) fits = false;
     }
     if (fits) {
       let diff = 0;

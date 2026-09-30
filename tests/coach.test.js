@@ -132,3 +132,24 @@ test('weekSummary counts this week only', () => {
   assert.equal(w.punches, 240);
   assert.equal(w.minutes, 36);
 });
+
+test('a back-dated session does not reset the streak', async () => {
+  const { updateMemory, emptyMemory } = await import('../web/js/coach.js');
+  let mem = emptyMemory();
+  const at = (d) => ({ id: d, date: `${d}T18:00:00`, type: 'run', durationMin: 30, rpe: 6 });
+  for (const d of ['2026-09-27', '2026-09-28', '2026-09-29']) mem = updateMemory(mem, at(d)).memory;
+  assert.equal(mem.streak.count, 3);
+  mem = updateMemory(mem, at('2026-09-23')).memory; // an old video analysed today
+  assert.equal(mem.streak.count, 3);
+  assert.equal(mem.streak.lastDay, '2026-09-29');
+  mem = updateMemory(mem, at('2026-09-30')).memory;
+  assert.equal(mem.streak.count, 4);
+});
+
+test('pad work and drilled combos do not produce punch-mix habits', async () => {
+  const { detectPatterns } = await import('../web/js/coach.js');
+  const by = { jab: 4, cross: 40, leadHook: 30, rearHook: 0, leadUppercut: 0, rearUppercut: 6 };
+  assert.ok(detectPatterns({ type: 'bag', punches: { byType: by } }).includes('lightJab'));
+  assert.ok(!detectPatterns({ type: 'mitts', punches: { byType: by } }).includes('lightJab'));
+  assert.ok(!detectPatterns({ type: 'shadow', calib: { labels: '12..' }, punches: { byType: by } }).includes('lightJab'));
+});

@@ -21,7 +21,7 @@ import { reviewFieldsHTML, bindReview, readReview } from './views/review.js';
 import { buildReport, reportSize } from './report.js';
 import { renderBoxer } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
-import { renderVideo } from './views/video.js';
+import { renderVideo, videoBusy } from './views/video.js';
 import { renderCombos, comboHTML } from './views/combos.js';
 import { parseCombo, comboText, comboLabel, comboSpeech, comboKey, punchDigits, pickCombo, judgeCalls, sessionCombos } from './combos.js';
 
@@ -36,7 +36,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.29-9';
+export const APP_VERSION = '2026.09.30-1';
 
 const app = {
   version: APP_VERSION,
@@ -67,7 +67,22 @@ const routes = {
   progress: () => { location.hash = '#boxer/charts'; },
 };
 
+// A finished session waiting on the summary screen. Leaving it any way other than Discard saves it,
+// so a tab tap or a swipe back never loses a session (or a whole video analysis).
+let pendingSummary = null;
+function savePendingSummary() {
+  if (!pendingSummary) return;
+  const { session, form } = pendingSummary;
+  pendingSummary = null;
+  readReview(form, session, state);
+  session.rpe = +form.rpe.value;
+  session.notes = form.notes.value.trim();
+  saveSession(session);
+  toast('Session saved.');
+}
+
 function route() {
+  savePendingSummary();
   const name = (location.hash.slice(1) || 'home').split('/')[0];
   const fn = routes[name] || renderHome;
   $$('.tabs a').forEach((a) => a.classList.toggle('active', a.dataset.tab === name));
@@ -416,6 +431,10 @@ async function startSession(plan) {
       const { PoseTracker } = await import('./pose.js');
       live.tracker = new PoseTracker($('#camVideo'), $('#camCanvas'));
       live.tracker.onFrame = (world, image, t) => {
+        if (live?.analyzer && !live.analyzer.aspectSet && $('#camVideo').videoWidth) {
+          live.analyzer.aspect = $('#camVideo').videoWidth / $('#camVideo').videoHeight;
+          live.analyzer.aspectSet = true;
+        }
         const m = live?.analyzer.update(world, image, t);
         $('#camStatus').textContent = image ? '' : 'Step into frame';
         if (m && live.timer?.phase === 'work') {
@@ -590,7 +609,7 @@ function scheduleCombos(rp) {
     }
     if (tokens) { text = comboText(tokens); speech = comboSpeech(tokens); } else speech = comboToSpeech(text);
     $('#liveCombo').innerHTML = tokens ? comboHTML(tokens) : esc(text);
-    audio.say(speech, { rate: 1.3 });
+    audio.say(speech, { rate: 1.3, interrupt: true }); // a call you don't hear can't be judged
     // With the camera on, remember the call so we can check what was actually thrown.
     if (tokens && live.analyzer) live.calls.push({ t: performance.now(), key: comboKey(tokens), digits: punchDigits(tokens) });
   };
@@ -736,6 +755,7 @@ function sessionDetailHTML(s, fb) {
       ${s.completedRounds != null ? scoreChip('Rounds', `${s.completedRounds}/${s.plan?.rounds ?? s.completedRounds}`, -1) : ''}
     </div>
     ${s.source === 'video' ? `<p class="small muted">From video analysis${s.corrections ? ` · ${s.corrections} detections corrected by you` : ''}.</p>` : ''}
+    ${s.form?.sidePct >= 60 ? '<p class="small muted">Filmed side-on: blade and stance width need a front view, so they weren\'t measured this time.</p>' : ''}
     ${areaChips ? `<h3>Breakdown</h3><div class="scores">${areaChips}</div>` : ''}
     ${fb ? `
       ${fb.wins.length ? `<h3>What went well</h3><ul class="fb good">${fb.wins.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
@@ -783,10 +803,11 @@ function renderSummary(session) {
       </form>
     </section>`;
   const f = $('#saveForm');
+  pendingSummary = { session, form: f };
   bindReview(f);
   f.rpe.addEventListener('input', () => { $('#rpeOut').textContent = f.rpe.value; });
   $('#discard').addEventListener('click', () => {
-    if (confirm('Discard this session?')) { location.hash = '#home'; route(); }
+    if (confirm('Discard this session?')) { pendingSummary = null; location.hash = '#home'; route(); }
   });
   $('#copyReport').addEventListener('click', () => {
     readReview(f, session, state);
@@ -796,6 +817,7 @@ function renderSummary(session) {
   });
   f.addEventListener('submit', (e) => {
     e.preventDefault();
+    pendingSummary = null;
     readReview(f, session, state);
     session.rpe = +f.rpe.value;
     session.notes = f.notes.value.trim();
@@ -845,6 +867,7 @@ function saveSession(session) {
   state.memory = memory;
   state.sessions.push(session);
   state.sessions.sort((a, b) => new Date(a.date) - new Date(b.date));
+  store.trimDiagnostics(state.sessions);
   persist();
   afterDataChange();
 }
@@ -1170,12 +1193,26 @@ document.addEventListener('visibilitychange', async () => {
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   // Reload once when a new version takes over, so the new code runs straight away.
+  // Never mid-session or mid-video: then it waits until you're done.
   const hadController = !!navigator.serviceWorker.controller;
-  let reloaded = false;
+  let reloaded = false, updateReady = false;
+  const applyUpdate = () => {
+    if (updateReady && !reloaded && !live && !videoBusy() && !pendingSummary) { reloaded = true; location.reload(); }
+  };
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (hadController && !reloaded && !live) { reloaded = true; location.reload(); }
+    if (!hadController) return;
+    updateReady = true;
+    applyUpdate();
+    if (!reloaded) toast('App update ready: it applies when you finish.');
   });
-  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
+  window.addEventListener('hashchange', applyUpdate);
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    reg.update();
+    // Home-screen apps resume instead of restarting, so also check whenever the app comes back.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reg.update().catch(() => {});
+    });
+  }).catch(() => {});
 }
 
 afterDataChange();

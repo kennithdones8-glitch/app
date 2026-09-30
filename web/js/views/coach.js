@@ -345,13 +345,21 @@ function settings(el, app) {
   f.sensitivity.addEventListener('input', () => { $('#sensOut').textContent = f.sensitivity.value; });
   f.addEventListener('submit', (e) => {
     e.preventDefault();
+    // Switching lb ⇄ kg converts what's logged, not just the label.
+    let target = +f.targetWeight.value > 0 ? +f.targetWeight.value : null;
+    if (f.unit.value !== profile.unit) {
+      const k = f.unit.value === 'kg' ? 1 / 2.20462 : 2.20462;
+      const conv = (v) => Math.round(v * k * 10) / 10;
+      app.state.weights = app.state.weights.map((w) => ({ ...w, value: conv(w.value) }));
+      if (target != null && target === profile.targetWeight) target = conv(target);
+    }
     app.state.profile = {
       ...profile,
       name: f.name.value.trim(), stance: f.stance.value, level: f.level.value, goal: f.goal.value,
       weeklyGoal: Math.min(7, Math.max(1, +f.weeklyGoal.value || 3)), sensitivity: +f.sensitivity.value,
       fight: { rounds: +f.fightRounds.value, roundSec: +f.fightRoundSec.value, restSec: 60 },
       fightDate: f.fightDate.value, opponentStyle: f.opponentStyle.value,
-      targetWeight: +f.targetWeight.value > 0 ? +f.targetWeight.value : null, unit: f.unit.value,
+      targetWeight: target, unit: f.unit.value,
     };
     app.state.settings = { ...st, voice: f.voice.checked, cues: f.cues.checked, comboInterval: +f.comboInterval.value };
     app.rebuildPlan();
