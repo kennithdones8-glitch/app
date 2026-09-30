@@ -82,7 +82,7 @@ export function trimDiagnostics(sessions, keep = 12) {
     const c = sessions[i].calib;
     if (!c) continue;
     if (++seen <= keep) continue;
-    for (const k of ['punches', 'vec', 'vec2', 'rejected', 'nearMiss', 'fixes', 'labels', 'track', 'motion']) delete c[k];
+    for (const k of ['punches', 'vec', 'vec2', 'rejected', 'nearMiss', 'fixes', 'labels', 'track', 'motion', 'pt']) delete c[k];
   }
   return sessions;
 }

@@ -218,7 +218,8 @@ async function analyse(file, video, opts, el, app) {
     let roundEnd = roundMs, frames = 0, tracked = 0, multi = 0, lastT = -1;
     const tracker = new PersonTracker();
     let who = 'auto', nobody = 0, lost = 0;
-    const sheets = opts.ai ? new FrameSheets() : null;
+    // Frames of the boxer for a Claude check, or to save and share in a Claude chat.
+    const sheets = new FrameSheets();
 
     // Find people in the first frames; with more than one, ask the boxer to tap themselves.
     status.textContent = 'Finding you in the video…';
@@ -285,7 +286,7 @@ async function analyse(file, video, opts, el, app) {
       if (image) tracked++;
       else if (people.length) lost++;
       else nobody++;
-      if (sheets) sheets.add(frame, image, t);
+      sheets.add(frame, image, t);
       if (people.length > 1) multi++;
       frames++;
       analyzer.update(world || null, image, t);
@@ -346,7 +347,7 @@ async function analyse(file, video, opts, el, app) {
     }
     rounds.push(analyzer.endRound());
     video.pause();
-    sheets?.flush();
+    sheets.flush();
     analyzer.reclassify();
     // Drilled a known combo: check the camera against it and learn this boxer's straight/hook boundary.
     let comboCheck = null;
@@ -404,7 +405,7 @@ async function analyse(file, video, opts, el, app) {
       frames, tracked: frames ? Math.round((tracked / frames) * 100) : 0, multi: frames ? Math.round((multi / frames) * 100) : 0,
       date: new Date(file.lastModified || Date.now()).toISOString(),
       stance: opts.stance, drill: opts.drill ? comboText(opts.drill.tokens) : null,
-      sheets: sheets?.sheets || null, ai: sheets ? { state: 'pending' } : null,
+      sheets: sheets.sheets, ai: opts.ai ? { state: 'pending' } : null,
     };
     app.rerender();
   } catch (err) {
@@ -452,6 +453,11 @@ function renderReview(el, app) {
       <p class="muted small">Computer vision isn't perfect. Tap a time to jump there, fix the punch type, or untick anything that's wrong. Low-confidence detections start unticked.</p>
       <label class="switch"><input type="checkbox" id="uncertain" ${uncertainOnly ? 'checked' : ''}> <span>Only show uncertain (&lt;70%)</span></label>
     </section>
+    ${j.sheets?.length ? `<section class="card">
+      <h3 style="margin-top:0">Get every punch checked for free</h3>
+      <p class="muted small">Save ${j.sheets.length} photo${j.sheets.length === 1 ? '' : 's'} of this video (your upper body, frame by frame, with times). Attach them in your Claude chat together with the report from this session (Log → Copy report for coach). Claude labels every punch, and the app learns from it.</p>
+      <button class="btn ghost block" id="saveFrames" type="button">📸 Save frames for Claude chat</button>
+    </section>` : ''}
     ${j.tracked < 30 ? `<section class="card"><div class="msg behind"><b>I could barely see you in this video.</b> Try: whole body in frame (head to feet), steadier camera, better light, or re-run and tap yourself carefully if someone else is in the shot. You can also use Fast/Normal detail on long clips.</div></section>` : ''}
     <section class="card">
       ${shown.length ? '' : '<p class="muted small" style="margin:0">No detections to review.</p>'}
@@ -470,6 +476,7 @@ function renderReview(el, app) {
       <div class="row2"><button class="btn ghost" id="vidDiscard">Discard</button><button class="btn primary" id="vidSave">${j.subject === 'pro' ? 'Save for comparison' : 'Save session'}</button></div>
     </section>`;
 
+  $('#saveFrames', el)?.addEventListener('click', () => saveFrames(j));
   $('#aiRetry', el)?.addEventListener('click', () => runAi(el, app));
   if (j.ai?.state === 'pending') runAi(el, app);
   $('#uncertain', el).addEventListener('change', (e) => { el.dataset.uncertain = e.target.checked ? '1' : ''; renderReview(el, app); });
@@ -507,6 +514,32 @@ function renderReview(el, app) {
     }
     app.showSummary(session);
   });
+}
+
+// Share the contact sheets (iPhone: Save Images to Photos), or download them where sharing files isn't possible.
+async function saveFrames(j) {
+  const stamp = j.date.slice(0, 10);
+  const files = (await Promise.all(j.sheets.map((s) => s.blob)))
+    .map((b, i) => b && new File([b], `boxcoach-${stamp}-frames-${String(i + 1).padStart(2, '0')}.jpg`, { type: 'image/jpeg' }))
+    .filter(Boolean);
+  if (!files.length) return toast('No frames were captured.');
+  try {
+    if (navigator.canShare?.({ files })) {
+      await navigator.share({ files, title: 'BoxCoach frames' });
+      return;
+    }
+  } catch (err) {
+    if (err?.name === 'AbortError') return;
+  }
+  for (const f of files) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(f);
+    a.download = f.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  toast(`Saved ${files.length} photos.`);
 }
 
 function aiStatusHTML(a) {
