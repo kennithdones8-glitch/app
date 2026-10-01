@@ -533,3 +533,25 @@ test('an arm that stays out and surges again is one punch; a double jab that pul
   const dbl = [...go(base[W], out, base[E], outE, 4), ...go(out, base[W], outE, base[E], 5), ...go(base[W], out, base[E], outE, 4), ...go(out, base[W], outE, base[E], 6)];
   assert.equal(count(dbl), 2);
 });
+
+test('the idle hand twitching just after a full jab is not a punch; a real cross after it is', () => {
+  const run = (frames) => {
+    const got = [];
+    const an = new FormAnalyzer({ onPunch: (p) => got.push(p) });
+    an.startRound();
+    let t = feed(an, still(10), 0);
+    t = feed(an, frames, t);
+    feed(an, still(15), t);
+    an.endRound();
+    return { got, rej: an.calib.rejected };
+  };
+  const jab = punch(LM.L_WR, LM.L_EL, { x: 0.16, y: -0.49, z: -0.61 }, { x: 0.17, y: -0.47, z: -0.33 });
+  const merge = (a, b, lag) => a.map((w, i) => { const o = [...w]; const j = i - lag; if (j >= 0 && j < b.length) { o[LM.R_WR] = b[j][LM.R_WR]; o[LM.R_EL] = b[j][LM.R_EL]; } return o; });
+  // Rear fist bounces forward, still bent, ~200 ms after the jab lands.
+  const twitch = punch(LM.R_WR, LM.R_EL, { x: -0.03, y: -0.5, z: -0.42 }, { x: -0.17, y: -0.28, z: -0.06 });
+  const a = run(merge(jab, twitch, 6));
+  assert.deepEqual(a.got, ['jab'], JSON.stringify(a.rej));
+  // A full cross thrown just as fast after the jab is a real one-two.
+  const cross = punch(LM.R_WR, LM.R_EL, { x: 0.02, y: -0.5, z: -0.5 }, { x: -0.1, y: -0.45, z: -0.2 });
+  assert.deepEqual(run(merge(jab, cross, 6)).got, ['jab', 'cross']);
+});

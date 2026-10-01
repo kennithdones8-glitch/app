@@ -25,7 +25,8 @@ import { renderCoachMe } from './views/coachme.js';
 import { renderBoxer, PROGRESS_SUBS } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
 import { renderVideo, videoBusy, trustedCal } from './views/video.js';
-import { personalFor } from './personal.js';
+import { personalFor, addExamples, trainPersonal } from './personal.js';
+import { testPlan, scoreTest, testLabels } from './punchtest.js';
 import { renderCombos, comboHTML } from './views/combos.js';
 import { renderStudy } from './views/study.js';
 import { parseCombo, comboText, comboLabel, comboSpeech, comboKey, punchDigits, pickCombo, judgeCalls, sessionCombos } from './combos.js';
@@ -41,7 +42,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.09.30-16';
+export const APP_VERSION = '2026.10.01-1';
 
 const app = {
   version: APP_VERSION,
@@ -57,6 +58,11 @@ const app = {
   // Start a Coach-me session (or the benchmark). The camera is on unless the boxer turned it off.
   startCoached: (plan) => startSession({ tracking: state.settings.tracking === 'none' ? 'none' : 'camera', focus: null, ...plan }),
   startBenchmark: () => startSession({ ...structuredClone(BENCHMARK), tracking: 'camera', focus: null }),
+  // Punch test: one round of called punches (see punchtest.js).
+  startPunchTest: () => {
+    const p = testPlan(state.profile.stance);
+    startSession({ type: 'shadow', rounds: 1, roundSec: p.totalSec, restSec: 0, tracking: 'camera', combos: false, constraints: false, focus: null, test: p.steps });
+  },
   showSummary: (s) => { s.scores = scoreSession(s, state.profile); renderSummary(s); },
   // Open the live-session setup with your combos (or just some of them) being called.
   drillCombos: (ids) => {
@@ -289,6 +295,11 @@ function renderTrain() {
   const rests = [0, 10, 15, 30, 45, 60, 90, 120];
 
   body.innerHTML = `
+    <section class="card test-card">
+      <div class="card-head"><b>🎯 Punch test</b><span class="muted small">3 min · camera</span></div>
+      <p class="small muted" style="margin:4px 0 8px">I call 10 of each punch, you throw them. You'll see what the camera got right, and it tunes punch reading to you. Do it from each camera spot you use.</p>
+      <button class="btn primary block" id="punchTest" type="button">Start punch test</button>
+    </section>
     <div class="chips">
         <button class="chip" data-preset="fight">Fight sim ${f.rounds}×${fmt(f.roundSec)}</button>
         <button class="chip" data-preset="6x3">6×3</button>
@@ -361,6 +372,7 @@ function renderTrain() {
     persist();
     startSession({ ...draft, focus: state.memory.focus?.area || null, rounds_: rounds });
   });
+  $('#punchTest').addEventListener('click', () => app.startPunchTest());
   $$('[data-preset]').forEach((b) => b.addEventListener('click', () => {
     const presets = {
       fight: { type: 'bag', ...f, comboLevel: 3 },
@@ -408,6 +420,7 @@ async function startSession(plan) {
   $('#liveCombo').textContent = '';
   $('#liveCue').textContent = '';
   $('#liveConstraint').hidden = true;
+  $('#livePause').hidden = false;
   $('#livePunches').textContent = '0';
   ['#livePpm', '#liveGuard', '#liveStance'].forEach((s) => { $(s).textContent = '–'; });
   $('#liveGuard').parentElement.hidden = tracking !== 'camera';
@@ -445,7 +458,7 @@ async function startSession(plan) {
       cal: trustedCal(state.profile.punchCal),
       personal: personalFor(state.profile),
       onCue: (key, text) => {
-        if (!state.settings.cues) return;
+        if (!state.settings.cues || live?.plan.test) return; // the test's calls need a clear voice
         showCue(text);
         // Reminders never talk over a combo call: skipped while one is being said or due.
         if (live?.nextCallAt && Math.abs(live.nextCallAt - performance.now()) < 2500) return;
@@ -575,6 +588,7 @@ function onPhase(phase, round) {
     if (rp) setTimeout(() => audio.say(`${CONSTRAINTS[rp.constraint].name}.${rp.opponent ? ` Opponent: ${OPPONENTS[rp.opponent].name}.` : ''}`, { interrupt: true }), 600);
     if (rp && CONSTRAINTS[rp.constraint].burst) scheduleBursts();
     if (live.plan.combos && live.plan.type !== 'rope') scheduleCombos(rp);
+    if (live.plan.test) scheduleTest();
   }
   if (phase === 'rest') {
     audio.bell(1);
@@ -667,6 +681,25 @@ function scheduleCombos(rp) {
   live.comboTimer = setInterval(call, every);
 }
 
+// Punch test: call each set of punches on time, so what the camera saw can be checked against it.
+function scheduleTest() {
+  live.testT0 = performance.now();
+  $('#livePause').hidden = true; // pausing would break the timing
+  const steps = live.plan.test;
+  steps.forEach((s, i) => {
+    live.burstTimers.push(setTimeout(() => {
+      if (!live) return;
+      $('#liveCombo').innerHTML = `<b>${s.n ? `${s.n} ${esc(s.name)}` : 'Guard only, no punches'}</b><br><span class="small">${i + 1} of ${steps.length}</span>`;
+      audio.say(s.say, { interrupt: true });
+    }, s.at));
+    live.burstTimers.push(setTimeout(() => {
+      if (!live) return;
+      $('#liveCombo').textContent = i === steps.length - 1 ? 'Done' : 'Stop. Reset.';
+      audio.say(i === steps.length - 1 ? 'Done.' : 'Stop.', { interrupt: true });
+    }, s.end));
+  });
+}
+
 // Fatigue simulation: 10-second all-out bursts every 30 seconds.
 function scheduleBursts() {
   const roundMs = live.plan.roundSec * 1000;
@@ -699,6 +732,21 @@ function teardownLive() {
   document.body.classList.remove('in-live');
 }
 
+// Score the steps that were finished and keep every detection as a labelled example.
+function finishTest(l) {
+  if (!l.analyzer || l.testT0 == null) return undefined;
+  const done = l.plan.test.filter((s) => l.testT0 + s.end <= performance.now());
+  if (!done.length) return undefined;
+  const events = l.analyzer.events;
+  const add = testLabels(done, events, l.testT0);
+  if (add.length) {
+    state.profile.punchLabels = addExamples(state.profile.punchLabels, add);
+    persist();
+  }
+  const m = trainPersonal(state.profile.punchLabels);
+  return { ...scoreTest(done, events, l.testT0), labels: add.length, personal: m ? { acc: m.acc, base: m.baseAcc, use: m.use, n: m.n } : null };
+}
+
 function finishSession() {
   if (!live) return;
   const l = live;
@@ -724,6 +772,7 @@ function finishSession() {
     comboCalls: l.callResults.length ? l.callResults.slice(0, 400) : undefined,
     coach: l.plan.coach ? { ...l.plan.coach } : undefined,
     benchmark: l.plan.benchmark || undefined,
+    test: l.plan.test ? finishTest(l) : undefined,
     adjustments: l.adjustments.length ? l.adjustments : undefined,
     rpe: 7, notes: '',
   };
@@ -834,6 +883,20 @@ function sessionDetailHTML(s, fb) {
 }
 
 // Coach-me result on the summary: the drill's success condition and what happens next.
+const TEST_NAMES = { jab: 'Jabs', cross: 'Crosses', leadHook: 'Lead hooks', rearHook: 'Rear hooks', leadUppercut: 'Lead uppercuts', rearUppercut: 'Rear uppercuts' };
+function testHTML(session) {
+  const x = session.test;
+  if (!x) return '';
+  const p = x.personal;
+  return `<div class="test-res">
+    <div class="row2"><div class="stat"><b>${x.countPct}%</b><span>counted right</span></div><div class="stat"><b>${x.typePct}%</b><span>read as the right punch</span></div></div>
+    <table class="tbl small"><thead><tr><th class="left">Threw</th><th>Counted</th><th>Right type</th><th>Other hand</th></tr></thead><tbody>
+      ${x.rows.map((r) => `<tr><td class="left">${r.want ? `${r.n} ${TEST_NAMES[r.want]}` : 'Guard only'}</td><td>${r.want ? r.got : '–'}</td><td>${r.want ? r.right : '–'}</td><td>${r.fake}</td></tr>`).join('')}
+    </tbody></table>
+    <p class="small muted">${p ? (p.use ? `Punch reading now tuned to you: ${Math.round(p.acc * 100)}% right on your test punches (built-in ${Math.round(p.base * 100)}%).` : `Learned from ${x.labels} punches (${Math.round(p.acc * 100)}% vs ${Math.round(p.base * 100)}% built-in). Another test and it can take over.`) : `Learned from ${x.labels} punches.`} Try it again from a different camera spot.</p>
+  </div>`;
+}
+
 function coachedHTML(session) {
   if (!session.coach) return session.benchmark ? '<div class="pr">📏 Benchmark done: compare it in Coach me.</div>' : '';
   const ev = evaluateCoached(session, session.coach);
@@ -856,6 +919,7 @@ function renderSummary(session) {
       ${events.newPRs.length ? `<div class="pr">🏆 New personal record: ${events.newPRs.map(esc).join(', ')}</div>` : ''}
       ${events.resolved.length ? `<div class="pr">✅ Habit fixed: ${events.resolved.map((k) => esc(INSIGHTS[k].text)).join(' ')}</div>` : ''}
       ${events.confirmed.length ? `<div class="pr warn">🧠 I'm noticing a pattern: ${events.confirmed.map((k) => esc(INSIGHTS[k].text)).join(' ')}</div>` : ''}
+      ${testHTML(session)}
       ${coachedHTML(session)}
       ${sessionDetailHTML(session, fb)}
     </section>
