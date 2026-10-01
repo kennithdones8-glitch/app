@@ -6,12 +6,10 @@ import { startHypothesis, evaluateHypothesis } from '../hypotheses.js';
 import * as store from '../store.js';
 import { $, $$, esc, shortDate, subnav, subOf, toast, opt, scoreClass, pageHead } from '../ui.js';
 import { aiKey, aiModel, setAi, AI_MODELS } from '../aicheck.js';
-import { personalFor } from '../personal.js';
 
 const taughtText = (p) => {
-  const m = personalFor(p);
-  if (!m) return `You've labelled ${p.punchLabels.length} punches; at 20 it starts learning your style.`;
-  return m.use ? `Reading punches your way, from ${m.n} you labelled (${Math.round(m.acc * 100)}% right vs ${Math.round(m.baseAcc * 100)}% built-in).` : `${m.n} punches labelled (${Math.round(m.acc * 100)}% vs ${Math.round(m.baseAcc * 100)}% built-in). Label a few more and it takes over.`;
+  const all = p.punchLabels.length, spotted = p.punchLabels.filter((x) => x.ratio != null).length;
+  return `You've taught it ${all} punches${spotted < all ? ` (${spotted} with the camera spot recorded)` : ''}. It uses them only when the camera is set up like it was then, and only where it beats the built-in reading. A punch test from each spot you use teaches it fastest.`;
 };
 
 const SUBS = [['memory', 'Memory'], ['hypotheses', 'Tests'], ['priorities', 'Priorities'], ['iq', 'Fight IQ']];

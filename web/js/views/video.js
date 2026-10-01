@@ -6,7 +6,7 @@ import { $, $$, esc, opt, toast } from '../ui.js';
 import { newId } from '../store.js';
 import { comboLabel, comboText, parseCombo, STARTERS } from '../combos.js';
 import { calibrateFromCombo } from '../calibrate.js';
-import { personalFor, harvest, addExamples, trainPersonal } from '../personal.js';
+import { harvest, addExamples, trainPersonal } from '../personal.js';
 import { saveReference } from './study.js';
 import { takePreset } from './handoff.js';
 import { drawGloves } from '../pose.js';
@@ -230,7 +230,7 @@ async function analyse(file, video, opts, el, app) {
     status.textContent = model === 'heavy' ? 'Loading the precise pose model (30 MB, first time only)…' : 'Loading pose model…';
     const { getVideoLandmarker, detectVideoFrame } = await import('../pose.js');
     const lm = await getVideoLandmarker(model);
-    const analyzer = new FormAnalyzer({ stance: opts.stance, sensitivity: opts.sensitivity, minVis: 0.3, cal: trustedCal(app.state.profile.punchCal), personal: personalFor(app.state.profile), aspect: video.videoWidth / video.videoHeight || 1 });
+    const analyzer = new FormAnalyzer({ stance: opts.stance, sensitivity: opts.sensitivity, minVis: 0.3, cal: trustedCal(app.state.profile.punchCal), labels: app.state.profile.punchLabels || null, aspect: video.videoWidth / video.videoHeight || 1 });
     const durMs = video.duration * 1000;
     const roundMs = opts.roundSec ? opts.roundSec * 1000 : durMs + 1;
     const rounds = [];

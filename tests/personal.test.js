@@ -39,3 +39,15 @@ test('older saves switch combo calls off once (voice gives fixes only); later ch
   assert.equal(load(mem({ settings: { combos: true } })).settings.combos, false);
   assert.equal(load(mem({ settings: { combos: true, voiceV2: true } })).settings.combos, true);
 });
+
+test('what you taught from one camera spot is only used from a similar spot', async () => {
+  const { readerFor, setupNear } = await import('../web/js/personal.js');
+  const floor = { ratio: 2.4, side: 0.1, tilt: 16 };
+  const labels = set().map((x) => ({ ...x, ...floor }));
+  assert.ok(readerFor(labels, { ratio: 2.3, side: 0.15, tilt: 14 }), 'same spot: used');
+  assert.equal(readerFor(labels, { ratio: 1.6, side: 0.1, tilt: 2 }), null, 'chest height: not used');
+  assert.equal(readerFor(labels, { ratio: 2.4, side: 0.9, tilt: 16 }), null, 'side-on: not used');
+  // Labels from before the spot was recorded are never applied.
+  assert.equal(readerFor(set(), floor), null);
+  assert.equal(setupNear({ ratio: null }, floor), false);
+});
