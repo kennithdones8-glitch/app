@@ -26,7 +26,7 @@ import { renderBoxer, PROGRESS_SUBS } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
 import { renderVideo, videoBusy, trustedCal } from './views/video.js';
 import { addExamples, spotModel } from './personal.js';
-import { testPlan, scoreTest, testLabels } from './punchtest.js';
+import { testPlan, scoreTest, testLabels, testHistory } from './punchtest.js';
 import { SetupWatch, SETUP_TEXT } from './camcheck.js';
 import { renderCombos, comboHTML } from './views/combos.js';
 import { renderStudy } from './views/study.js';
@@ -43,7 +43,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.10.01-4';
+export const APP_VERSION = '2026.10.01-5';
 
 const app = {
   version: APP_VERSION,
@@ -789,12 +789,10 @@ function finishTest(l) {
   state.profile.setupDone = true;
   const events = l.analyzer.events;
   const add = testLabels(done, events, l.testT0);
-  if (add.length) {
-    state.profile.punchLabels = addExamples(state.profile.punchLabels, add);
-    persist();
-  }
+  if (add.length) state.profile.punchLabels = addExamples(state.profile.punchLabels, add);
+  persist(); // labels and "setup done" are kept even if the session itself is discarded
   const m = spotModel(state.profile.punchLabels, l.analyzer.sig);
-  return { ...scoreTest(done, events, l.testT0), labels: add.length, personal: m ? { acc: m.acc, base: m.baseAcc, use: m.use, n: m.n } : null };
+  return { ...scoreTest(done, events, l.testT0), spot: l.analyzer.sig || null, labels: add.length, personal: m ? { acc: m.acc, base: m.baseAcc, use: m.use, n: m.n } : null };
 }
 
 function finishSession() {
@@ -935,6 +933,19 @@ function sessionDetailHTML(s, fb) {
 }
 
 // Coach-me result on the summary: the drill's success condition and what happens next.
+// Punch tests over time: is the camera getting more accurate for you, from each spot?
+function testsCardHTML() {
+  const rows = testHistory(state.sessions);
+  if (!rows.length) return '';
+  return `<section class="card">
+    <div class="card-head"><h2>Punch tests</h2><a class="linkbtn small" href="#train">Run one</a></div>
+    <div class="tbl-wrap"><table class="tbl small"><thead><tr><th class="left">When · camera</th><th>Counted</th><th>Right type</th><th>Fakes</th></tr></thead><tbody>
+      ${rows.slice(0, 8).map((r) => `<tr><td class="left">${esc(shortDate(r.date))}<br><span class="muted">${esc(r.spot)}</span></td><td>${r.counted}/${r.thrown}</td><td>${r.typePct}%</td><td>${r.fake}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="small muted" style="margin:6px 0 0">Best is counted = thrown, right type near 100%, no fakes. Each test also teaches it your punches from that spot.</p>
+  </section>`;
+}
+
 const TEST_NAMES = { jab: 'Jabs', cross: 'Crosses', leadHook: 'Lead hooks', rearHook: 'Rear hooks', leadUppercut: 'Lead uppercuts', rearUppercut: 'Rear uppercuts' };
 function testHTML(session) {
   const x = session.test;
@@ -1263,6 +1274,7 @@ function renderLog() {
   }
   view.innerHTML = `
     ${pageHead('Progress', { eyebrow: `${list.length} sessions`, nav: subnav('progress', PROGRESS_SUBS, 'history') })}
+    ${testsCardHTML()}
     <section class="card">
       <details class="add">
         <summary class="btn primary block" style="margin-top:0">+ Log a session</summary>

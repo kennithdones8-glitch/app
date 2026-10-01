@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#e11d2e">
+  <meta name="description" content="A boxing coach in your phone: counts and reads your punches with the camera, coaches your form, and builds each session from what it sees. Free, no account, video stays on your phone.">
+  <title>BoxCoach</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    :root { --bg: #f3f4f6; --surface: #fff; --ink: #111318; --ink-2: #454a55; --muted: #6b717d; --line: #e2e5ea; --accent: #e11d2e; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0b0c0e; --surface: #15171b; --ink: #f3f4f6; --ink-2: #c2c6ce; --muted: #8a909b; --line: #262930; --accent: #ff4655; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; }
+    .hero { background: linear-gradient(135deg, #e11d2e, #7a0f18); color: #fff; border-radius: 20px; padding: 24px 20px; }
+    .hero img { width: 48px; height: 48px; }
+    h1 { font-size: 2rem; margin: 8px 0 4px; letter-spacing: -0.02em; }
+    .hero p { margin: 0; color: rgba(255, 255, 255, 0.92); }
+    .open { display: block; text-align: center; margin-top: 18px; background: #fff; color: #7a0f18; font-weight: 800; text-decoration: none; padding: 14px; border-radius: 14px; }
+    section { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; margin-top: 14px; }
+    h2 { font-size: 1.1rem; margin: 0 0 8px; }
+    ul, ol { margin: 0; padding-left: 20px; color: var(--ink-2); }
+    li { margin: 4px 0; }
+    .muted { color: var(--muted); font-size: 0.9rem; }
+    b { color: var(--ink); }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="hero">
+      <img src="icon.svg" alt="">
+      <h1>BoxCoach</h1>
+      <p>A boxing coach in your phone. Prop it up, train, and it watches, counts and coaches.</p>
+      <a class="open" href="./">Open BoxCoach</a>
+    </div>
+
+    <section>
+      <h2>What it does</h2>
+      <ul>
+        <li><b>Counts and reads your punches</b> with the camera: jab, cross, hooks, uppercuts.</li>
+        <li><b>Coaches your form</b> out loud: hands up, move your feet, move your head.</li>
+        <li><b>Builds your session</b>: tap Coach me, say how long you have, and it plans the rounds from what it has seen you do.</li>
+        <li><b>Shows your progress</b>: guard, output, punch mix and habits over weeks.</li>
+        <li><b>Learns you</b>: a 3-minute punch test teaches it how your punches look from your camera spot.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Private by design</h2>
+      <ul>
+        <li>No account, no sign-up, free.</li>
+        <li>The camera is read on your phone. Nothing is uploaded unless you choose to share it.</li>
+        <li>Your sessions live on your phone (back them up in Settings).</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Install it (30 seconds)</h2>
+      <ol>
+        <li>Tap <b>Open BoxCoach</b> above first.</li>
+        <li><b>iPhone (Safari):</b> tap <b>Share</b> (the square with an arrow), then <b>Add to Home Screen</b>.</li>
+        <li><b>Android (Chrome):</b> tap <b>⋮</b>, then <b>Install app</b> (or Add to Home screen).</li>
+      </ol>
+      <p class="muted">It then opens full screen like any app, and works offline after the first camera session.</p>
+    </section>
+
+    <section>
+      <h2>First time</h2>
+      <ol>
+        <li>Answer four quick questions.</li>
+        <li>Phone at <b>chest height, 2–3 m away</b>, whole body in view, light in front of you.</li>
+        <li>Do the punch test: it calls 10 of each punch, then shows how well it read you.</li>
+      </ol>
+    </section>
+  </main>
+</body>
+</html>

@@ -331,6 +331,7 @@ function settings(el, app) {
         <label class="switch"><input type="checkbox" name="combos" ${st.combos ? 'checked' : ''}> <span>Call out combos</span></label>
         <label>Combo call every<select name="comboInterval">${[4, 5, 6, 8, 10, 15].map((s) => opt(s, st.comboInterval, `${s} seconds`)).join('')}</select></label>
         <button class="btn primary block" type="submit">Save</button>
+        <button class="btn ghost block" id="shareApp" type="button">Share BoxCoach with a friend</button>
       </form>
     </section>
     <section class="card">
@@ -436,6 +437,14 @@ function settings(el, app) {
     } catch (err) {
       toast(err.message || 'Import failed.');
     }
+  });
+  // A page that explains the app and how to install it, for other boxers.
+  $('#shareApp', el)?.addEventListener('click', async () => {
+    const url = new URL('about.html', location.href.split('#')[0]).href;
+    try {
+      if (navigator.share) await navigator.share({ title: 'BoxCoach', text: 'A boxing coach in your phone', url });
+      else { await navigator.clipboard.writeText(url); toast('Link copied.'); }
+    } catch { /* closed the share sheet */ }
   });
   $('#resetLabels', el)?.addEventListener('click', () => {
     if (!confirm('Forget every punch you labelled?')) return;
