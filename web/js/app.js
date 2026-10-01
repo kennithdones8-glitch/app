@@ -42,7 +42,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.10.01-1';
+export const APP_VERSION = '2026.10.01-2';
 
 const app = {
   version: APP_VERSION,
@@ -889,7 +889,7 @@ function testHTML(session) {
   if (!x) return '';
   const p = x.personal;
   return `<div class="test-res">
-    <div class="row2"><div class="stat"><b>${x.countPct}%</b><span>counted right</span></div><div class="stat"><b>${x.typePct}%</b><span>read as the right punch</span></div></div>
+    <div class="row2"><div class="stat"><b>${x.counted}</b><span>counted for ${x.thrown} thrown</span></div><div class="stat"><b>${x.typePct}%</b><span>read as the right punch</span></div></div>
     <table class="tbl small"><thead><tr><th class="left">Threw</th><th>Counted</th><th>Right type</th><th>Other hand</th></tr></thead><tbody>
       ${x.rows.map((r) => `<tr><td class="left">${r.want ? `${r.n} ${TEST_NAMES[r.want]}` : 'Guard only'}</td><td>${r.want ? r.got : '–'}</td><td>${r.want ? r.right : '–'}</td><td>${r.fake}</td></tr>`).join('')}
     </tbody></table>
