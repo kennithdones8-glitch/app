@@ -6,7 +6,7 @@ import { $, $$, esc, opt, toast } from '../ui.js';
 import { newId } from '../store.js';
 import { comboLabel, comboText, parseCombo, STARTERS } from '../combos.js';
 import { calibrateFromCombo } from '../calibrate.js';
-import { harvest, addExamples, trainPersonal } from '../personal.js';
+import { harvest, addExamples, spotModel } from '../personal.js';
 import { saveReference } from './study.js';
 import { takePreset } from './handoff.js';
 import { drawGloves } from '../pose.js';
@@ -424,7 +424,7 @@ async function analyse(file, video, opts, el, app) {
       frames, tracked: frames ? Math.round((tracked / frames) * 100) : 0, multi: frames ? Math.round((multi / frames) * 100) : 0,
       date: new Date(file.lastModified || Date.now()).toISOString(),
       stance: opts.stance, drill: opts.drill ? comboText(opts.drill.tokens) : null,
-      sheets: sheets.sheets, ai: opts.ai ? { state: 'pending' } : null,
+      sheets: sheets.sheets, ai: opts.ai ? { state: 'pending' } : null, sig: analyzer.sig,
     };
     app.rerender();
   } catch (err) {
@@ -605,9 +605,10 @@ function learnFrom(j, app) {
   if (!add.length) return;
   const p = app.state.profile;
   p.punchLabels = addExamples(p.punchLabels, add);
-  const m = trainPersonal(p.punchLabels);
-  const msg = !m ? `Learned ${add.length} punches. ${Math.max(0, 20 - p.punchLabels.length)} more labels and it starts reading your punches.`
-    : m.use ? `Now reading punches your way: ${Math.round(m.acc * 100)}% right on your labels (was ${Math.round(m.baseAcc * 100)}%).`
+  // Only punches taught from this camera spot count for this spot (see personal.js).
+  const m = spotModel(p.punchLabels, j.sig);
+  const msg = !m ? `Learned ${add.length} punches. A few more from this camera spot and it starts reading your punches.`
+    : m.use ? `From this camera spot it now reads punches your way: ${Math.round(m.acc * 100)}% right on your labels (was ${Math.round(m.baseAcc * 100)}%).`
     : `Learned ${add.length} punches (${Math.round(m.acc * 100)}% vs ${Math.round(m.baseAcc * 100)}% built-in). A few more labels and it takes over.`;
   setTimeout(() => toast(msg), 800);
 }

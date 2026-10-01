@@ -66,3 +66,18 @@ export function testLabels(steps, events, t0) {
   }
   return out;
 }
+
+// Where the phone was, in words, from the camera spot the analyser measured.
+export function spotName(sig) {
+  if (!sig || sig.ratio == null) return 'camera spot not recorded';
+  const height = sig.ratio > 2.1 ? 'low / floor' : 'chest height';
+  return `${height}${sig.side > 0.6 ? ', side-on' : ', front-on'}`;
+}
+
+// Every punch test so far, newest first, for the progress card.
+export function testHistory(sessions) {
+  return sessions.filter((s) => s.test).map((s) => ({
+    date: s.date, spot: spotName(s.test.spot), thrown: s.test.thrown, counted: s.test.counted,
+    typePct: s.test.typePct, fake: s.test.rows.reduce((a, r) => a + r.fake, 0),
+  })).reverse();
+}

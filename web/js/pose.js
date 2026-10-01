@@ -135,6 +135,16 @@ export class PoseTracker {
     this.running = true;
     this._lastVideoTime = -1;
     this._lastDetect = -Infinity;
+    // Back from another app: the OS may have paused the camera video, and frame callbacks only
+    // come from a playing video, so restart both.
+    this._onVis ||= () => {
+      if (document.hidden || !this.running) return;
+      this.video.play().catch(() => {});
+      cancelAnimationFrame(this._raf); // one loop only: drop whichever wake-up is pending
+      if (this._vfc != null) this.video.cancelVideoFrameCallback?.(this._vfc);
+      this._raf = requestAnimationFrame(this._loop);
+    };
+    document.addEventListener('visibilitychange', this._onVis);
     this._loop();
   }
 
@@ -194,6 +204,7 @@ export class PoseTracker {
 
   stopCamera() {
     this.running = false;
+    if (this._onVis) document.removeEventListener('visibilitychange', this._onVis);
     cancelAnimationFrame(this._raf);
     if (this._vfc != null) this.video.cancelVideoFrameCallback?.(this._vfc);
     this.stream?.getTracks().forEach((tr) => tr.stop());

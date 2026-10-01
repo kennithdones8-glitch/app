@@ -35,3 +35,14 @@ test('scores counts, types and other-hand fakes per step, and labels every detec
   assert.equal(labels.filter((l) => l.kind === 'none').length, 2);
   assert.equal(labels.filter((l) => l.kind === 'straight').length, 22);
 });
+
+test('punch test history names the camera spot and lists the newest first', async () => {
+  const { testHistory, spotName } = await import('../web/js/punchtest.js');
+  assert.equal(spotName({ ratio: 2.5, side: 0.1 }), 'low / floor, front-on');
+  assert.equal(spotName({ ratio: 1.7, side: 0.8 }), 'chest height, side-on');
+  assert.equal(spotName(null), 'camera spot not recorded');
+  const t = (date, counted) => ({ date, test: { thrown: 60, counted, typePct: 50, rows: [{ fake: 3 }, { fake: 2 }], spot: { ratio: 2.4, side: 0.1 } } });
+  const h = testHistory([t('2026-10-01', 123), { date: '2026-10-02' }, t('2026-10-03', 70)]);
+  assert.deepEqual(h.map((r) => r.counted), [70, 123]);
+  assert.equal(h[0].fake, 5);
+});
