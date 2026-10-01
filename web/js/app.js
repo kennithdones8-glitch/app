@@ -25,7 +25,7 @@ import { renderCoachMe } from './views/coachme.js';
 import { renderBoxer, PROGRESS_SUBS } from './views/boxer.js';
 import { renderCoach } from './views/coach.js';
 import { renderVideo, videoBusy, trustedCal } from './views/video.js';
-import { personalFor, addExamples, trainPersonal } from './personal.js';
+import { addExamples, spotModel } from './personal.js';
 import { testPlan, scoreTest, testLabels } from './punchtest.js';
 import { SetupWatch, SETUP_TEXT } from './camcheck.js';
 import { renderCombos, comboHTML } from './views/combos.js';
@@ -43,7 +43,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.10.01-3';
+export const APP_VERSION = '2026.10.01-4';
 
 const app = {
   version: APP_VERSION,
@@ -158,7 +158,7 @@ function renderHome() {
     ${pageHead('Today', { eyebrow: esc(dateLine) })}
     <a class="coachme-btn" href="#coachme"><b>🥊 Coach me</b><span>Today: ${esc(day.objective)}</span></a>
 
-    ${!sessions.length && !profile.onboarded ? onboardHTML() : !sessions.length ? `
+    ${!sessions.length && !profile.onboarded ? onboardHTML() : needsCameraSetup() ? setupHTML() : !sessions.length ? `
       <section class="card hero">
         <h2>Welcome${profile.name ? `, ${esc(profile.name)}` : ''} 👊</h2>
         <p>Every session, sparring round and coach note becomes evidence about your boxing. The plan is built from that.</p>
@@ -211,6 +211,12 @@ function renderHome() {
     renderHome();
   });
   bindCheckin();
+  $('#setupTest')?.addEventListener('click', () => app.startPunchTest());
+  $('#setupSkip')?.addEventListener('click', () => {
+    state.profile.setupDone = true;
+    persist();
+    renderHome();
+  });
   $('#onboard')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const f = e.target;
@@ -218,9 +224,29 @@ function renderHome() {
     state.coach.equipment = [...f.querySelectorAll('[name=eq]:checked')].map((x) => x.value);
     rebuildPlan(currentPlan().gymDays);
     persist();
-    toast('Set up. Tap Coach me whenever you train.');
+    toast('Set up. Now the camera.');
     renderHome();
   });
+}
+
+// After the questions: set the camera up once and run the punch test, so tracking is tuned to
+// this boxer and this spot from day one. Skippable; gone once a test is done.
+const needsCameraSetup = () => state.profile.onboarded && !state.profile.setupDone && !state.sessions.some((s) => s.test);
+function setupHTML() {
+  return `
+    <section class="card hero">
+      <div class="eyebrow">Step 2 of 2 · 3 minutes</div>
+      <h2>Set up your camera 📱</h2>
+      <ol class="steps">
+        <li>Phone at <b>chest height</b> (a shelf or chair, not the floor), propped up.</li>
+        <li><b>2–3 m away</b>, so your whole body fits, head to feet.</li>
+        <li>Light in front of you, not behind.</li>
+        <li>Face the phone in your stance.</li>
+      </ol>
+      <p class="small muted">Then I'll call 10 of each punch. The camera tells you if anything needs moving ("✓ Ready" when it's right), and it learns how your punches look from there.</p>
+      <button class="btn primary block big" id="setupTest" type="button">Start punch test</button>
+      <button class="linkbtn small" id="setupSkip" type="button" style="margin-top:8px">Skip for now</button>
+    </section>`;
 }
 
 // First open: plain questions, no boxing words needed.
@@ -228,6 +254,7 @@ function onboardHTML() {
   const radios = (name, obj, first) => Object.entries(obj).map(([k, v], i) => `<label class="radio"><input type="radio" name="${name}" value="${k}" ${i === first ? 'checked' : ''}> <span>${esc(v)}</span></label>`).join('');
   return `
     <section class="card hero">
+      <div class="eyebrow">Step 1 of 2</div>
       <h2>Welcome 👊 Four quick questions</h2>
       <form id="onboard" class="form">
         <fieldset><legend>What do you want most?</legend>${radios('want', ONBOARD.want, 1)}</fieldset>
@@ -457,7 +484,7 @@ async function startSession(plan) {
       stance: state.profile.stance,
       sensitivity: state.profile.sensitivity,
       cal: trustedCal(state.profile.punchCal),
-      personal: personalFor(state.profile),
+      labels: state.profile.punchLabels || null,
       onCue: (key, text) => {
         if (!state.settings.cues || live?.plan.test) return; // the test's calls need a clear voice
         showCue(text);
@@ -508,7 +535,7 @@ async function startSession(plan) {
   if (!live) return; // ended while loading
 
   live.timer = new RoundTimer({
-    rounds: plan.rounds, roundSec: plan.roundSec, restSec: plan.restSec, prepSec: 10,
+    rounds: plan.rounds, roundSec: plan.roundSec, restSec: plan.restSec, prepSec: plan.test ? 20 : 10, // time to place the phone
     onPhase, onTick,
   });
   live.timer.start();
@@ -759,13 +786,14 @@ function finishTest(l) {
   if (!l.analyzer || l.testT0 == null) return undefined;
   const done = l.plan.test.filter((s) => l.testT0 + s.end <= performance.now());
   if (!done.length) return undefined;
+  state.profile.setupDone = true;
   const events = l.analyzer.events;
   const add = testLabels(done, events, l.testT0);
   if (add.length) {
     state.profile.punchLabels = addExamples(state.profile.punchLabels, add);
     persist();
   }
-  const m = trainPersonal(state.profile.punchLabels);
+  const m = spotModel(state.profile.punchLabels, l.analyzer.sig);
   return { ...scoreTest(done, events, l.testT0), labels: add.length, personal: m ? { acc: m.acc, base: m.baseAcc, use: m.use, n: m.n } : null };
 }
 
@@ -917,7 +945,7 @@ function testHTML(session) {
     <table class="tbl small"><thead><tr><th class="left">Threw</th><th>Counted</th><th>Right type</th><th>Other hand</th></tr></thead><tbody>
       ${x.rows.map((r) => `<tr><td class="left">${r.want ? `${r.n} ${TEST_NAMES[r.want]}` : 'Guard only'}</td><td>${r.want ? r.got : '–'}</td><td>${r.want ? r.right : '–'}</td><td>${r.fake}</td></tr>`).join('')}
     </tbody></table>
-    <p class="small muted">${p ? (p.use ? `Punch reading now tuned to you: ${Math.round(p.acc * 100)}% right on your test punches (built-in ${Math.round(p.base * 100)}%).` : `Learned from ${x.labels} punches (${Math.round(p.acc * 100)}% vs ${Math.round(p.base * 100)}% built-in). Another test and it can take over.`) : `Learned from ${x.labels} punches.`} Try it again from a different camera spot.</p>
+    <p class="small muted">${p ? (p.use ? `Punch reading tuned to you from this camera spot: ${Math.round(p.acc * 100)}% right on your test punches (built-in ${Math.round(p.base * 100)}%).` : `Learned from ${x.labels} punches (${Math.round(p.acc * 100)}% vs ${Math.round(p.base * 100)}% built-in). Another test and it can take over.`) : `Learned from ${x.labels} punches.`} Try it again from a different camera spot.</p>
   </div>`;
 }
 

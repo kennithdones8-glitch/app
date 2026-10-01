@@ -582,3 +582,14 @@ test('when depth gets your lead foot wrong, stance width and shoulder turn are l
   assert.ok(!cues.includes('squared') && !cues.includes('narrow') && !cues.includes('wide'), cues.join());
   assert.equal(combineRounds([m]).depthOk, false);
 });
+
+test('the analyser learns the camera spot and uses taught punches only from a matching spot', async () => {
+  const { setupNear } = await import('../web/js/personal.js');
+  const an = new FormAnalyzer({ labels: [{ kind: 'hook', ratio: 3, side: 0.1 }] });
+  an.startRound();
+  feed(an, still(40), 0);
+  // Synthetic boxer: legs 0.85 below the hips, torso 0.45 → legs look ~1.9× the torso.
+  assert.ok(Math.abs(an.sig.ratio - 1.89) < 0.05, JSON.stringify(an.sig));
+  assert.equal(setupNear({ ratio: 3, side: 0.1 }, an.sig), false);
+  assert.equal(an._reader(), null);
+});

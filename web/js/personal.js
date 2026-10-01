@@ -17,7 +17,36 @@ export function example(e, kind) {
     ext: r(e.f.ext), angle: Math.round(e.f.angle), rise: r(e.f.rise), fwd: r(e.fwd), lat: r(e.lat),
     e2: r(e.i2?.ext), a2: Math.round(e.i2?.angle || 0), dx: r(e.i2?.dx), dy: r(e.i2?.dy), fore: r(e.i2?.fore ?? 1),
     side: r(e.face ? Math.abs(e.face[0]) : 0.5),
+    // The camera spot it was filmed from (see FormAnalyzer setup): tilt in degrees and how long
+    // the legs look next to the torso (a phone on the floor makes legs look long).
+    tilt: e.setup?.tilt ?? null, ratio: e.setup?.ratio ?? null,
   };
+}
+
+// Same camera spot: similar height (leg/torso look), facing and tilt. What you taught it from the
+// floor isn't used from chest height, and the other way round.
+export function setupNear(x, s) {
+  if (!x || !s || x.ratio == null || s.ratio == null) return false;
+  if (Math.abs(x.ratio - s.ratio) > 0.35) return false;
+  if (Math.abs((x.side ?? 0.5) - (s.side ?? 0.5)) > 0.35) return false;
+  return x.tilt == null || s.tilt == null || Math.abs(x.tilt - s.tilt) <= 12;
+}
+
+// How well your taught punches from this spot are read (for the summary), used or not.
+export const spotModel = (labels, setup) => trainPersonal((labels || []).filter((x) => setupNear(x, setup)));
+
+// The reader for this camera spot: trained only on punches taught from a similar spot, and only
+// used when it beats the built-in reader on them. Cached per spot.
+let spots = { src: null, map: new Map() };
+export function readerFor(labels, setup) {
+  if (!labels?.length || !setup || setup.ratio == null) return null;
+  if (spots.src !== labels) spots = { src: labels, map: new Map() };
+  const key = `${Math.round(setup.ratio * 10)}|${Math.round((setup.side ?? 0.5) * 5)}|${setup.tilt == null ? '-' : Math.round(setup.tilt / 4)}`;
+  if (!spots.map.has(key)) {
+    const m = trainPersonal(labels.filter((x) => setupNear(x, setup)));
+    spots.map.set(key, m?.use ? m : null);
+  }
+  return spots.map.get(key);
 }
 
 // Examples from a reviewed video: every punch you labelled, fixed, confirmed or unticked.

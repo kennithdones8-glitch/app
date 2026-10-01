@@ -1,4 +1,4 @@
-import { example as personalExample } from './personal.js';
+import { example as personalExample, readerFor } from './personal.js';
 // Pose-based boxing form analysis. Pure logic: feed it pose landmarks each frame,
 // it counts/classifies punches, grades guard, stance and footwork, and emits live cues.
 //
@@ -504,8 +504,10 @@ const REARM_MS = 400; // after this long the same hand may punch again even if i
 const PUNCH_CONF = (vis, speed, vTh, margin) => 100 * (0.5 + 0.5 * vis) * (0.55 + 0.45 * Math.min(1, speed / (vTh * 1.8))) * (0.6 + 0.4 * Math.max(0, margin));
 
 export class FormAnalyzer {
-  constructor({ stance = 'orthodox', sensitivity = 1, onCue = () => {}, onPunch = () => {}, minVis = 0.5, cal = null, aspect = 1, personal = null } = {}) {
-    this.personal = personal?.use ? personal : null; // reader trained on your own labelled punches (personal.js)
+  constructor({ stance = 'orthodox', sensitivity = 1, onCue = () => {}, onPunch = () => {}, minVis = 0.5, cal = null, aspect = 1, labels = null } = {}) {
+    this.labels = labels; // punches you taught it (personal.js); used only from a similar camera spot
+    this.sig = null; // this camera spot: { tilt, side, ratio }, settles over the first second or so
+    this.sigN = 0;
     this.aspect = aspect; // video width / height, for measuring angles in the picture
     this.cal = cal; // per-boxer punch calibration, see calibrateFromCombo
     this.stance = stance;
@@ -640,6 +642,7 @@ export class FormAnalyzer {
     this.image = image;
     const f = facing(world);
     if (f) this.face = this.face ? norm2({ x: this.face.x * 0.7 + f.x * 0.3, z: this.face.z * 0.7 + f.z * 0.3 }) : f;
+    this._trackSetup(image);
     for (const role of ['lead', 'rear']) this._trackHand(role, world, nose, t);
     this._flushPunches(t);
 
@@ -945,8 +948,9 @@ export class FormAnalyzer {
     const { fwd, lat } = base;
     const face = this.face ? [this.face.x, this.face.z] : null;
     const i2 = h.i2 ? { ext: h.i2.ext, angle: h.i2.maxAngle, dx: h.i2.dx, dy: h.i2.dy, fore: h.i2.fore } : null;
-    if (this.personal) {
-      const p = this.personal.predict(personalExample({ f: feats, fwd, lat, i2, face }, null));
+    const reader = this._reader();
+    if (reader) {
+      const p = reader.predict(personalExample({ f: feats, fwd, lat, i2, face, setup: this.sig }, null));
       if (p.kind === 'none' && p.share >= 0.7) { // you've taught it this movement isn't a punch
         this.hands[role].returnSince = null;
         this._calibPush('rejected', [role === 'lead' ? 'L' : 'R', r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), 0, 'you']);
@@ -966,7 +970,7 @@ export class FormAnalyzer {
     this.round.punchLog.push({ t, type });
     const r3 = (x) => Math.round(x * 1000) / 1000;
     this.event('punch', t, conf, {
-      type, role, vis, speed: h.peakSpeed, fwd, lat, baseKind: base.kind,
+      type, role, vis, speed: h.peakSpeed, fwd, lat, baseKind: base.kind, setup: this.sig ? { ...this.sig } : null,
       f: { angle: h.peakAngle, ext: h.peakExt, rise: h.maxRise, path: h.path.map(([a, b]) => [r3(a), r3(b)]), disp: h.peakDisp.map(r3) },
       i2: h.i2 ? { ext: r3(h.i2.ext), angle: Math.round(h.i2.maxAngle), fore: r3(h.i2.fore), elbUp: r3(h.i2.elbUp), dx: r3(h.i2.dx), dy: r3(h.i2.dy), vis: r3(h.i2.vis) } : null,
       face: face ? face.map(r3) : null,
@@ -1002,8 +1006,9 @@ export class FormAnalyzer {
       e.lat = c.lat;
       e.baseKind = c.kind;
       let { kind, margin } = c;
-      if (this.personal) {
-        const p = this.personal.predict(personalExample(e, null));
+      const reader = this._reader();
+      if (reader) {
+        const p = reader.predict(personalExample({ ...e, setup: e.setup || this.sig }, null));
         if (p.kind === 'none' && p.share >= 0.7) { e.notPunch = true; margin = 0; } // starts unticked in review
         else if (p.kind !== 'none') { kind = p.kind; margin = p.share; }
       }
@@ -1025,6 +1030,29 @@ export class FormAnalyzer {
     this.calib.faceDev = faceDev.length ? Math.round(faceDev[Math.floor(faceDev.length / 2)]) : null;
     this.calib.reclassified = changed;
     return changed;
+  }
+
+  // Where the camera is, from the picture: legs vs torso (phone height), facing, tilt. Smoothed.
+  _trackSetup(image) {
+    const v = (k) => image[k]?.visibility ?? 1;
+    if (v(LM.L_ANK) < 0.5 || v(LM.R_ANK) < 0.5 || !this.face) return;
+    const y = (k) => image[k].y;
+    const hipY = (y(LM.L_HIP) + y(LM.R_HIP)) / 2, torso = hipY - (y(LM.L_SH) + y(LM.R_SH)) / 2;
+    if (torso <= 0) return;
+    const now = { ratio: ((y(LM.L_ANK) + y(LM.R_ANK)) / 2 - hipY) / torso, side: Math.abs(this.face.x) };
+    const k = Math.max(0.03, 1 / ++this.sigN);
+    const prev = this.sig || now;
+    const r2_ = (x) => Math.round(x * 100) / 100;
+    this.sig = {
+      ratio: r2_(prev.ratio + (now.ratio - prev.ratio) * k),
+      side: r2_(prev.side + (now.side - prev.side) * k),
+      tilt: this.upN ? Math.round((Math.acos(Math.min(1, -this.up.y)) * 180) / Math.PI) : null,
+    };
+  }
+
+  // The taught reader for this camera spot, once the spot is known (about a second of frames).
+  _reader() {
+    return this.labels && this.sigN >= 30 ? readerFor(this.labels, this.sig) : null;
   }
 
   _calibPush(list, row) {
