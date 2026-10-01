@@ -109,3 +109,15 @@ test('live camera uses the full model unless this phone proved too slow for it',
   assert.equal(tooSlow([...Array(25).fill(20), ...Array(15).fill(90)]), false, 'a few slow frames at start-up are fine');
   assert.equal(tooSlow(Array(40).fill(70)), true);
 });
+
+test('every module the first screen preloads exists and is cached for offline use', async () => {
+  const fs = await import('node:fs');
+  const html = fs.readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
+  const sw = fs.readFileSync(new URL('../web/sw.js', import.meta.url), 'utf8');
+  const pre = [...html.matchAll(/rel="modulepreload" href="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(pre.length > 10);
+  for (const f of pre) {
+    assert.ok(fs.existsSync(new URL(`../web/${f}`, import.meta.url)), `${f} missing`);
+    assert.ok(sw.includes(`'${f}'`), `${f} not in the offline cache list`);
+  }
+});

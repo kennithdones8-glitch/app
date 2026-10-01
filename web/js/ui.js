@@ -51,3 +51,6 @@ export function confDot(c) {
   const label = { high: 'high confidence', medium: 'medium confidence', low: 'low confidence', none: 'no evidence yet' }[c];
   return `<span class="conf ${c}" title="${label}" aria-label="${label}"></span>`;
 }
+
+// Progress tab sections (shared by the history list and the boxer views).
+export const PROGRESS_SUBS = [['history', 'History'], ['skills', 'Skills'], ['analysis', 'Analysis'], ['style', 'Style'], ['charts', 'Charts'], ['timeline', 'Timeline']];

@@ -6,6 +6,7 @@ import { startHypothesis, evaluateHypothesis } from '../hypotheses.js';
 import * as store from '../store.js';
 import { $, $$, esc, shortDate, subnav, subOf, toast, opt, scoreClass, pageHead } from '../ui.js';
 import { aiKey, aiModel, setAi, AI_MODELS } from '../aicheck.js';
+import { buildBugReport } from '../bugreport.js';
 
 const taughtText = (p) => {
   const all = p.punchLabels.length, spotted = p.punchLabels.filter((x) => x.ratio != null).length;
@@ -335,6 +336,12 @@ function settings(el, app) {
       </form>
     </section>
     <section class="card">
+      <h2>Report a problem</h2>
+      <p class="muted small" style="margin-top:0">Say what went wrong. The report adds the app version, your phone and the last errors the app hit, then you pick where to send it.</p>
+      <textarea id="bugWhat" rows="3" maxlength="1000" placeholder="e.g. it counted punches when I was just bouncing"></textarea>
+      <button class="btn ghost block" id="bugSend" type="button" style="margin-top:8px">Send report</button>
+    </section>
+    <section class="card">
       <h2>Claude punch check (optional)</h2>
       <p class="muted small">After a video is analysed on your phone, Claude can look at cropped frames of the boxer, check every punch type and add punches the tracker missed. It needs your own API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a> (pay as you go, roughly a few cents per 30 s of video). The key stays on this phone and only goes to Anthropic. It's never in backups or reports.</p>
       <form id="aiForm" class="form">
@@ -437,6 +444,13 @@ function settings(el, app) {
     } catch (err) {
       toast(err.message || 'Import failed.');
     }
+  });
+  $('#bugSend', el)?.addEventListener('click', async () => {
+    const text = buildBugReport({ what: $('#bugWhat', el).value, version: app.version, state: app.state });
+    try {
+      if (navigator.share) await navigator.share({ title: 'BoxCoach problem report', text });
+      else { await navigator.clipboard.writeText(text); toast('Report copied. Paste it in a message to whoever you are testing for.'); }
+    } catch { /* closed the share sheet */ }
   });
   // A page that explains the app and how to install it, for other boxers.
   $('#shareApp', el)?.addEventListener('click', async () => {
