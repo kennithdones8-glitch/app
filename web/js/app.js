@@ -16,20 +16,19 @@ import { buildContext, trainToday, aiObservations, generateRounds, rankProblems,
 import { stepHypothesis } from './hypotheses.js';
 import { recoveryStatus, readinessOf, baselineHr } from './recovery.js';
 import { fatigueMap } from './analysis.js';
-import { $, $$, esc, fmtDate, shortDate, toast, scoreClass, scoreChip, subnav, subOf, pageHead } from './ui.js';
+import { $, $$, esc, fmtDate, shortDate, toast, scoreClass, scoreChip, subnav, subOf, pageHead, PROGRESS_SUBS } from './ui.js';
 import { reviewFieldsHTML, bindReview, readReview } from './views/review.js';
 import { buildReport, reportSize } from './report.js';
 import { safetyNotes, isStandalone, isIOS, askPersist } from './safety.js';
 import { adjustNextRound, evaluateCoached, applyEvaluation, drillFor, BENCHMARK, applyOnboarding, ONBOARD, EQUIPMENT } from './coachme.js';
-import { renderCoachMe } from './views/coachme.js';
-import { renderBoxer, PROGRESS_SUBS } from './views/boxer.js';
-import { renderCoach } from './views/coach.js';
-import { renderVideo, videoBusy, trustedCal } from './views/video.js';
+import { trustedCal } from './calibrate.js';
+import { installErrorLog } from './bugreport.js';
+
+installErrorLog();
 import { addExamples, spotModel } from './personal.js';
 import { testPlan, scoreTest, testLabels, testHistory } from './punchtest.js';
 import { SetupWatch, SETUP_TEXT } from './camcheck.js';
 import { renderCombos, comboHTML } from './views/combos.js';
-import { renderStudy } from './views/study.js';
 import { parseCombo, comboText, comboLabel, comboSpeech, comboKey, punchDigits, pickCombo, judgeCalls, sessionCombos } from './combos.js';
 
 let state = store.load();
@@ -43,7 +42,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.10.01-6';
+export const APP_VERSION = '2026.10.01-7';
 
 const app = {
   version: APP_VERSION,
@@ -76,13 +75,28 @@ const app = {
 // ---------------------------------------------------------------------------
 // Routing
 
+// Screens you don't need on Today load the first time you open them (a faster first open).
+const lazy = (load) => { let p; return () => (p ||= load()); };
+const mods = {
+  coachme: lazy(() => import('./views/coachme.js')),
+  boxer: lazy(() => import('./views/boxer.js')),
+  coach: lazy(() => import('./views/coach.js')),
+  video: lazy(() => import('./views/video.js').then((m) => { videoMod = m; return m; })),
+  study: lazy(() => import('./views/study.js')),
+};
+let videoMod = null;
+const videoBusy = () => videoMod?.videoBusy() ?? false;
+// Render a lazily loaded screen, unless you've already moved on to another one.
+let routeTok = 0;
+const show = (mod, fn) => { const tok = routeTok; mods[mod]().then((m) => { if (tok === routeTok) fn(m); }).catch(() => toast('Could not load that screen. Check your connection.')); };
+
 const routes = {
   home: renderHome, plan: renderPlan, train: renderTrain,
-  progress: () => (subOf('history') === 'history' ? renderLog() : renderBoxer(view, app)),
+  progress: () => (subOf('history') === 'history' ? renderLog() : show('boxer', (m) => m.renderBoxer(view, app))),
   // Older links: the Log and Boxer tabs are now Progress.
   log: () => location.replace(`#progress/history${location.hash.split('/')[1] ? `/${location.hash.split('/')[1]}` : ''}`),
   boxer: () => location.replace(`#progress/${location.hash.split('/')[1] || 'skills'}`),
-  coach: () => renderCoach(view, app), coachme: () => renderCoachMe(view, app),
+  coach: () => show('coach', (m) => m.renderCoach(view, app)), coachme: () => show('coachme', (m) => m.renderCoachMe(view, app)),
 };
 
 // A finished session waiting on the summary screen. Leaving it any way other than Discard saves it,
@@ -103,6 +117,7 @@ function route() {
   savePendingSummary();
   const name = (location.hash.slice(1) || 'home').split('/')[0];
   const fn = routes[name] || renderHome;
+  routeTok++;
   const tab = { plan: 'home', coachme: 'home', log: 'progress', boxer: 'progress' }[name] || name;
   $$('.tabs a').forEach((a) => a.classList.toggle('active', a.dataset.tab === tab));
   fn();
@@ -308,9 +323,9 @@ let draft = null;
 function renderTrain() {
   const sub = subOf('session');
   view.innerHTML = `${pageHead('Train', { nav: subnav('train', [['session', 'Live'], ['combos', 'Combos'], ['study', 'Study'], ['video', 'Video']], sub) })}<div id="trainBody"></div>`;
-  if (sub === 'video') return renderVideo($('#trainBody'), app);
+  if (sub === 'video') return show('video', (m) => m.renderVideo($('#trainBody'), app));
   if (sub === 'combos') return renderCombos($('#trainBody'), app);
-  if (sub === 'study') return renderStudy($('#trainBody'), app);
+  if (sub === 'study') return show('study', (m) => m.renderStudy($('#trainBody'), app));
   const body = $('#trainBody');
   const ctx = app.model();
   const f = state.profile.fight;
@@ -371,7 +386,7 @@ function renderTrain() {
         </fieldset>
       </section>
       </details>
-      <button class="btn primary block big" type="submit">Start · <span id="totalTime"></span></button>
+      <button class="btn primary block big start-sticky" type="submit">Start · <span id="totalTime"></span></button>
     </form>`;
 
   const form = $('#setup');

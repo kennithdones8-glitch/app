@@ -5,7 +5,7 @@ import { ALL_TYPES } from '../coach.js';
 import { $, $$, esc, opt, toast } from '../ui.js';
 import { newId } from '../store.js';
 import { comboLabel, comboText, parseCombo, STARTERS } from '../combos.js';
-import { calibrateFromCombo } from '../calibrate.js';
+import { calibrateFromCombo, trustedCal } from '../calibrate.js';
 import { harvest, addExamples, spotModel } from '../personal.js';
 import { saveReference } from './study.js';
 import { takePreset } from './handoff.js';
@@ -30,7 +30,6 @@ function drillCombo(app, value) {
 }
 
 // A saved punch calibration is only used if it proved itself (60%+ against a drilled combo).
-export const trustedCal = (cal) => (cal?.acc >= 0.6 ? cal : null);
 
 const pctOf = (n, d) => (d ? Math.round((n / d) * 100) : 0);
 const fmtT = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;

@@ -8,7 +8,8 @@ import { $, $$, esc, shortDate, subnav, subOf, deltaHTML, confDot, scoreClass, t
 import { newId } from '../store.js';
 
 // Progress tab: session history first, then what the sessions add up to.
-export const PROGRESS_SUBS = [['history', 'History'], ['skills', 'Skills'], ['analysis', 'Analysis'], ['style', 'Style'], ['charts', 'Charts'], ['timeline', 'Timeline']];
+export { PROGRESS_SUBS } from '../ui.js';
+import { PROGRESS_SUBS } from '../ui.js';
 
 export function renderBoxer(view, app) {
   const sub = subOf('skills');

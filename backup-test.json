@@ -24,12 +24,12 @@
     "tracking": "none",
     "cues": true,
     "voiceV2": true,
-    "lastBackup": "2026-10-01T21:37:36.686Z"
+    "lastBackup": "2026-10-01T21:58:35.169Z"
   },
   "sessions": [
     {
       "id": "c0",
-      "date": "2026-08-18T21:37:02.820Z",
+      "date": "2026-08-18T21:58:01.444Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -309,7 +309,7 @@
     },
     {
       "id": "c1",
-      "date": "2026-08-22T12:01:02.820Z",
+      "date": "2026-08-22T12:22:01.444Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -590,7 +590,7 @@
     },
     {
       "id": "sp1",
-      "date": "2026-08-23T12:01:02.820Z",
+      "date": "2026-08-23T12:22:01.444Z",
       "type": "sparring",
       "manual": true,
       "source": "manual",
@@ -621,7 +621,7 @@
     },
     {
       "id": "c2",
-      "date": "2026-08-26T02:25:02.820Z",
+      "date": "2026-08-26T02:46:01.444Z",
       "type": "bag",
       "tracking": "camera",
       "source": "live",
@@ -902,7 +902,7 @@
     },
     {
       "id": "c3",
-      "date": "2026-08-29T16:49:02.820Z",
+      "date": "2026-08-29T17:10:01.444Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -1183,7 +1183,7 @@
     },
     {
       "id": "c4",
-      "date": "2026-09-02T07:13:02.820Z",
+      "date": "2026-09-02T07:34:01.444Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -1463,7 +1463,7 @@
     },
     {
       "id": "sp4",
-      "date": "2026-09-03T07:13:02.820Z",
+      "date": "2026-09-03T07:34:01.444Z",
       "type": "sparring",
       "manual": true,
       "source": "manual",
@@ -1494,7 +1494,7 @@
     },
     {
       "id": "c5",
-      "date": "2026-09-05T21:37:02.820Z",
+      "date": "2026-09-05T21:58:01.444Z",
       "type": "bag",
       "tracking": "camera",
       "source": "live",
@@ -1774,7 +1774,7 @@
     },
     {
       "id": "c6",
-      "date": "2026-09-09T12:01:02.820Z",
+      "date": "2026-09-09T12:22:01.444Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -2054,7 +2054,7 @@
     },
     {
       "id": "c7",
-      "date": "2026-09-13T02:25:02.820Z",
+      "date": "2026-09-13T02:46:01.444Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -2334,7 +2334,7 @@
     },
     {
       "id": "sp7",
-      "date": "2026-09-14T02:25:02.820Z",
+      "date": "2026-09-14T02:46:01.444Z",
       "type": "sparring",
       "manual": true,
       "source": "manual",
@@ -2365,7 +2365,7 @@
     },
     {
       "id": "c8",
-      "date": "2026-09-16T16:49:02.820Z",
+      "date": "2026-09-16T17:10:01.444Z",
       "type": "bag",
       "tracking": "camera",
       "source": "live",
@@ -2645,7 +2645,7 @@
     },
     {
       "id": "c9",
-      "date": "2026-09-20T07:13:02.820Z",
+      "date": "2026-09-20T07:34:01.444Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -2925,7 +2925,7 @@
     },
     {
       "id": "c10",
-      "date": "2026-09-23T21:37:02.820Z",
+      "date": "2026-09-23T21:58:01.444Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -3206,7 +3206,7 @@
     },
     {
       "id": "sp10",
-      "date": "2026-09-24T21:37:02.820Z",
+      "date": "2026-09-24T21:58:01.444Z",
       "type": "sparring",
       "manual": true,
       "source": "manual",
@@ -3237,7 +3237,7 @@
     },
     {
       "id": "c11",
-      "date": "2026-09-27T12:01:02.820Z",
+      "date": "2026-09-27T12:22:01.444Z",
       "type": "bag",
       "tracking": "camera",
       "source": "live",
@@ -3518,15 +3518,15 @@
     },
     {
       "id": "run1",
-      "date": "2026-09-29T21:37:02.820Z",
+      "date": "2026-09-29T21:58:01.444Z",
       "type": "run",
       "manual": true,
       "durationMin": 35,
       "rpe": 5
     },
     {
-      "id": "muq22194y9ksa",
-      "date": "2026-10-01T21:37:05.532Z",
+      "id": "muq2t0ccoz1av",
+      "date": "2026-10-01T21:58:04.074Z",
       "type": "shadow",
       "tracking": "none",
       "source": "live",
@@ -3612,36 +3612,36 @@
     "insights": {
       "lateGuardFade": {
         "count": 12,
-        "firstSeen": "2026-08-18T21:37:02.820Z",
-        "lastSeen": "2026-09-27T12:01:02.820Z",
+        "firstSeen": "2026-08-18T21:58:01.444Z",
+        "lastSeen": "2026-09-27T12:22:01.444Z",
         "lastSeenAt": 12
       }
     },
     "resolved": [],
     "focus": {
       "area": "head",
-      "since": "2026-08-18T21:37:02.820Z",
+      "since": "2026-08-18T21:58:01.444Z",
       "sessions": 17
     },
     "prs": {
       "mostPunches": {
         "value": 700,
-        "date": "2026-08-18T21:37:02.820Z",
+        "date": "2026-08-18T21:58:01.444Z",
         "label": "Most punches in a session"
       },
       "bestPpm": {
         "value": 47,
-        "date": "2026-08-18T21:37:02.820Z",
+        "date": "2026-08-18T21:58:01.444Z",
         "label": "Best punches per minute"
       },
       "bestForm": {
         "value": 74,
-        "date": "2026-09-20T07:13:02.820Z",
+        "date": "2026-09-20T07:34:01.444Z",
         "label": "Best overall score"
       },
       "mostRounds": {
         "value": 5,
-        "date": "2026-08-18T21:37:02.820Z",
+        "date": "2026-08-18T21:58:01.444Z",
         "label": "Most rounds completed"
       }
     },
@@ -3791,7 +3791,7 @@
   "observations": [
     {
       "id": "o1",
-      "date": "2026-08-24T21:37:02.820Z",
+      "date": "2026-08-24T21:58:01.444Z",
       "source": "coach",
       "kind": "issue",
       "text": "You're backing straight up after combinations.",
@@ -3802,7 +3802,7 @@
     },
     {
       "id": "o2",
-      "date": "2026-09-21T21:37:02.820Z",
+      "date": "2026-09-21T21:58:01.444Z",
       "source": "self",
       "kind": "positive",
       "text": "Jab felt sharp, snapping it back.",
@@ -3812,8 +3812,8 @@
       "status": "open"
     },
     {
-      "id": "muq21cjlznsdu",
-      "date": "2026-10-01T21:37:02.907Z",
+      "id": "muq2sbns4yk76",
+      "date": "2026-10-01T21:58:01.474Z",
       "source": "ai",
       "kind": "issue",
       "status": "open",
@@ -3822,11 +3822,11 @@
       "tags": [
         "defense"
       ],
-      "lastSeen": "2026-10-01T21:37:35.886Z"
+      "lastSeen": "2026-10-01T21:58:34.369Z"
     },
     {
-      "id": "muq21cjlx6f1c",
-      "date": "2026-10-01T21:37:02.907Z",
+      "id": "muq2sbns7cccy",
+      "date": "2026-10-01T21:58:01.474Z",
       "source": "ai",
       "kind": "issue",
       "status": "open",
@@ -3836,11 +3836,11 @@
         "defense",
         "jab"
       ],
-      "lastSeen": "2026-10-01T21:37:35.886Z"
+      "lastSeen": "2026-10-01T21:58:34.369Z"
     },
     {
-      "id": "muq21cjlxe3u5",
-      "date": "2026-10-01T21:37:02.907Z",
+      "id": "muq2sbnsbfydf",
+      "date": "2026-10-01T21:58:01.474Z",
       "source": "ai",
       "kind": "issue",
       "status": "open",
@@ -3849,22 +3849,22 @@
       "tags": [
         "hit:failedExit"
       ],
-      "lastSeen": "2026-10-01T21:37:35.886Z"
+      "lastSeen": "2026-10-01T21:58:34.369Z"
     },
     {
-      "id": "muq21cjl6ae0j",
-      "date": "2026-10-01T21:37:02.907Z",
+      "id": "muq2sbnsut6tv",
+      "date": "2026-10-01T21:58:01.474Z",
       "source": "ai",
       "kind": "issue",
       "status": "open",
       "key": "habit:lateGuardFade",
       "text": "Your guard drops as you get tired in later rounds. (seen in 12 sessions)",
       "tags": [],
-      "lastSeen": "2026-10-01T21:37:35.886Z"
+      "lastSeen": "2026-10-01T21:58:34.369Z"
     },
     {
-      "id": "muq21cjle4vck",
-      "date": "2026-10-01T21:37:02.907Z",
+      "id": "muq2sbnsuu2co",
+      "date": "2026-10-01T21:58:01.474Z",
       "source": "ai",
       "kind": "issue",
       "status": "open",
@@ -3873,7 +3873,7 @@
       "tags": [
         "jab"
       ],
-      "lastSeen": "2026-10-01T21:37:35.886Z"
+      "lastSeen": "2026-10-01T21:58:34.369Z"
     }
   ],
   "patterns": [
@@ -3887,7 +3887,7 @@
         "angles"
       ],
       "active": true,
-      "created": "2026-08-22T21:37:02.820Z"
+      "created": "2026-08-22T21:58:01.444Z"
     },
     {
       "id": "pat2",
@@ -3898,7 +3898,7 @@
         "counters"
       ],
       "active": true,
-      "created": "2026-09-01T21:37:02.820Z"
+      "created": "2026-09-01T21:58:01.444Z"
     }
   ],
   "combos": [
@@ -3909,7 +3909,7 @@
         "2"
       ],
       "name": "",
-      "created": "2026-10-01T21:37:02.824Z"
+      "created": "2026-10-01T21:58:01.449Z"
     },
     {
       "id": "c2",
@@ -3921,7 +3921,7 @@
         "2"
       ],
       "name": "Pad",
-      "created": "2026-10-01T21:37:02.824Z"
+      "created": "2026-10-01T21:58:01.449Z"
     }
   ],
   "refVideos": [],
@@ -3929,7 +3929,7 @@
   "decisions": [
     {
       "id": "ropes-pressure",
-      "date": "2026-09-01T21:37:02.820Z",
+      "date": "2026-09-01T21:58:01.444Z",
       "choice": 0,
       "correct": false,
       "ok": false,
@@ -3937,7 +3937,7 @@
     },
     {
       "id": "jab-lazy",
-      "date": "2026-09-02T21:37:02.820Z",
+      "date": "2026-09-02T21:58:01.444Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -3945,7 +3945,7 @@
     },
     {
       "id": "runner",
-      "date": "2026-09-03T21:37:02.820Z",
+      "date": "2026-09-03T21:58:01.444Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -3953,7 +3953,7 @@
     },
     {
       "id": "after-combo",
-      "date": "2026-09-04T21:37:02.820Z",
+      "date": "2026-09-04T21:58:01.444Z",
       "choice": 0,
       "correct": false,
       "ok": false,
@@ -3961,7 +3961,7 @@
     },
     {
       "id": "southpaw-circle",
-      "date": "2026-09-05T21:37:02.820Z",
+      "date": "2026-09-05T21:58:01.444Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -3969,7 +3969,7 @@
     },
     {
       "id": "tired-late",
-      "date": "2026-09-06T21:37:02.820Z",
+      "date": "2026-09-06T21:58:01.444Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -3977,7 +3977,7 @@
     },
     {
       "id": "ropes-pressure",
-      "date": "2026-09-07T21:37:02.820Z",
+      "date": "2026-09-07T21:58:01.444Z",
       "choice": 0,
       "correct": false,
       "ok": false,
@@ -3985,7 +3985,7 @@
     },
     {
       "id": "jab-lazy",
-      "date": "2026-09-08T21:37:02.820Z",
+      "date": "2026-09-08T21:58:01.444Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -3993,7 +3993,7 @@
     },
     {
       "id": "runner",
-      "date": "2026-09-09T21:37:02.820Z",
+      "date": "2026-09-09T21:58:01.444Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4001,7 +4001,7 @@
     },
     {
       "id": "after-combo",
-      "date": "2026-09-10T21:37:02.820Z",
+      "date": "2026-09-10T21:58:01.444Z",
       "choice": 0,
       "correct": false,
       "ok": false,
@@ -4009,7 +4009,7 @@
     },
     {
       "id": "southpaw-circle",
-      "date": "2026-09-11T21:37:02.820Z",
+      "date": "2026-09-11T21:58:01.444Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4017,7 +4017,7 @@
     },
     {
       "id": "tired-late",
-      "date": "2026-09-12T21:37:02.820Z",
+      "date": "2026-09-12T21:58:01.444Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4025,7 +4025,7 @@
     },
     {
       "id": "ropes-pressure",
-      "date": "2026-09-13T21:37:02.820Z",
+      "date": "2026-09-13T21:58:01.444Z",
       "choice": 0,
       "correct": false,
       "ok": false,
@@ -4033,7 +4033,7 @@
     },
     {
       "id": "jab-lazy",
-      "date": "2026-09-14T21:37:02.820Z",
+      "date": "2026-09-14T21:58:01.444Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4041,7 +4041,7 @@
     },
     {
       "id": "runner",
-      "date": "2026-09-15T21:37:02.820Z",
+      "date": "2026-09-15T21:58:01.444Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4049,7 +4049,7 @@
     },
     {
       "id": "after-combo",
-      "date": "2026-09-16T21:37:02.820Z",
+      "date": "2026-09-16T21:58:01.444Z",
       "choice": 0,
       "correct": false,
       "ok": false,
@@ -4057,7 +4057,7 @@
     },
     {
       "id": "southpaw-circle",
-      "date": "2026-09-17T21:37:02.820Z",
+      "date": "2026-09-17T21:58:01.444Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4065,7 +4065,7 @@
     },
     {
       "id": "tired-late",
-      "date": "2026-09-18T21:37:02.820Z",
+      "date": "2026-09-18T21:58:01.444Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4144,7 +4144,7 @@
     },
     "overrides": [],
     "assigned": {
-      "gasTank": "2026-10-01T21:37:05.532Z"
+      "gasTank": "2026-10-01T21:58:04.074Z"
     },
     "lastMinutes": 15
   }

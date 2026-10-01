@@ -139,7 +139,7 @@ function weaknessHTML(w, i, st) {
   const a = adoption(st, w.key);
   const head = `<b>${i + 1}. ${esc(w.name)}</b><span class="badge ${w.sources >= 2 ? 'warn' : ''}">${w.sources >= 2 ? `${w.sources} kinds of evidence` : 'early signal'}</span>`;
   const body = `
-      <p class="small" style="margin:4px 0">${esc(w.explain)}</p>
+      <p class="small" style="margin:4px 0">${esc(w.explain.startsWith(`${w.name}. `) ? w.explain.slice(w.name.length + 2) : w.explain)}</p>
       <div class="dnt"><div><b>Do this</b><span>${esc(w.do)}</span></div><div><b>Not that</b><span>${esc(w.not)}</span></div></div>
       <p class="small muted" style="margin:6px 0">Drill level ${lvl}/4: ${esc(d.name)}. Success = ${esc(d.success.text)}.${a ? ` ${esc(a.text)}` : ''}</p>
       <details class="howto"><summary class="small">Evidence (${w.symptoms.length})</summary><ul class="small">${w.symptoms.map((s) => `<li>${esc(s.text)}</li>`).join('')}</ul></details>

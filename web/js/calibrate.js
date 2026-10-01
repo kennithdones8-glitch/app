@@ -85,3 +85,6 @@ export function calibrateFromCombo(punches, tokens, prior = null) {
   }
   return res;
 }
+
+// A per-boxer calibration is only used once it has proven itself on a drilled combo.
+export const trustedCal = (cal) => (cal?.acc >= 0.6 ? cal : null);
