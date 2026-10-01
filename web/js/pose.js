@@ -107,6 +107,7 @@ export class PoseTracker {
     this.running = false;
     this.onFrame = () => {};
     this.facing = 'user';
+    this.maxFps = null; // set lower between rounds to save battery; null = every camera frame
   }
 
   async start(facing = this.facing) {
@@ -115,7 +116,8 @@ export class PoseTracker {
       throw new Error('Camera needs the app to be opened over https://');
     }
     this.stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } },
+      // 30 fps is plenty for punches; phones that film at 60 would double the work (and heat).
+      video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30, max: 30 } },
       audio: false,
     });
     this.video.srcObject = this.stream;
@@ -132,6 +134,7 @@ export class PoseTracker {
     this.times = [];
     this.running = true;
     this._lastVideoTime = -1;
+    this._lastDetect = -Infinity;
     this._loop();
   }
 
@@ -143,8 +146,11 @@ export class PoseTracker {
   _loop = () => {
     if (!this.running) return;
     const v = this.video;
-    if (v.readyState >= 2 && v.currentTime !== this._lastVideoTime) {
+    const now = performance.now();
+    const due = !this.maxFps || now - this._lastDetect >= 1000 / this.maxFps - 4;
+    if (v.readyState >= 2 && v.currentTime !== this._lastVideoTime && due && !document.hidden) {
       this._lastVideoTime = v.currentTime;
+      this._lastDetect = now;
       const t = performance.now();
       let res;
       try {
@@ -158,7 +164,9 @@ export class PoseTracker {
       this._draw(image);
       this.onFrame(world, image, t);
     }
-    this._raf = requestAnimationFrame(this._loop);
+    // Wake only when the camera has a new frame (not 60-120 times a second) where supported.
+    if (v.requestVideoFrameCallback) this._vfc = v.requestVideoFrameCallback(() => this._loop());
+    else this._raf = requestAnimationFrame(this._loop);
   };
 
   // Too slow for the full model? Switch to lite for the rest of this and future sessions.
@@ -187,6 +195,7 @@ export class PoseTracker {
   stopCamera() {
     this.running = false;
     cancelAnimationFrame(this._raf);
+    if (this._vfc != null) this.video.cancelVideoFrameCallback?.(this._vfc);
     this.stream?.getTracks().forEach((tr) => tr.stop());
     this.stream = null;
   }

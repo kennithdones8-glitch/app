@@ -328,22 +328,34 @@ function pct(n, d) {
 
 const frontEnough = (n, r) => n >= 0.3 * r.frames;
 
+// Stance width and shoulder turn come from the camera's depth guess. You know which foot leads;
+// when depth gets even that wrong most of the time (a low or tilted phone: orthodox read as
+// 15-46% left lead), its widths and angles are noise too, so they're left unmeasured.
+export function depthTrusted(r, min = 30) {
+  if (r.expectLeft == null || (r.depthFrames || 0) < min) return true;
+  const agree = r.expectLeft ? r.leftCloser : r.depthFrames - r.leftCloser;
+  return agree >= 0.7 * r.depthFrames;
+}
+
 export function roundMetrics(r) {
   const total = Object.values(r.punches).reduce((a, b) => a + b, 0);
   const avg = (xs) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
   const avgReturn = avg(r.returnTimes);
   const sequences = sequencesFrom(r.punchLog);
+  const depthOk = depthTrusted(r);
+  const front = (n) => depthOk && frontEnough(n, r);
   return {
     frames: r.frames,
+    depthOk,
     guard: pct(r.guardUp, r.guardEligible),
     // Stance width and blade need depth, which is only usable when the camera sees you from the
     // front; side-on they're left unmeasured (null) rather than guessed.
     // A few front-on moments in a side-on clip aren't enough to judge: need 30% of the round.
-    stance: frontEnough(r.stanceFrames, r) ? pct(r.stanceOk, r.stanceFrames) : null,
+    stance: front(r.stanceFrames) ? pct(r.stanceOk, r.stanceFrames) : null,
     crossedPct: pct(r.crossed, r.footFrames ?? r.stanceFrames),
-    narrowPct: frontEnough(r.stanceFrames, r) ? pct(r.narrow, r.stanceFrames) : null,
-    widePct: frontEnough(r.stanceFrames, r) ? pct(r.wide, r.stanceFrames) : null,
-    blade: frontEnough(r.bladeFrames ?? r.frames, r) ? pct(r.bladeOk, r.bladeFrames ?? r.frames) : null,
+    narrowPct: front(r.stanceFrames) ? pct(r.narrow, r.stanceFrames) : null,
+    widePct: front(r.stanceFrames) ? pct(r.wide, r.stanceFrames) : null,
+    blade: front(r.bladeFrames ?? r.frames) ? pct(r.bladeOk, r.bladeFrames ?? r.frames) : null,
     sidePct: pct(r.sideFrames || 0, r.frames),
     footwork: pct(r.moving, r.frames),
     head: pct(r.headMoving, r.frames),
@@ -375,6 +387,7 @@ export function combineRounds(rounds) {
     }
     out[k] = w ? Math.round(sum / w) : null;
   }
+  out.depthOk = !valid.some((r) => r.depthOk === false);
   out.punches = { jab: 0, cross: 0, leadHook: 0, rearHook: 0, leadUppercut: 0, rearUppercut: 0 };
   for (const r of rounds) for (const k in r.punches) out.punches[k] += r.punches[k];
   out.totalPunches = Object.values(out.punches).reduce((a, b) => a + b, 0);
@@ -545,6 +558,7 @@ export class FormAnalyzer {
   startRound() {
     this.roundNo++;
     this.round = emptyRound();
+    this.round.expectLeft = this.stance !== 'southpaw';
     this.active = true;
     this.since = {};
   }
@@ -679,8 +693,10 @@ export class FormAnalyzer {
         if (narrow) r.narrow++;
         if (wide) r.wide++;
         if (!crossed && !narrow && !wide) r.stanceOk++;
-        if (this.held('narrow', narrow, t) > 1500) this.cue('narrow', 'Wider stance', t);
-        if (this.held('wide', wide, t) > 1500) this.cue('wide', 'Narrower stance', t);
+        // Only say it once the depth has shown it can be trusted (it gets your lead foot right).
+        const sure = (r.depthFrames || 0) >= 60 && depthTrusted(r);
+        if (this.held('narrow', narrow, t) > 1500 && sure) this.cue('narrow', 'Wider stance', t);
+        if (this.held('wide', wide, t) > 1500 && sure) this.cue('wide', 'Narrower stance', t);
       }
     }
 
@@ -695,7 +711,7 @@ export class FormAnalyzer {
       r.depthFrames++;
       if (lead === 'L') r.leftCloser++;
     }
-    if (this.held('squared', !bladed, t) > 6000) this.cue('squared', 'Turn your shoulder', t);
+    if (this.held('squared', !bladed, t) > 6000 && (r.depthFrames || 0) >= 60 && depthTrusted(r)) this.cue('squared', 'Turn your shoulder', t);
 
 
     // --- Footwork and head movement, measured in the picture ------------------------------

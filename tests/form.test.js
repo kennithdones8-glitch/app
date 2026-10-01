@@ -567,3 +567,18 @@ test('a hard cross (over 6.5 m/s at 30 fps) counts; it is not a tracking glitch'
   assert.equal(an.calib.punches.length, 1, JSON.stringify(an.calib.rejected));
   assert.ok(an.calib.punches[0][1] > 6.5, `speed ${an.calib.punches[0][1]}`);
 });
+
+test('when depth gets your lead foot wrong, stance width and shoulder turn are left unmeasured', () => {
+  const cues = [];
+  const an = new FormAnalyzer({ stance: 'orthodox', onCue: (k) => cues.push(k) });
+  an.startRound();
+  // Orthodox, but the camera's depth puts the right foot in front (as from a low, tilted phone),
+  // and reads the shoulders as square.
+  feed(an, still(720, { [LM.L_ANK]: { z: 0.2 }, [LM.R_ANK]: { z: -0.2 }, [LM.L_SH]: { z: 0 }, [LM.R_SH]: { z: 0 } }), 0);
+  const m = an.endRound();
+  assert.equal(m.depthOk, false);
+  assert.equal(m.blade, null);
+  assert.equal(m.stance, null);
+  assert.ok(!cues.includes('squared') && !cues.includes('narrow') && !cues.includes('wide'), cues.join());
+  assert.equal(combineRounds([m]).depthOk, false);
+});
