@@ -564,3 +564,8 @@ details.weak[open] > summary::after { transform: rotate(90deg); }
 details.more { margin-top: 10px; }
 details.card-lite > summary { list-style: none; padding: 4px 0 10px; }
 details.card-lite > summary::-webkit-details-marker { display: none; }
+.test-res { margin: 8px 0; }
+.test-res .stat { text-align: center; padding: 8px; border-radius: 12px; background: var(--card-2, rgba(127,127,127,.08)); }
+.test-res .stat b { display: block; font-size: 1.6rem; }
+.test-res .stat span { font-size: .8rem; color: var(--muted, #888); }
+.test-res table { width: 100%; margin-top: 8px; }

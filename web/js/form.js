@@ -482,6 +482,11 @@ const SPEED_WINDOW_MS = 30; // hand speed is measured over at least this much ti
 // Both hands "punching" with their full extension this close together is one punch: throwing one
 // hand turns the body and jolts the other (a bag report counted 13 of these pairs in 23 s).
 const PAIR_MS = 120;
+// A locked-out straight jolts the idle hand a moment before or after; a bent, short "punch" from
+// the other hand that close is that jolt (a floor test: 7 of these around 20 jabs, all 0.1-0.2 s off).
+const JOLT_MS = 250;
+const locked = (p) => p.peakExt >= 0.88 && p.peakAngle >= 140;
+const bent = (p) => p.peakExt < 0.8 && p.peakAngle < 110;
 const REARM_MS = 400; // after this long the same hand may punch again even if it stayed out
 const PUNCH_CONF = (vis, speed, vTh, margin) => 100 * (0.5 + 0.5 * vis) * (0.55 + 0.45 * Math.min(1, speed / (vTh * 1.8))) * (0.6 + 0.4 * Math.max(0, margin));
 
@@ -884,7 +889,11 @@ export class FormAnalyzer {
       dur: t - h.startT, why: h.endWhy,
     };
     h.returnSince = c.peakT; // hand return is timed from impact (full extension)
-    const twin = this.pending.find((p) => p.role !== role && Math.abs(p.peakT - c.peakT) <= PAIR_MS);
+    const twin = this.pending.find((p) => {
+      if (p.role === role) return false;
+      const dt = Math.abs(p.peakT - c.peakT);
+      return dt <= PAIR_MS || (dt <= JOLT_MS && ((locked(p) && bent(c)) || (locked(c) && bent(p))));
+    });
     if (twin) {
       const score = (p) => p.peakExt + p.peakAngle / 400 + (p.i2?.ext || 0) / 2;
       const [keep, drop] = score(c) > score(twin) ? [c, twin] : [twin, c];
@@ -902,7 +911,7 @@ export class FormAnalyzer {
     this.pending = this.pending.filter((c) => {
       const other = this.hands[c.role === 'lead' ? 'rear' : 'lead'];
       // Wait while the other hand is mid-punch and could still peak alongside this one.
-      const wait = now - c.peakT <= PAIR_MS || (other.state === 'punch' && other.startT <= c.peakT + PAIR_MS);
+      const wait = now - c.peakT <= JOLT_MS || (other.state === 'punch' && other.startT <= c.peakT + JOLT_MS);
       if (wait && now !== Infinity) return true;
       this._registerPunch(c.role, c, c.t);
       return false;
