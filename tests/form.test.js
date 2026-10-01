@@ -555,3 +555,15 @@ test('the idle hand twitching just after a full jab is not a punch; a real cross
   const cross = punch(LM.R_WR, LM.R_EL, { x: 0.02, y: -0.5, z: -0.5 }, { x: -0.1, y: -0.45, z: -0.2 });
   assert.deepEqual(run(merge(jab, cross, 6)).got, ['jab', 'cross']);
 });
+
+test('a hard cross (over 6.5 m/s at 30 fps) counts; it is not a tracking glitch', () => {
+  const an = new FormAnalyzer();
+  an.startRound();
+  let t = feed(an, still(10), 0);
+  // Elbow still a little bent (~120°), fist covers 37 cm in one frame: about 7.5 m/s.
+  t = feed(an, punch(LM.R_WR, LM.R_EL, { x: 0.02, y: -0.5, z: -0.55 }, { x: -0.2, y: -0.35, z: -0.15 }, 1, 6), t);
+  feed(an, still(15), t);
+  an.endRound();
+  assert.equal(an.calib.punches.length, 1, JSON.stringify(an.calib.rejected));
+  assert.ok(an.calib.punches[0][1] > 6.5, `speed ${an.calib.punches[0][1]}`);
+});

@@ -849,7 +849,10 @@ export class FormAnalyzer {
         // speeds are tracking glitches.
         // Over 6.5 m/s is usually a tracking glitch, but a fast, fully extended straight is real:
         // a sharp jab measured over 30 ms reaches 7-10 m/s (these were being thrown away).
-        const fastStraight = h.peakSpeed < 11 && h.peakExt >= 0.9 && h.peakAngle >= 140 && travel >= 0.15;
+        // Hard punches too: a punch test from the floor (30 fps) threw away ~10 real crosses and
+        // uppercuts at 8-12 m/s that reached 85%+ of the arm and travelled 15+ cm. A tracking glitch
+        // jumps without the arm opening up and travelling like that.
+        const fastStraight = h.peakSpeed < 14 && h.peakExt >= 0.85 && h.peakAngle >= 120 && travel >= 0.15;
         // A fist that never got half an arm's length from the shoulder (elbow folded past ~60°) is
         // the guard moving, not a punch: none of 120 labelled punches reached less than 0.54.
         const real = h.peakExt >= 0.5 && (h.peakSpeed < 6.5 || fastStraight) && (travel > 0.1 || h.peakExt > 0.85 || (h.peakSpeed > 2 && h.peakExt > 0.65));
