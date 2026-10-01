@@ -43,7 +43,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.10.01-5';
+export const APP_VERSION = '2026.10.01-6';
 
 const app = {
   version: APP_VERSION,
@@ -1423,3 +1423,17 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 afterDataChange();
 askPersist();
 route();
+
+// The app moved from /app/ to /boxcoach/. A phone that installed the old address keeps running
+// the cached copy, so once the new address answers, point there. Same site, so the sessions
+// stored on this phone come along.
+if (location.hostname.endsWith('github.io') && location.pathname.startsWith('/app/')) {
+  fetch('/boxcoach/manifest.webmanifest', { cache: 'no-store' }).then((r) => {
+    if (!r.ok) return;
+    const bar = document.createElement('a');
+    bar.className = 'moved';
+    bar.href = '/boxcoach/#home';
+    bar.innerHTML = '<b>BoxCoach has a new address.</b> Tap to open it (your sessions come with you), then add it to your Home Screen again.';
+    document.body.prepend(bar);
+  }).catch(() => {});
+}
