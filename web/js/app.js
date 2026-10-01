@@ -27,6 +27,7 @@ import { renderCoach } from './views/coach.js';
 import { renderVideo, videoBusy, trustedCal } from './views/video.js';
 import { personalFor, addExamples, trainPersonal } from './personal.js';
 import { testPlan, scoreTest, testLabels } from './punchtest.js';
+import { SetupWatch, SETUP_TEXT } from './camcheck.js';
 import { renderCombos, comboHTML } from './views/combos.js';
 import { renderStudy } from './views/study.js';
 import { parseCombo, comboText, comboLabel, comboSpeech, comboKey, punchDigits, pickCombo, judgeCalls, sessionCombos } from './combos.js';
@@ -42,7 +43,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.10.01-2';
+export const APP_VERSION = '2026.10.01-3';
 
 const app = {
   version: APP_VERSION,
@@ -476,7 +477,8 @@ async function startSession(plan) {
           live.analyzer.aspectSet = true;
         }
         const m = live?.analyzer.update(world, image, t);
-        $('#camStatus').textContent = image ? '' : 'Step into frame';
+        if (live?.timer?.phase !== 'work') setupCheck(image);
+        else $('#camStatus').textContent = image ? '' : 'Step into frame';
         if (m && live.timer?.phase === 'work') {
           $('#liveGuard').textContent = m.guard != null ? `${m.guard}%` : '–';
           $('#liveStance').textContent = m.stance != null ? `${m.stance}%` : '–';
@@ -484,6 +486,7 @@ async function startSession(plan) {
       };
       $('#camStatus').textContent = 'Loading coach vision…';
       await live.tracker.start();
+      if (live?.tracker && live.timer?.phase !== 'work') live.tracker.maxFps = 15;
       $('#camStatus').textContent = '';
     } catch (err) {
       console.warn(err);
@@ -573,6 +576,9 @@ function onPhase(phase, round) {
   $('#livePhase').textContent = { prep: 'PREP', work: 'FIGHT', rest: 'REST', done: 'DONE' }[phase];
   $('#live').dataset.phase = phase;
   $('#liveRound').textContent = phase === 'prep' ? 'Get ready' : `Round ${round} / ${t.rounds}`;
+  // Full speed only while you're working; between rounds a few frames a second is enough
+  // for the setup check, and saves battery and heat.
+  if (live.tracker) live.tracker.maxFps = phase === 'work' ? null : phase === 'prep' ? 15 : 6;
   if (phase === 'prep') {
     const first = roundPlan(1);
     audio.say(`Get ready.${first ? ` Round one: ${CONSTRAINTS[first.constraint].name}.` : live.plan.focus ? ` Focus: ${AREAS[live.plan.focus]}.` : ''}`, { interrupt: true });
@@ -679,6 +685,22 @@ function scheduleCombos(rp) {
   };
   setTimeout(call, 2500);
   live.comboTimer = setInterval(call, every);
+}
+
+// Before the round (and between rounds): the one thing to fix in the camera setup, shown on the
+// picture and said once per problem, or "Ready".
+function setupCheck(image) {
+  if (!live) return;
+  live.setup ||= new SetupWatch();
+  live.setupSaid ||= new Set();
+  const issue = live.setup.push(image);
+  const el = $('#camStatus');
+  el.textContent = issue ? SETUP_TEXT[issue] : '✓ Ready';
+  el.classList.toggle('ok', !issue);
+  if (issue && issue !== 'nobody' && live.setup.hist.length >= live.setup.n && !live.setupSaid.has(issue) && live.timer?.phase === 'prep') {
+    live.setupSaid.add(issue);
+    audio.say(SETUP_TEXT[issue]);
+  }
 }
 
 // Punch test: call each set of punches on time, so what the camera saw can be checked against it.
@@ -791,6 +813,7 @@ $('#livePause').addEventListener('click', () => {
   if (!live?.timer) return;
   const p = live.timer.togglePause();
   $('#livePause').textContent = p ? 'Resume' : 'Pause';
+  if (live.tracker) live.tracker.maxFps = p ? 3 : live.timer.phase === 'work' ? null : 6;
   if (p) window.speechSynthesis?.cancel();
 });
 $('#liveSkip').addEventListener('click', () => live?.timer?.skip());
@@ -859,6 +882,7 @@ function sessionDetailHTML(s, fb) {
     </div>
     ${s.source === 'video' ? `<p class="small muted">From video analysis${s.corrections ? ` · ${s.corrections} detections corrected by you` : ''}.</p>` : ''}
     ${s.form?.sidePct >= 60 ? '<p class="small muted">Filmed side-on: blade and stance width need a front view, so they weren\'t measured this time.</p>' : ''}
+    ${s.form?.depthOk === false && !(s.form?.sidePct >= 60) ? '<p class="small muted">Stance width and shoulder turn weren\'t measured: from this camera spot it couldn\'t tell which foot was in front. Phone at chest height, 2–3 m away, fixes that.</p>' : ''}
     ${fb?.wins[0] ? `<p class="fb-line good">✓ ${esc(fb.wins[0])}</p>` : ''}
     ${fb?.fixes[0] ? `<p class="fb-line bad">→ ${esc(fb.fixes[0])}</p>` : ''}
     <details class="howto more"><summary class="small">More detail</summary>

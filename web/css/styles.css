@@ -569,3 +569,4 @@ details.card-lite > summary::-webkit-details-marker { display: none; }
 .test-res .stat b { display: block; font-size: 1.6rem; }
 .test-res .stat span { font-size: .8rem; color: var(--muted, #888); }
 .test-res table { width: 100%; margin-top: 8px; }
+.cam-status.ok { color: #22c55e; }
