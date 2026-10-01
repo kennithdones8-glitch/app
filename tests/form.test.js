@@ -498,3 +498,38 @@ test('a locked-out arm reads as a straight even when a low camera makes it seem 
   // A bent arm that rises is still an uppercut.
   assert.equal(classifyFeatures({ ext: 0.75, angle: 95, rise: 0.25 }, 0.05, 0.1).kind, 'uppercut');
 });
+
+test('a fast move with the arm still folded (guard adjusting) is not a punch', () => {
+  const an = new FormAnalyzer();
+  an.startRound();
+  let t = feed(an, still(10), 0);
+  // Rear fist snaps out to the side, away from the face: fast, but it stays by the shoulder.
+  t = feed(an, punch(LM.R_WR, LM.R_EL, { x: -0.3, y: -0.4, z: -0.1 }, { x: -0.3, y: -0.2, z: 0.05 }, 2, 4), t);
+  feed(an, still(15), t);
+  an.endRound();
+  assert.equal(an.calib.punches.length, 0, JSON.stringify(an.calib.rejected));
+});
+
+test('an arm that stays out and surges again is one punch; a double jab that pulls back is two', () => {
+  const count = (frames) => {
+    const an = new FormAnalyzer();
+    an.startRound();
+    let t = feed(an, still(10), 0);
+    t = feed(an, frames, t);
+    feed(an, still(20), t);
+    an.endRound();
+    return an.calib.punches.length;
+  };
+  const base = pose();
+  const W = LM.L_WR, E = LM.L_EL;
+  const out = { x: 0.16, y: -0.49, z: -0.61 }, outE = { x: 0.17, y: -0.47, z: -0.33 };
+  const half = { x: 0.15, y: -0.5, z: -0.5 }, halfE = { x: 0.18, y: -0.42, z: -0.26 };
+  const go = (a, b, ae, be, n) => Array.from({ length: n }, (_, i) => pose({ [W]: lerp(a, b, (i + 1) / n), [E]: lerp(ae, be, (i + 1) / n) }));
+  // Out, eases back a little and hangs there (still extended), surges out again, then home.
+  const hang = Array.from({ length: 6 }, () => pose({ [W]: half, [E]: halfE }));
+  const surge = [...go(base[W], out, base[E], outE, 4), ...go(out, half, outE, halfE, 3), ...hang, ...go(half, out, halfE, outE, 1), ...go(out, base[W], outE, base[E], 6)];
+  assert.equal(count(surge), 1);
+  // Double jab: out, back most of the way, out again.
+  const dbl = [...go(base[W], out, base[E], outE, 4), ...go(out, base[W], outE, base[E], 5), ...go(base[W], out, base[E], outE, 4), ...go(out, base[W], outE, base[E], 6)];
+  assert.equal(count(dbl), 2);
+});

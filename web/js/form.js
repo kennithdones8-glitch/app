@@ -482,6 +482,7 @@ const SPEED_WINDOW_MS = 30; // hand speed is measured over at least this much ti
 // Both hands "punching" with their full extension this close together is one punch: throwing one
 // hand turns the body and jolts the other (a bag report counted 13 of these pairs in 23 s).
 const PAIR_MS = 120;
+const REARM_MS = 400; // after this long the same hand may punch again even if it stayed out
 const PUNCH_CONF = (vis, speed, vTh, margin) => 100 * (0.5 + 0.5 * vis) * (0.55 + 0.45 * Math.min(1, speed / (vTh * 1.8))) * (0.6 + 0.4 * Math.max(0, margin));
 
 export class FormAnalyzer {
@@ -521,7 +522,7 @@ export class FormAnalyzer {
     this.learnedAxis = null;
     this.roundNo = 0;
     // Raw measurements behind each punch decision, for tuning thresholds to a real boxer.
-    this.calib = { vTh: Math.round(this.vTh * 100) / 100, punches: [], rejected: [], nearMiss: [], motion: [], track: [], frames: 0, tracked: 0 };
+    this.calib = { vTh: Math.round(this.vTh * 100) / 100, punches: [], pt: [], pe: [], rejected: [], nearMiss: [], motion: [], track: [], frames: 0, tracked: 0 };
   }
 
   _hand(side) {
@@ -786,7 +787,14 @@ export class FormAnalyzer {
         this._calibPush('nearMiss', [role === 'lead' ? 'L' : 'R', r2(h.nearPeak)]);
         h.nearPeak = 0;
       }
-      if (h.speed > this.vTh && away && handSeen && t - h.lastEnd > 180) {
+      // The same hand can't throw again until it has come back towards you (or paused): a hook or
+      // uppercut that swings on after the "end" was being counted twice.
+      const extNow = dist3(sh, w) / (h.armLen || 1);
+      if (!h.rechambered && (extNow < h.rechamberExt || t - h.lastEnd > REARM_MS)) h.rechambered = true;
+      if (h.speed > this.vTh && away && handSeen && t - h.lastEnd > 180 && h.rechambered === false) {
+        if (!h.againLogged) this._calibPush('rejected', [role === 'lead' ? 'L' : 'R', r2(h.speed), r2(extNow), 0, 0, 'again']);
+        h.againLogged = true;
+      } else if (h.speed > this.vTh && away && handSeen && t - h.lastEnd > 180) {
         h.nearPeak = 0;
         h.state = 'punch';
         h.start = h.prev || w;
@@ -827,13 +835,19 @@ export class FormAnalyzer {
       if (retracting || slowed || t - h.startT > 700) {
         h.state = 'idle';
         h.lastEnd = t;
+        h.endWhy = retracting ? 'r' : slowed ? 's' : 't';
+        h.rechambered = false;
+        h.againLogged = false;
+        h.rechamberExt = h.peakExt - 0.2; // pulled back a fifth of an arm
         const travel = h.maxNoseD - dist3(h.start, nose);
         // Short, fast punches count too (on pads the mitt meets the punch early); impossible
         // speeds are tracking glitches.
         // Over 6.5 m/s is usually a tracking glitch, but a fast, fully extended straight is real:
         // a sharp jab measured over 30 ms reaches 7-10 m/s (these were being thrown away).
         const fastStraight = h.peakSpeed < 11 && h.peakExt >= 0.9 && h.peakAngle >= 140 && travel >= 0.15;
-        const real = (h.peakSpeed < 6.5 || fastStraight) && (travel > 0.1 || h.peakExt > 0.85 || (h.peakSpeed > 2 && h.peakExt > 0.65));
+        // A fist that never got half an arm's length from the shoulder (elbow folded past ~60°) is
+        // the guard moving, not a punch: none of 120 labelled punches reached less than 0.54.
+        const real = h.peakExt >= 0.5 && (h.peakSpeed < 6.5 || fastStraight) && (travel > 0.1 || h.peakExt > 0.85 || (h.peakSpeed > 2 && h.peakExt > 0.65));
         if (real) this._queuePunch(role, h, t);
         else this._calibPush('rejected', [role === 'lead' ? 'L' : 'R', r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(travel)]);
       }
@@ -867,6 +881,7 @@ export class FormAnalyzer {
       role, t, peakT: h.peakT ?? t, vis: this._vis([h.sh, h.el, h.wr]),
       peakAngle: h.peakAngle, peakExt: h.peakExt, maxRise: h.maxRise, path: h.path, peakDisp: h.peakDisp,
       peakSpeed: h.peakSpeed, i2: h.i2, rearSeen: h.rearSeen, rearDropped: h.rearDropped,
+      dur: t - h.startT, why: h.endWhy,
     };
     h.returnSince = c.peakT; // hand return is timed from impact (full extension)
     const twin = this.pending.find((p) => p.role !== role && Math.abs(p.peakT - c.peakT) <= PAIR_MS);
@@ -928,6 +943,9 @@ export class FormAnalyzer {
       i2: h.i2 ? { ext: r3(h.i2.ext), angle: Math.round(h.i2.maxAngle), fore: r3(h.i2.fore), elbUp: r3(h.i2.elbUp), dx: r3(h.i2.dx), dy: r3(h.i2.dy), vis: r3(h.i2.vis) } : null,
       face: face ? face.map(r3) : null,
     });
+    // When each punch landed (0.1 s) and how long it took / why it ended, to line up with what you threw.
+    this._calibPush('pt', Math.round(t / 100));
+    this._calibPush('pe', `${Math.round((h.dur || 0) / 10)}${h.why || ''}`);
     this._calibPush('punches', [PUNCH_DIGIT[type], r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(h.maxRise), r2(lat), Math.round(conf), r2(fwd)]);
     if (role === 'lead') {
       if (h.rearSeen) this.round.leadPunches++;
