@@ -28,6 +28,7 @@ installErrorLog();
 import { addExamples, spotModel } from './personal.js';
 import { testPlan, scoreTest, testLabels, testHistory } from './punchtest.js';
 import { SetupWatch, SETUP_TEXT } from './camcheck.js';
+import { weeklyRecap } from './recap.js';
 import { renderCombos, comboHTML } from './views/combos.js';
 import { parseCombo, comboText, comboLabel, comboSpeech, comboKey, punchDigits, pickCombo, judgeCalls, sessionCombos } from './combos.js';
 
@@ -42,7 +43,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.10.01-7';
+export const APP_VERSION = '2026.10.02-1';
 
 const app = {
   version: APP_VERSION,
@@ -172,6 +173,7 @@ function renderHome() {
   view.innerHTML = `
     ${pageHead('Today', { eyebrow: esc(dateLine) })}
     <a class="coachme-btn" href="#coachme"><b>🥊 Coach me</b><span>Today: ${esc(day.objective)}</span></a>
+    ${recapHTML()}
 
     ${!sessions.length && !profile.onboarded ? onboardHTML() : needsCameraSetup() ? setupHTML() : !sessions.length ? `
       <section class="card hero">
@@ -227,6 +229,11 @@ function renderHome() {
   });
   bindCheckin();
   $('#setupTest')?.addEventListener('click', () => app.startPunchTest());
+  $('#recapDone')?.addEventListener('click', () => {
+    state.profile.recapSeen = $('#recapDone').dataset.week;
+    persist();
+    renderHome();
+  });
   $('#setupSkip')?.addEventListener('click', () => {
     state.profile.setupDone = true;
     persist();
@@ -242,6 +249,21 @@ function renderHome() {
     toast('Set up. Now the camera.');
     renderHome();
   });
+}
+
+// Monday to Wednesday: last week in one card (how much, what got better, what to work on).
+function recapHTML() {
+  if ((new Date().getDay() + 6) % 7 > 2) return '';
+  const r = weeklyRecap(state.sessions);
+  if (!r || state.profile.recapSeen === r.weekOf) return '';
+  const line = (c) => `${esc(c.name)} ${c.from}${c.unit} → ${c.to}${c.unit}`;
+  return `<section class="card recap">
+    <div class="eyebrow">Last week</div>
+    <h2>${r.sessions} session${r.sessions === 1 ? '' : 's'} · ${r.days} day${r.days === 1 ? '' : 's'} · ${r.minutes} min${r.punches ? ` · ${r.punches.toLocaleString()} punches` : ''}</h2>
+    ${r.best ? `<p class="fb-line good">✓ Better: ${line(r.best)}</p>` : ''}
+    ${r.worst ? `<p class="fb-line bad">→ Work on: ${line(r.worst)}</p>` : `<p class="small muted">${r.best ? 'Nothing slipped. ' : ''}Keep it going: Coach me picks this week's focus.</p>`}
+    <button class="btn ghost block" id="recapDone" data-week="${r.weekOf}" type="button">Got it</button>
+  </section>`;
 }
 
 // After the questions: set the camera up once and run the punch test, so tracking is tuned to

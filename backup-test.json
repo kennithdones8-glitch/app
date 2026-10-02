@@ -24,12 +24,12 @@
     "tracking": "none",
     "cues": true,
     "voiceV2": true,
-    "lastBackup": "2026-10-01T21:58:35.169Z"
+    "lastBackup": "2026-10-02T02:41:01.452Z"
   },
   "sessions": [
     {
       "id": "c0",
-      "date": "2026-08-18T21:58:01.444Z",
+      "date": "2026-08-19T02:40:27.617Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -309,7 +309,7 @@
     },
     {
       "id": "c1",
-      "date": "2026-08-22T12:22:01.444Z",
+      "date": "2026-08-22T17:04:27.617Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -590,7 +590,7 @@
     },
     {
       "id": "sp1",
-      "date": "2026-08-23T12:22:01.444Z",
+      "date": "2026-08-23T17:04:27.617Z",
       "type": "sparring",
       "manual": true,
       "source": "manual",
@@ -621,7 +621,7 @@
     },
     {
       "id": "c2",
-      "date": "2026-08-26T02:46:01.444Z",
+      "date": "2026-08-26T07:28:27.617Z",
       "type": "bag",
       "tracking": "camera",
       "source": "live",
@@ -902,7 +902,7 @@
     },
     {
       "id": "c3",
-      "date": "2026-08-29T17:10:01.444Z",
+      "date": "2026-08-29T21:52:27.617Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -1183,7 +1183,7 @@
     },
     {
       "id": "c4",
-      "date": "2026-09-02T07:34:01.444Z",
+      "date": "2026-09-02T12:16:27.617Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -1463,7 +1463,7 @@
     },
     {
       "id": "sp4",
-      "date": "2026-09-03T07:34:01.444Z",
+      "date": "2026-09-03T12:16:27.617Z",
       "type": "sparring",
       "manual": true,
       "source": "manual",
@@ -1494,7 +1494,7 @@
     },
     {
       "id": "c5",
-      "date": "2026-09-05T21:58:01.444Z",
+      "date": "2026-09-06T02:40:27.617Z",
       "type": "bag",
       "tracking": "camera",
       "source": "live",
@@ -1774,7 +1774,7 @@
     },
     {
       "id": "c6",
-      "date": "2026-09-09T12:22:01.444Z",
+      "date": "2026-09-09T17:04:27.617Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -2054,7 +2054,7 @@
     },
     {
       "id": "c7",
-      "date": "2026-09-13T02:46:01.444Z",
+      "date": "2026-09-13T07:28:27.617Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -2334,7 +2334,7 @@
     },
     {
       "id": "sp7",
-      "date": "2026-09-14T02:46:01.444Z",
+      "date": "2026-09-14T07:28:27.617Z",
       "type": "sparring",
       "manual": true,
       "source": "manual",
@@ -2365,7 +2365,7 @@
     },
     {
       "id": "c8",
-      "date": "2026-09-16T17:10:01.444Z",
+      "date": "2026-09-16T21:52:27.617Z",
       "type": "bag",
       "tracking": "camera",
       "source": "live",
@@ -2645,7 +2645,7 @@
     },
     {
       "id": "c9",
-      "date": "2026-09-20T07:34:01.444Z",
+      "date": "2026-09-20T12:16:27.617Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -2925,7 +2925,7 @@
     },
     {
       "id": "c10",
-      "date": "2026-09-23T21:58:01.444Z",
+      "date": "2026-09-24T02:40:27.617Z",
       "type": "shadow",
       "tracking": "camera",
       "source": "live",
@@ -3206,7 +3206,7 @@
     },
     {
       "id": "sp10",
-      "date": "2026-09-24T21:58:01.444Z",
+      "date": "2026-09-25T02:40:27.617Z",
       "type": "sparring",
       "manual": true,
       "source": "manual",
@@ -3237,7 +3237,7 @@
     },
     {
       "id": "c11",
-      "date": "2026-09-27T12:22:01.444Z",
+      "date": "2026-09-27T17:04:27.617Z",
       "type": "bag",
       "tracking": "camera",
       "source": "live",
@@ -3518,15 +3518,15 @@
     },
     {
       "id": "run1",
-      "date": "2026-09-29T21:58:01.444Z",
+      "date": "2026-09-30T02:40:27.617Z",
       "type": "run",
       "manual": true,
       "durationMin": 35,
       "rpe": 5
     },
     {
-      "id": "muq2t0ccoz1av",
-      "date": "2026-10-01T21:58:04.074Z",
+      "id": "muqcw853wt7yd",
+      "date": "2026-10-02T02:40:30.262Z",
       "type": "shadow",
       "tracking": "none",
       "source": "live",
@@ -3612,99 +3612,99 @@
     "insights": {
       "lateGuardFade": {
         "count": 12,
-        "firstSeen": "2026-08-18T21:58:01.444Z",
-        "lastSeen": "2026-09-27T12:22:01.444Z",
+        "firstSeen": "2026-08-19T02:40:27.617Z",
+        "lastSeen": "2026-09-27T17:04:27.617Z",
         "lastSeenAt": 12
       }
     },
     "resolved": [],
     "focus": {
       "area": "head",
-      "since": "2026-08-18T21:58:01.444Z",
+      "since": "2026-08-19T02:40:27.617Z",
       "sessions": 17
     },
     "prs": {
       "mostPunches": {
         "value": 700,
-        "date": "2026-08-18T21:58:01.444Z",
+        "date": "2026-08-19T02:40:27.617Z",
         "label": "Most punches in a session"
       },
       "bestPpm": {
         "value": 47,
-        "date": "2026-08-18T21:58:01.444Z",
+        "date": "2026-08-19T02:40:27.617Z",
         "label": "Best punches per minute"
       },
       "bestForm": {
         "value": 74,
-        "date": "2026-09-20T07:34:01.444Z",
+        "date": "2026-09-20T12:16:27.617Z",
         "label": "Best overall score"
       },
       "mostRounds": {
         "value": 5,
-        "date": "2026-08-18T21:58:01.444Z",
+        "date": "2026-08-19T02:40:27.617Z",
         "label": "Most rounds completed"
       }
     },
     "streak": {
       "count": 1,
-      "lastDay": "2026-10-01"
+      "lastDay": "2026-10-02"
     }
   },
   "weights": [
     {
-      "date": "2026-09-17",
+      "date": "2026-09-18",
       "value": 161.8
     },
     {
-      "date": "2026-09-18",
+      "date": "2026-09-19",
       "value": 161.7
     },
     {
-      "date": "2026-09-19",
+      "date": "2026-09-20",
       "value": 161.5
     },
     {
-      "date": "2026-09-20",
+      "date": "2026-09-21",
       "value": 161.4
     },
     {
-      "date": "2026-09-21",
+      "date": "2026-09-22",
       "value": 161.2
     },
     {
-      "date": "2026-09-22",
+      "date": "2026-09-23",
       "value": 161.1
     },
     {
-      "date": "2026-09-23",
+      "date": "2026-09-24",
       "value": 161
     },
     {
-      "date": "2026-09-24",
+      "date": "2026-09-25",
       "value": 160.8
     },
     {
-      "date": "2026-09-25",
+      "date": "2026-09-26",
       "value": 160.7
     },
     {
-      "date": "2026-09-26",
+      "date": "2026-09-27",
       "value": 160.5
     },
     {
-      "date": "2026-09-27",
+      "date": "2026-09-28",
       "value": 160.4
     },
     {
-      "date": "2026-09-28",
+      "date": "2026-09-29",
       "value": 160.3
     },
     {
-      "date": "2026-09-29",
+      "date": "2026-09-30",
       "value": 160.1
     },
     {
-      "date": "2026-09-30",
+      "date": "2026-10-01",
       "value": 160
     }
   ],
@@ -3725,13 +3725,13 @@
         ]
       },
       "notes": [
-        "Planned from Thu onward."
+        "Planned from Fri onward."
       ],
       "items": [
         {
-          "id": "2026-10-01-fightSim-0",
-          "day": 3,
-          "date": "2026-10-01",
+          "id": "2026-10-02-fightSim-0",
+          "day": 4,
+          "date": "2026-10-02",
           "kind": "fightSim",
           "title": "Fight simulation · bag",
           "load": "hard",
@@ -3747,9 +3747,9 @@
           }
         },
         {
-          "id": "2026-10-02-shadowTech-0",
-          "day": 4,
-          "date": "2026-10-02",
+          "id": "2026-10-03-shadowTech-0",
+          "day": 5,
+          "date": "2026-10-03",
           "kind": "shadowTech",
           "title": "Technique · shadowboxing (head movement)",
           "load": "moderate",
@@ -3766,24 +3766,14 @@
           }
         },
         {
-          "id": "2026-10-03-intervals-0",
-          "day": 5,
-          "date": "2026-10-03",
+          "id": "2026-10-04-intervals-0",
+          "day": 6,
+          "date": "2026-10-04",
           "kind": "intervals",
           "title": "Fight-pace intervals · run",
           "load": "hard",
           "category": "run",
           "detail": "10 min easy, then 6 × 3 min hard / 60s walk, 10 min cool-down. Mirrors your fight's rounds."
-        },
-        {
-          "id": "2026-10-04-strength-0",
-          "day": 6,
-          "date": "2026-10-04",
-          "kind": "strength",
-          "title": "Strength & power",
-          "load": "moderate",
-          "category": "strength",
-          "detail": "Trap-bar deadlift or squat 4×4, split squats 3×6, push-ups or bench 3×6, rows 3×8, rotational med-ball throws 4×5 each side, core. Leave 2 reps in the tank."
         }
       ]
     }
@@ -3791,7 +3781,7 @@
   "observations": [
     {
       "id": "o1",
-      "date": "2026-08-24T21:58:01.444Z",
+      "date": "2026-08-25T02:40:27.617Z",
       "source": "coach",
       "kind": "issue",
       "text": "You're backing straight up after combinations.",
@@ -3802,7 +3792,7 @@
     },
     {
       "id": "o2",
-      "date": "2026-09-21T21:58:01.444Z",
+      "date": "2026-09-22T02:40:27.617Z",
       "source": "self",
       "kind": "positive",
       "text": "Jab felt sharp, snapping it back.",
@@ -3812,8 +3802,8 @@
       "status": "open"
     },
     {
-      "id": "muq2sbns4yk76",
-      "date": "2026-10-01T21:58:01.474Z",
+      "id": "muqcvjev1b7aj",
+      "date": "2026-10-02T02:40:27.649Z",
       "source": "ai",
       "kind": "issue",
       "status": "open",
@@ -3822,11 +3812,11 @@
       "tags": [
         "defense"
       ],
-      "lastSeen": "2026-10-01T21:58:34.369Z"
+      "lastSeen": "2026-10-02T02:41:00.653Z"
     },
     {
-      "id": "muq2sbns7cccy",
-      "date": "2026-10-01T21:58:01.474Z",
+      "id": "muqcvjevymybv",
+      "date": "2026-10-02T02:40:27.649Z",
       "source": "ai",
       "kind": "issue",
       "status": "open",
@@ -3836,11 +3826,11 @@
         "defense",
         "jab"
       ],
-      "lastSeen": "2026-10-01T21:58:34.369Z"
+      "lastSeen": "2026-10-02T02:41:00.653Z"
     },
     {
-      "id": "muq2sbnsbfydf",
-      "date": "2026-10-01T21:58:01.474Z",
+      "id": "muqcvjevfw40k",
+      "date": "2026-10-02T02:40:27.649Z",
       "source": "ai",
       "kind": "issue",
       "status": "open",
@@ -3849,22 +3839,22 @@
       "tags": [
         "hit:failedExit"
       ],
-      "lastSeen": "2026-10-01T21:58:34.369Z"
+      "lastSeen": "2026-10-02T02:41:00.653Z"
     },
     {
-      "id": "muq2sbnsut6tv",
-      "date": "2026-10-01T21:58:01.474Z",
+      "id": "muqcvjev1qtaq",
+      "date": "2026-10-02T02:40:27.649Z",
       "source": "ai",
       "kind": "issue",
       "status": "open",
       "key": "habit:lateGuardFade",
       "text": "Your guard drops as you get tired in later rounds. (seen in 12 sessions)",
       "tags": [],
-      "lastSeen": "2026-10-01T21:58:34.369Z"
+      "lastSeen": "2026-10-02T02:41:00.653Z"
     },
     {
-      "id": "muq2sbnsuu2co",
-      "date": "2026-10-01T21:58:01.474Z",
+      "id": "muqcvjevc5ivr",
+      "date": "2026-10-02T02:40:27.649Z",
       "source": "ai",
       "kind": "issue",
       "status": "open",
@@ -3873,7 +3863,7 @@
       "tags": [
         "jab"
       ],
-      "lastSeen": "2026-10-01T21:58:34.369Z"
+      "lastSeen": "2026-10-02T02:41:00.653Z"
     }
   ],
   "patterns": [
@@ -3887,7 +3877,7 @@
         "angles"
       ],
       "active": true,
-      "created": "2026-08-22T21:58:01.444Z"
+      "created": "2026-08-23T02:40:27.617Z"
     },
     {
       "id": "pat2",
@@ -3898,7 +3888,7 @@
         "counters"
       ],
       "active": true,
-      "created": "2026-09-01T21:58:01.444Z"
+      "created": "2026-09-02T02:40:27.617Z"
     }
   ],
   "combos": [
@@ -3909,7 +3899,7 @@
         "2"
       ],
       "name": "",
-      "created": "2026-10-01T21:58:01.449Z"
+      "created": "2026-10-02T02:40:27.625Z"
     },
     {
       "id": "c2",
@@ -3921,7 +3911,7 @@
         "2"
       ],
       "name": "Pad",
-      "created": "2026-10-01T21:58:01.449Z"
+      "created": "2026-10-02T02:40:27.625Z"
     }
   ],
   "refVideos": [],
@@ -3929,7 +3919,7 @@
   "decisions": [
     {
       "id": "ropes-pressure",
-      "date": "2026-09-01T21:58:01.444Z",
+      "date": "2026-09-02T02:40:27.617Z",
       "choice": 0,
       "correct": false,
       "ok": false,
@@ -3937,7 +3927,7 @@
     },
     {
       "id": "jab-lazy",
-      "date": "2026-09-02T21:58:01.444Z",
+      "date": "2026-09-03T02:40:27.617Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -3945,7 +3935,7 @@
     },
     {
       "id": "runner",
-      "date": "2026-09-03T21:58:01.444Z",
+      "date": "2026-09-04T02:40:27.617Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -3953,7 +3943,7 @@
     },
     {
       "id": "after-combo",
-      "date": "2026-09-04T21:58:01.444Z",
+      "date": "2026-09-05T02:40:27.617Z",
       "choice": 0,
       "correct": false,
       "ok": false,
@@ -3961,7 +3951,7 @@
     },
     {
       "id": "southpaw-circle",
-      "date": "2026-09-05T21:58:01.444Z",
+      "date": "2026-09-06T02:40:27.617Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -3969,7 +3959,7 @@
     },
     {
       "id": "tired-late",
-      "date": "2026-09-06T21:58:01.444Z",
+      "date": "2026-09-07T02:40:27.617Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -3977,7 +3967,7 @@
     },
     {
       "id": "ropes-pressure",
-      "date": "2026-09-07T21:58:01.444Z",
+      "date": "2026-09-08T02:40:27.617Z",
       "choice": 0,
       "correct": false,
       "ok": false,
@@ -3985,7 +3975,7 @@
     },
     {
       "id": "jab-lazy",
-      "date": "2026-09-08T21:58:01.444Z",
+      "date": "2026-09-09T02:40:27.617Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -3993,7 +3983,7 @@
     },
     {
       "id": "runner",
-      "date": "2026-09-09T21:58:01.444Z",
+      "date": "2026-09-10T02:40:27.617Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4001,7 +3991,7 @@
     },
     {
       "id": "after-combo",
-      "date": "2026-09-10T21:58:01.444Z",
+      "date": "2026-09-11T02:40:27.617Z",
       "choice": 0,
       "correct": false,
       "ok": false,
@@ -4009,7 +3999,7 @@
     },
     {
       "id": "southpaw-circle",
-      "date": "2026-09-11T21:58:01.444Z",
+      "date": "2026-09-12T02:40:27.617Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4017,7 +4007,7 @@
     },
     {
       "id": "tired-late",
-      "date": "2026-09-12T21:58:01.444Z",
+      "date": "2026-09-13T02:40:27.617Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4025,7 +4015,7 @@
     },
     {
       "id": "ropes-pressure",
-      "date": "2026-09-13T21:58:01.444Z",
+      "date": "2026-09-14T02:40:27.617Z",
       "choice": 0,
       "correct": false,
       "ok": false,
@@ -4033,7 +4023,7 @@
     },
     {
       "id": "jab-lazy",
-      "date": "2026-09-14T21:58:01.444Z",
+      "date": "2026-09-15T02:40:27.617Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4041,7 +4031,7 @@
     },
     {
       "id": "runner",
-      "date": "2026-09-15T21:58:01.444Z",
+      "date": "2026-09-16T02:40:27.617Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4049,7 +4039,7 @@
     },
     {
       "id": "after-combo",
-      "date": "2026-09-16T21:58:01.444Z",
+      "date": "2026-09-17T02:40:27.617Z",
       "choice": 0,
       "correct": false,
       "ok": false,
@@ -4057,7 +4047,7 @@
     },
     {
       "id": "southpaw-circle",
-      "date": "2026-09-17T21:58:01.444Z",
+      "date": "2026-09-18T02:40:27.617Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4065,7 +4055,7 @@
     },
     {
       "id": "tired-late",
-      "date": "2026-09-18T21:58:01.444Z",
+      "date": "2026-09-19T02:40:27.617Z",
       "choice": 0,
       "correct": true,
       "ok": false,
@@ -4075,56 +4065,56 @@
   "hypotheses": [],
   "checkins": [
     {
-      "date": "2026-09-23",
+      "date": "2026-09-24",
       "sleep": 6,
       "soreness": 2,
       "motivation": 4,
       "hr": 52
-    },
-    {
-      "date": "2026-09-24",
-      "sleep": 7,
-      "soreness": 3,
-      "motivation": 4,
-      "hr": 53
     },
     {
       "date": "2026-09-25",
+      "sleep": 7,
+      "soreness": 3,
+      "motivation": 4,
+      "hr": 53
+    },
+    {
+      "date": "2026-09-26",
       "sleep": 8,
       "soreness": 2,
       "motivation": 4,
       "hr": 54
     },
     {
-      "date": "2026-09-26",
+      "date": "2026-09-27",
       "sleep": 6,
       "soreness": 3,
       "motivation": 4,
       "hr": 52
     },
     {
-      "date": "2026-09-27",
+      "date": "2026-09-28",
       "sleep": 7,
       "soreness": 2,
       "motivation": 4,
       "hr": 53
     },
     {
-      "date": "2026-09-28",
+      "date": "2026-09-29",
       "sleep": 8,
       "soreness": 3,
       "motivation": 4,
       "hr": 54
     },
     {
-      "date": "2026-09-29",
+      "date": "2026-09-30",
       "sleep": 6,
       "soreness": 2,
       "motivation": 4,
       "hr": 52
     },
     {
-      "date": "2026-09-30",
+      "date": "2026-10-01",
       "sleep": 7,
       "soreness": 3,
       "motivation": 4,
@@ -4144,7 +4134,7 @@
     },
     "overrides": [],
     "assigned": {
-      "gasTank": "2026-10-01T21:58:04.074Z"
+      "gasTank": "2026-10-02T02:40:30.262Z"
     },
     "lastMinutes": 15
   }

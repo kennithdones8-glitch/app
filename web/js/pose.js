@@ -1,8 +1,21 @@
 // Camera + MediaPipe pose tracking. Runs fully on the phone; video never leaves the device.
 
 const VERSION = '0.10.14';
-const BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VERSION}`;
-const modelUrl = (size) => `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${size}/float16/1/pose_landmarker_${size}.task`;
+const CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VERSION}`;
+const cdnModel = (size) => `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${size}/float16/1/pose_landmarker_${size}.task`;
+// The phone app (App Store / Play) ships the tracking runtime and models inside the app
+// (scripts/vendor-mediapipe.mjs puts them in web/vendor/mediapipe): it then works offline from
+// the first launch and downloads no code. The website loads them from the CDN as before.
+const LOCAL = new URL('../vendor/mediapipe/', import.meta.url).href;
+let source = null;
+function mediapipe() {
+  source ||= fetch(`${LOCAL}vision_bundle.mjs`, { method: 'HEAD' })
+    .then((r) => r.ok, () => false)
+    .then((local) => (local
+      ? { base: LOCAL.replace(/\/$/, ''), model: (size) => `${LOCAL}models/pose_landmarker_${size}.task` }
+      : { base: CDN, model: cdnModel }));
+  return source;
+}
 // Live camera: the 'full' model tracks arms noticeably better than 'lite'. It is used when the
 // phone keeps up; if it can't (measured in the first seconds), the tracker drops to 'lite' and
 // remembers that for next time.
@@ -12,10 +25,11 @@ const livePromises = {};
 export async function getLandmarker(size = 'lite') {
   if (!livePromises[size]) {
     livePromises[size] = (async () => {
-      const { FilesetResolver, PoseLandmarker } = await import(`${BASE}/vision_bundle.mjs`);
-      const fileset = await FilesetResolver.forVisionTasks(`${BASE}/wasm`);
+      const src = await mediapipe();
+      const { FilesetResolver, PoseLandmarker } = await import(`${src.base}/vision_bundle.mjs`);
+      const fileset = await FilesetResolver.forVisionTasks(`${src.base}/wasm`);
       const opts = (delegate) => ({
-        baseOptions: { modelAssetPath: modelUrl(size), delegate },
+        baseOptions: { modelAssetPath: src.model(size), delegate },
         runningMode: 'VIDEO',
         numPoses: 1,
       });
@@ -56,9 +70,10 @@ let videoLastTs = 0;
 export async function getVideoLandmarker(size = 'full') {
   if (!videoLandmarkers[size]) {
     videoLandmarkers[size] = (async () => {
-      const { FilesetResolver, PoseLandmarker } = await import(`${BASE}/vision_bundle.mjs`);
-      const fileset = await FilesetResolver.forVisionTasks(`${BASE}/wasm`);
-      const opts = (delegate) => ({ baseOptions: { modelAssetPath: modelUrl(size), delegate }, runningMode: 'VIDEO', numPoses: 2 });
+      const src = await mediapipe();
+      const { FilesetResolver, PoseLandmarker } = await import(`${src.base}/vision_bundle.mjs`);
+      const fileset = await FilesetResolver.forVisionTasks(`${src.base}/wasm`);
+      const opts = (delegate) => ({ baseOptions: { modelAssetPath: src.model(size), delegate }, runningMode: 'VIDEO', numPoses: 2 });
       try {
         return await PoseLandmarker.createFromOptions(fileset, opts('GPU'));
       } catch {

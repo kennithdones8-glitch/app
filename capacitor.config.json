@@ -1,0 +1,7 @@
+{
+  "appId": "com.boxcoach.app",
+  "appName": "BoxCoach",
+  "webDir": "web",
+  "ios": { "contentInset": "always" },
+  "android": { "allowMixedContent": false }
+}
