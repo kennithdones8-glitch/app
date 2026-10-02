@@ -20,8 +20,9 @@ export function scoreClass(v, target = 75) {
   return v >= target ? 'good' : v >= target - 20 ? 'warn' : 'bad';
 }
 
+// target -1: a plain number with no good/bad judgement (punch counts, rounds done).
 export function scoreChip(label, v, target) {
-  const cls = scoreClass(v, target);
+  const cls = target === -1 ? '' : scoreClass(v, target);
   const icon = cls === 'good' ? '✓' : cls === 'warn' ? '!' : cls === 'bad' ? '✕' : '';
   return `<div class="score ${cls}"><span class="score-v">${v ?? '–'}</span><span class="score-l">${icon ? `<i>${icon}</i>` : ''}${label}</span></div>`;
 }

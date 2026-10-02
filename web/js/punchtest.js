@@ -10,7 +10,8 @@ const GAP_MS = 2500; // "stop" → next call
 const GUARD_MS = 15000;
 const LEAD = { jab: 1, leadHook: 1, leadUppercut: 1 };
 
-export function testPlan(stance = 'orthodox') {
+// `only`: just these punches (a retest of the ones it read badly), without the guard step.
+export function testPlan(stance = 'orthodox', only = null) {
   const [lead, rear] = stance === 'southpaw' ? ['right', 'left'] : ['left', 'right'];
   const punches = [
     ['jab', 'jabs'], ['cross', 'crosses'],
@@ -19,12 +20,12 @@ export function testPlan(stance = 'orthodox') {
   ];
   const steps = [];
   let at = 0;
-  for (const [want, name] of punches) {
+  for (const [want, name] of punches.filter(([w]) => !only || only.includes(w))) {
     const go = at + ANNOUNCE_MS, end = go + TEST_N * PER_PUNCH_MS;
     steps.push({ want, name, n: TEST_N, say: `${TEST_N} ${name}. One at a time. Go.`, at, go, end });
     at = end + GAP_MS;
   }
-  steps.push({ want: null, name: 'guard only', n: 0, say: 'Now just move in your guard. Bounce, slip, roll. No punches.', at, go: at + 4000, end: at + 4000 + GUARD_MS });
+  if (!only) steps.push({ want: null, name: 'guard only', n: 0, say: 'Now just move in your guard. Bounce, slip, roll. No punches.', at, go: at + 4000, end: at + 4000 + GUARD_MS });
   return { steps, totalSec: Math.ceil((steps.at(-1).end + 1500) / 1000) };
 }
 
@@ -39,7 +40,10 @@ export function scoreTest(steps, events, t0) {
     const es = events.filter(inStep(s, t0));
     if (!s.want) return { want: null, n: 0, got: 0, right: 0, fake: es.length };
     const mine = es.filter((e) => e.role === roleOf(s.want));
-    return { want: s.want, n: s.n, got: mine.length, right: mine.filter((e) => e.type === s.want).length, fake: es.length - mine.length };
+    // What the wrong reads were, e.g. { leadHook: 3 }.
+    const as = {};
+    for (const e of mine) if (e.type !== s.want) as[e.type] = (as[e.type] || 0) + 1;
+    return { want: s.want, n: s.n, got: mine.length, right: mine.filter((e) => e.type === s.want).length, fake: es.length - mine.length, as };
   });
   const punch = rows.filter((r) => r.want);
   const thrown = punch.reduce((a, r) => a + r.n, 0);
@@ -80,4 +84,26 @@ export function testHistory(sessions) {
     date: s.date, spot: spotName(s.test.spot), thrown: s.test.thrown, counted: s.test.counted,
     typePct: s.test.typePct, fake: s.test.rows.reduce((a, r) => a + r.fake, 0),
   })).reverse();
+}
+
+const NAME = { jab: 'jab', cross: 'cross', leadHook: 'lead hook', rearHook: 'rear hook', leadUppercut: 'lead uppercut', rearUppercut: 'rear uppercut' };
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : /(s|ch|sh)$/.test(w) ? 'es' : 's'}`;
+
+// One plain line per punch that went wrong ("Crosses: 5 not counted, 3 read as rear hooks"), and
+// the punches worth testing again (under 8 of 10 read right).
+export function testProblems(test) {
+  const lines = [], retest = [];
+  for (const r of test?.rows || []) {
+    const bits = [];
+    if (!r.want) { if (r.fake) bits.push(`${r.fake} counted with no punch thrown`); } else {
+      if (r.got < r.n) bits.push(`${r.n - r.got} not counted`);
+      if (r.got > r.n) bits.push(`${r.got - r.n} extra`);
+      const top = Object.entries(r.as || {}).sort((a, b) => b[1] - a[1])[0];
+      if (top) bits.push(`${top[1]} read as ${plural(top[1], NAME[top[0]] || top[0]).replace(/^\d+ /, '')}`);
+      if (r.fake >= 3) bits.push(`${r.fake} from the other hand`);
+      if (Math.min(r.right, r.n) < r.n * 0.8) retest.push(r.want);
+    }
+    if (bits.length) lines.push({ want: r.want, text: bits.join(', ') });
+  }
+  return { lines, retest };
 }

@@ -24,8 +24,8 @@ test('scores counts, types and other-hand fakes per step, and labels every detec
     { kind: 'guardDrop', t: at(0, 1) },
   ];
   const r = scoreTest(steps, events, t0);
-  assert.deepEqual(r.rows[0], { want: 'jab', n: 10, got: 10, right: 8, fake: 1 });
-  assert.deepEqual(r.rows[1], { want: 'cross', n: 10, got: 12, right: 12, fake: 0 });
+  assert.deepEqual(r.rows[0], { want: 'jab', n: 10, got: 10, right: 8, fake: 1, as: { leadUppercut: 2 } });
+  assert.deepEqual(r.rows[1], { want: 'cross', n: 10, got: 12, right: 12, fake: 0, as: {} });
   assert.equal(r.rows[2].got, 0);
   assert.equal(r.rows[6].fake, 1);
   assert.equal(r.thrown, 60);
@@ -45,4 +45,19 @@ test('punch test history names the camera spot and lists the newest first', asyn
   const h = testHistory([t('2026-10-01', 123), { date: '2026-10-02' }, t('2026-10-03', 70)]);
   assert.deepEqual(h.map((r) => r.counted), [70, 123]);
   assert.equal(h[0].fake, 5);
+});
+
+test('test problems: one plain line per punch, and which punches to retest', async () => {
+  const { testProblems, testPlan } = await import('../web/js/punchtest.js');
+  const p = testProblems({ rows: [
+    { want: 'cross', n: 10, got: 5, right: 2, fake: 0, as: { rearHook: 3 } },
+    { want: 'jab', n: 10, got: 10, right: 10, fake: 3, as: {} },
+    { want: null, n: 0, got: 0, right: 0, fake: 2 },
+  ] });
+  assert.deepEqual(p.lines.map((l) => l.text), ['5 not counted, 3 read as rear hooks', '3 from the other hand', '2 counted with no punch thrown']);
+  assert.deepEqual(p.retest, ['cross']);
+  // A retest calls only those punches, from the start, with no guard step.
+  const steps = testPlan('orthodox', ['cross', 'rearHook']).steps;
+  assert.deepEqual(steps.map((s) => s.want), ['cross', 'rearHook']);
+  assert.equal(steps[0].at, 0);
 });
