@@ -26,7 +26,7 @@ import { installErrorLog } from './bugreport.js';
 
 installErrorLog();
 import { addExamples, spotModel } from './personal.js';
-import { testPlan, scoreTest, testLabels, testHistory } from './punchtest.js';
+import { testPlan, scoreTest, testLabels, testHistory, testProblems } from './punchtest.js';
 import { SetupWatch, SETUP_TEXT } from './camcheck.js';
 import { weeklyRecap } from './recap.js';
 import { renderCombos, comboHTML } from './views/combos.js';
@@ -43,7 +43,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.10.02-3';
+export const APP_VERSION = '2026.10.02-4';
 
 const app = {
   version: APP_VERSION,
@@ -60,8 +60,8 @@ const app = {
   startCoached: (plan) => startSession({ tracking: state.settings.tracking === 'none' ? 'none' : 'camera', focus: null, ...plan }),
   startBenchmark: () => startSession({ ...structuredClone(BENCHMARK), tracking: 'camera', focus: null }),
   // Punch test: one round of called punches (see punchtest.js).
-  startPunchTest: () => {
-    const p = testPlan(state.profile.stance);
+  startPunchTest: (only = null) => {
+    const p = testPlan(state.profile.stance, only);
     startSession({ type: 'shadow', rounds: 1, roundSec: p.totalSec, restSec: 0, tracking: 'camera', combos: false, constraints: false, focus: null, test: p.steps });
   },
   showSummary: (s) => { s.scores = scoreSession(s, state.profile); renderSummary(s); },
@@ -554,6 +554,7 @@ async function startSession(plan) {
       $('#camStatus').textContent = '';
     } catch (err) {
       console.warn(err);
+      if (!live) return; // ended while the camera was loading
       toast(`Camera coach unavailable: ${err.message || 'check camera permission and connection'}. Timer continues.`);
       $('#camBox').hidden = true;
       live.tracking = 'none';
@@ -988,11 +989,14 @@ function testHTML(session) {
   const x = session.test;
   if (!x) return '';
   const p = x.personal;
+  const probs = testProblems(x);
   return `<div class="test-res">
     <div class="row2"><div class="stat"><b>${x.counted}</b><span>counted for ${x.thrown} thrown</span></div><div class="stat"><b>${x.typePct}%</b><span>read as the right punch</span></div></div>
     <table class="tbl small"><thead><tr><th class="left">Threw</th><th>Counted</th><th>Right type</th><th>Other hand</th></tr></thead><tbody>
       ${x.rows.map((r) => `<tr><td class="left">${r.want ? `${r.n} ${TEST_NAMES[r.want]}` : 'Guard only'}</td><td>${r.want ? r.got : '–'}</td><td>${r.want ? r.right : '–'}</td><td>${r.fake}</td></tr>`).join('')}
     </tbody></table>
+    ${probs.lines.length ? `<ul class="small test-probs">${probs.lines.map((l) => `<li><b>${l.want ? TEST_NAMES[l.want] : 'Guard only'}:</b> ${esc(l.text)}</li>`).join('')}</ul>` : '<p class="fb-line good">✓ Every punch counted and read right.</p>'}
+    ${probs.retest.length ? `<button class="btn ghost block" id="retest" type="button">Retest ${esc(probs.retest.map((w) => TEST_NAMES[w].toLowerCase()).join(', '))} (${Math.round(probs.retest.length * 22.5 + 20)} s)</button>` : ''}
     <p class="small muted">${p ? (p.use ? `Punch reading tuned to you from this camera spot: ${Math.round(p.acc * 100)}% right on your test punches (built-in ${Math.round(p.base * 100)}%).` : `Learned from ${x.labels} punches (${Math.round(p.acc * 100)}% vs ${Math.round(p.base * 100)}% built-in). Another test and it can take over.`) : `Learned from ${x.labels} punches.`} Try it again from a different camera spot.</p>
   </div>`;
 }
@@ -1015,7 +1019,7 @@ function renderSummary(session) {
   view.innerHTML = `
     <section class="card">
       <div class="eyebrow">Session complete · ${fmt(session.workSec)} of work</div>
-      <h1>${ALL_TYPES[session.type]}</h1>
+      <h1>${session.test ? 'Punch test' : ALL_TYPES[session.type]}</h1>
       ${events.newPRs.length ? `<div class="pr">🏆 New personal record: ${events.newPRs.map(esc).join(', ')}</div>` : ''}
       ${events.resolved.length ? `<div class="pr">✅ Habit fixed: ${events.resolved.map((k) => esc(INSIGHTS[k].text)).join(' ')}</div>` : ''}
       ${events.confirmed.length ? `<div class="pr warn">🧠 I'm noticing a pattern: ${events.confirmed.map((k) => esc(INSIGHTS[k].text)).join(' ')}</div>` : ''}
@@ -1042,6 +1046,11 @@ function renderSummary(session) {
   pendingSummary = { session, form: f };
   bindReview(f);
   f.rpe.addEventListener('input', () => { $('#rpeOut').textContent = f.rpe.value; });
+  // Retest the punches it read badly: this test is saved first, so nothing is lost.
+  $('#retest')?.addEventListener('click', () => {
+    savePendingSummary();
+    app.startPunchTest(testProblems(session.test).retest);
+  });
   $('#discard').addEventListener('click', () => {
     if (confirm('Discard this session?')) { pendingSummary = null; location.hash = '#home'; route(); }
   });
@@ -1338,7 +1347,7 @@ function renderLog() {
         <button class="row log-item" data-id="${s.id}">
           <span class="row-ico">${TYPE_ICON[s.type] || '•'}</span>
           <div class="log-main">
-            <b>${ALL_TYPES[s.type] || esc(s.type)}${s.source === 'video' ? ' · video' : ''}</b>
+            <b>${s.test ? 'Punch test' : ALL_TYPES[s.type] || esc(s.type)}${s.source === 'video' ? ' · video' : ''}</b>
             <span>${fmtDate(s.date)} · ${s.durationMin ? `${s.durationMin} min` : `${s.completedRounds ?? 0}/${s.plan?.rounds ?? 0} rds`}${s.punches?.total ? ` · ${s.punches.total} punches` : ''}${s.hits ? ` · ${Object.values(s.hits).reduce((a, b) => a + b, 0)} hits` : ''}${s.rpe ? ` · RPE ${s.rpe}` : ''}</span>
           </div>
           ${s.scores?.overall != null ? `<span class="badge ${scoreClass(s.scores.overall)}">${s.scores.overall}</span>` : '<span class="chev">›</span>'}
@@ -1390,7 +1399,8 @@ function openDetail(id) {
   d.innerHTML = `
     <div class="dialog-body">
       <div class="eyebrow">${fmtDate(s.date)}</div>
-      <h2>${ALL_TYPES[s.type] || esc(s.type)}</h2>
+      <h2>${s.test ? 'Punch test' : ALL_TYPES[s.type] || esc(s.type)}</h2>
+      ${testHTML(s)}
       ${sessionDetailHTML(s, s.feedback)}
       ${s.type in BOXING_TYPES ? '<button class="btn ghost block" data-report>Copy report for coach</button>' : ''}
       <div class="row2">
@@ -1400,11 +1410,12 @@ function openDetail(id) {
     </div>`;
   d.querySelector('[data-close]').addEventListener('click', () => d.close());
   d.querySelector('[data-report]')?.addEventListener('click', () => { d.close(); copyReport(s); });
+  d.querySelector('#retest')?.addEventListener('click', () => { d.close(); app.startPunchTest(testProblems(s.test).retest); });
   d.querySelector('[data-del]').addEventListener('click', () => {
     if (!confirm('Delete this session? The coach will recalculate everything.')) return;
     state.sessions = state.sessions.filter((x) => x.id !== id);
     rebuildMemory();
-    persist();
+    afterDataChange(); // saves, and refreshes what the coach concluded from the sessions
     d.close();
     renderLog();
   });
@@ -1461,15 +1472,15 @@ afterDataChange();
 askPersist();
 route();
 
-// The app moved from /app/ to /boxcoach/. A phone that installed the old address keeps running
+// The app moved from /app/ to /box-coach/. A phone that installed the old address keeps running
 // the cached copy, so once the new address answers, point there. Same site, so the sessions
 // stored on this phone come along.
 if (location.hostname.endsWith('github.io') && location.pathname.startsWith('/app/')) {
-  fetch('/boxcoach/manifest.webmanifest', { cache: 'no-store' }).then((r) => {
+  fetch('/box-coach/manifest.webmanifest', { cache: 'no-store' }).then((r) => {
     if (!r.ok) return;
     const bar = document.createElement('a');
     bar.className = 'moved';
-    bar.href = '/boxcoach/#home';
+    bar.href = '/box-coach/#home';
     bar.innerHTML = '<b>BoxCoach has a new address.</b> Tap to open it (your sessions come with you), then add it to your Home Screen again.';
     document.body.prepend(bar);
   }).catch(() => {});

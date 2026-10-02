@@ -51,3 +51,15 @@ test('what you taught from one camera spot is only used from a similar spot', as
   assert.equal(readerFor(set(), floor), null);
   assert.equal(setupNear({ ratio: null }, floor), false);
 });
+
+test('uppercuts taught before the dip fix are not used', async () => {
+  const { trainPersonal, example } = await import('../web/js/personal.js');
+  const ev = (rise, lat) => ({ f: { ext: 0.8, angle: 110, rise }, fwd: 0.05, lat, i2: null, face: null });
+  const old = Array.from({ length: 15 }, () => ({ ...example(ev(0, 0.15), 'uppercut'), v: undefined }));
+  const hooks = Array.from({ length: 15 }, () => example(ev(0, 0.15), 'hook'));
+  const ups = Array.from({ length: 15 }, () => example(ev(0.25, 0.05), 'uppercut'));
+  assert.equal(trainPersonal([...old, ...hooks]), null); // only hooks left: nothing to tell apart
+  const m = trainPersonal([...old, ...hooks, ...ups]);
+  assert.equal(m.n, 30);
+  assert.equal(m.predict(example(ev(0, 0.15), 'hook')).kind, 'hook');
+});

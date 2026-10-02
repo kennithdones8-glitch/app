@@ -46,7 +46,7 @@ export function buildReport(session, state = {}, version = null) {
     coach: session.coach ? { root: session.coach.root, level: session.coach.level, drill: session.coach.drill, eval: session.coach.eval ? [session.coach.eval.metric, session.coach.eval.value, session.coach.eval.target, session.coach.eval.pass] : undefined } : undefined,
     adjustments: session.adjustments,
     benchmark: session.benchmark || undefined,
-    test: session.test ? { spot: session.test.spot || undefined, t0: session.test.t0, count: session.test.countPct, type: session.test.typePct, rows: session.test.rows.map((r) => [r.want || 'guard', r.n, r.got, r.right, r.fake]) } : undefined,
+    test: session.test ? { spot: session.test.spot || undefined, t0: session.test.t0, count: session.test.countPct, type: session.test.typePct, rows: session.test.rows.map((r) => [r.want || 'guard', r.n, r.got, r.right, r.fake, ...(r.as && Object.keys(r.as).length ? [r.as] : [])]) } : undefined,
     calib: session.calib,
     notes: session.notes || undefined,
   };

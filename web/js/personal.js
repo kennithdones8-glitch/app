@@ -7,13 +7,19 @@ const MAX = 800; // examples kept (newest)
 const MIN = 20; // before it's worth trying
 const K = 5;
 
+// Version of the measurements. 2: an uppercut's rise is measured from the bottom of its dip
+// (before, uppercuts that dipped first measured almost no rise and looked like hooks).
+const FEAT_V = 2;
+// Uppercuts taught before version 2 carry the old, wrong rise: they'd teach "hook = uppercut".
+const current = (x) => x && x.kind && !(x.kind === 'uppercut' && !(x.v >= 2));
+
 const vec = (x) => [x.ext, x.angle / 180, x.rise, x.fwd, x.lat, x.e2, x.a2 / 180, x.dx, x.dy, Math.min(3, x.fore) / 3, x.side];
 
 // One labelled punch from a detection event. kind: straight / hook / uppercut / none (not a punch).
 export function example(e, kind) {
   const r = (v) => Math.round((v || 0) * 1000) / 1000;
   return {
-    kind, base: e.baseKind || null,
+    kind, base: e.baseKind || null, v: FEAT_V,
     ext: r(e.f.ext), angle: Math.round(e.f.angle), rise: r(e.f.rise), fwd: r(e.fwd), lat: r(e.lat),
     e2: r(e.i2?.ext), a2: Math.round(e.i2?.angle || 0), dx: r(e.i2?.dx), dy: r(e.i2?.dy), fore: r(e.i2?.fore ?? 1),
     side: r(e.face ? Math.abs(e.face[0]) : 0.5),
@@ -58,7 +64,7 @@ export function harvest(events) {
 export const addExamples = (old = [], add = []) => [...old, ...add].slice(-MAX);
 
 export function trainPersonal(examples) {
-  const xs = (examples || []).filter((x) => x && x.kind);
+  const xs = (examples || []).filter(current);
   if (xs.length < MIN || new Set(xs.map((x) => x.kind)).size < 2) return null;
   const raw = xs.map(vec);
   const d = raw[0].length;

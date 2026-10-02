@@ -639,3 +639,22 @@ test('a rear-hand punch with no sideways swing is a cross, not a rear hook', asy
   assert.equal(classifyFeatures({ ...p, role: 'rear' }, 0.05, 0.14).kind, 'hook');
   assert.equal(classifyFeatures({ ...p, role: 'lead' }, 0, 0.06).kind, 'hook');
 });
+
+test('a rear uppercut that dips first reads as a rear uppercut', () => {
+  const got = [];
+  const an = new FormAnalyzer({ onPunch: (p) => got.push(p) });
+  an.startRound();
+  let t = feed(an, still(10), 0);
+  const base = pose();
+  const W = LM.R_WR, E = LM.R_EL;
+  const dip = { x: -0.2, y: -0.2, z: -0.05 }, dipE = { x: -0.22, y: -0.05, z: 0.05 };
+  const top = { x: -0.05, y: -0.6, z: -0.25 }, topE = { x: -0.12, y: -0.35, z: -0.1 };
+  const frames = [];
+  for (let i = 1; i <= 4; i++) frames.push(pose({ [W]: lerp(base[W], dip, i / 4), [E]: lerp(base[E], dipE, i / 4) }));
+  for (let i = 1; i <= 5; i++) frames.push(pose({ [W]: lerp(dip, top, i / 5), [E]: lerp(dipE, topE, i / 5) }));
+  for (let i = 1; i <= 6; i++) frames.push(pose({ [W]: lerp(top, base[W], i / 6), [E]: lerp(topE, base[E], i / 6) }));
+  t = feed(an, frames, t);
+  feed(an, still(15), t);
+  an.endRound();
+  assert.deepEqual(got, ['rearUppercut'], JSON.stringify(an.calib));
+});
