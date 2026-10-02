@@ -10,7 +10,7 @@ export function scoreClips(clips, cal = null) {
     for (const [hand, label, ext, angle, rise, lat, fwd] of c.punches) {
       if (label === '.') continue;
       const role = hand === 'L' ? 'lead' : 'rear';
-      const got = String(PUNCH_DIGIT[PUNCH_TYPE[classifyFeatures({ ext, angle, rise }, fwd, lat, cal).kind][role]]);
+      const got = String(PUNCH_DIGIT[PUNCH_TYPE[classifyFeatures({ ext, angle, rise, role }, fwd, lat, cal).kind][role]]);
       n++;
       if (got === label) right++;
       else confusion[`${label}→${got}`] = (confusion[`${label}→${got}`] || 0) + 1;

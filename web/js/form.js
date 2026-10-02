@@ -464,8 +464,13 @@ export function classifyFeatures(p, fwd, lat, cal = null) {
   if (p.rise > 0.12 && p.rise > lat && p.rise > fwd * 0.7) {
     return { kind: 'uppercut', fwd, lat, margin: Math.min(1, 0.4 + (p.rise - lat) / 0.15) };
   }
+  // The rear hand throws far more crosses than hooks, and a cross at the camera often shows no
+  // forward travel at all. Only call it a rear hook when the hand really swung out (three real
+  // recordings: crosses read as rear hooks were the top mistake; every real rear hook went 10 cm+).
+  if (p.role === 'rear' && lat < REAR_HOOK_LAT) return { kind: 'straight', fwd, lat, margin: 0.3 };
   return { kind: 'hook', fwd, lat, margin: Math.min(1, 0.4 + Math.max(0, 145 - p.angle) / 50, 0.3 + (T - fwd / Math.max(lat, 0.01)) / T) };
 }
+const REAR_HOOK_LAT = 0.1;
 
 // The direction punches travel, from where each punch ended up relative to where it started.
 // Jabs, crosses and hooks all land in front of you; hooks only swing out on the way. This is
@@ -598,6 +603,7 @@ export class FormAnalyzer {
   }
 
   update(world, image, t) {
+    this.now = t;
     if (!world || !image) {
       if (this.active && this.held('nobody', true, t) > 3000) this.cue('visibility', 'Step back, I need to see you', t);
       return null;
@@ -952,7 +958,7 @@ export class FormAnalyzer {
   _registerPunch(role, h, t) {
     const feats = { angle: h.peakAngle, ext: h.peakExt, rise: h.maxRise, path: h.path };
     const axis = this.axis();
-    const base = classifyPunch(feats, axis, this.cal);
+    const base = classifyPunch({ ...feats, role }, axis, this.cal);
     let { kind, margin } = base;
     const { fwd, lat } = base;
     const face = this.face ? [this.face.x, this.face.z] : null;
@@ -1009,7 +1015,7 @@ export class FormAnalyzer {
       const axis = e.axisFixed || refineAxis(punches.slice(Math.max(0, i - window), i + window + 1).map((x) => x.f), this.cal);
       if (!axis) return;
       if (e.face) faceDev.push((Math.acos(Math.max(-1, Math.min(1, e.face[0] * axis.x + e.face[1] * axis.z))) * 180) / Math.PI);
-      const c = classifyPunch(e.f, axis, this.cal);
+      const c = classifyPunch({ ...e.f, role: e.role }, axis, this.cal);
       e.axis = axis;
       e.fwd = c.fwd;
       e.lat = c.lat;
@@ -1065,6 +1071,9 @@ export class FormAnalyzer {
   }
 
   _calibPush(list, row) {
+    // Rejections and near misses carry their time (tenths of a second, like pt) so a punch test
+    // report shows which of them happened while a punch was called.
+    if (list === 'rejected' || list === 'nearMiss') row = [...row, Math.round((this.now || 0) / 100)];
     if (this.active && this.calib[list].length < 300) this.calib[list].push(row);
   }
 

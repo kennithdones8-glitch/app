@@ -631,3 +631,11 @@ test('a hard cross with the elbow locked counts even when depth makes the reach 
   an.endRound();
   assert.equal(an.calib.punches.length, 1, JSON.stringify(an.calib.rejected));
 });
+
+test('a rear-hand punch with no sideways swing is a cross, not a rear hook', async () => {
+  const { classifyFeatures } = await import('../web/js/form.js');
+  const p = { ext: 0.75, angle: 130, rise: 0 };
+  assert.equal(classifyFeatures({ ...p, role: 'rear' }, 0, 0.06).kind, 'straight');
+  assert.equal(classifyFeatures({ ...p, role: 'rear' }, 0.05, 0.14).kind, 'hook');
+  assert.equal(classifyFeatures({ ...p, role: 'lead' }, 0, 0.06).kind, 'hook');
+});

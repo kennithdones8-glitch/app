@@ -43,7 +43,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.10.02-2';
+export const APP_VERSION = '2026.10.02-3';
 
 const app = {
   version: APP_VERSION,
@@ -829,7 +829,7 @@ function finishTest(l) {
   if (add.length) state.profile.punchLabels = addExamples(state.profile.punchLabels, add);
   persist(); // labels and "setup done" are kept even if the session itself is discarded
   const m = spotModel(state.profile.punchLabels, l.analyzer.sig);
-  return { ...scoreTest(done, events, l.testT0), spot: l.analyzer.sig || null, labels: add.length, personal: m ? { acc: m.acc, base: m.baseAcc, use: m.use, n: m.n } : null };
+  return { ...scoreTest(done, events, l.testT0), spot: l.analyzer.sig || null, t0: Math.round(l.testT0 / 100), labels: add.length, personal: m ? { acc: m.acc, base: m.baseAcc, use: m.use, n: m.n } : null };
 }
 
 function finishSession() {
