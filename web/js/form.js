@@ -823,7 +823,7 @@ export class FormAnalyzer {
         h.state = 'punch';
         h.start = h.prev || w;
         h.startT = t;
-        h.peakExt = 0; h.peakAngle = 0; h.maxNoseD = noseD; h.maxRise = 0; h.maxLat = 0; h.maxFwd = 0; h.peakSpeed = 0;
+        h.peakExt = 0; h.peakAngle = 0; h.maxNoseD = noseD; h.maxRise = 0; h.minRise = 0; h.maxLift = 0; h.prevRise = 0; h.maxLat = 0; h.maxFwd = 0; h.peakSpeed = 0;
         h.path = []; h.peakDisp = [0, 0]; h.i2 = null; h.i2start = h.prevW2 || null; // fist in the picture just before the punch
         h.rearDropped = false; h.rearSeen = false; h.peakT = t;
       }
@@ -837,6 +837,12 @@ export class FormAnalyzer {
       h.peakAngle = Math.max(h.peakAngle, angleDeg(sh, el, w));
       h.maxNoseD = Math.max(h.maxNoseD, noseD);
       h.maxRise = Math.max(h.maxRise, m.rise);
+      // Uppercuts often dip first: the rise that matters is from the bottom of the dip.
+      h.minRise = Math.min(h.minRise, m.rise);
+      h.maxLift = Math.max(h.maxLift, m.rise - h.minRise);
+      // Only with the elbow bent: a body jab dips too, then comes back up to the guard.
+      const lifting = h.peakAngle < 140 && h.minRise < -0.05 && m.rise > h.prevRise + 0.01;
+      h.prevRise = m.rise;
       // Forward vs sideways relative to where the boxer faces, so it works from any camera angle.
       h.path.push(m.h);
       if (this.image) {
@@ -854,7 +860,8 @@ export class FormAnalyzer {
         const rear = world[this.hands.rear.wr];
         if (this._below(world, rear) > 0.1) h.rearDropped = true;
       }
-      const retracting = noseD < h.maxNoseD - 0.04;
+      // The fist coming up from a dip towards the chin isn't the punch pulling back.
+      const retracting = noseD < h.maxNoseD - 0.04 && !lifting;
       const slowed = h.speed < this.vTh * 0.5;
       if (retracting || slowed || t - h.startT > 700) {
         h.state = 'idle';
@@ -871,7 +878,9 @@ export class FormAnalyzer {
         // Hard punches too: a punch test from the floor (30 fps) threw away ~10 real crosses and
         // uppercuts at 8-12 m/s that reached 85%+ of the arm and travelled 15+ cm. A tracking glitch
         // jumps without the arm opening up and travelling like that.
-        const fastStraight = h.peakSpeed < 14 && h.peakExt >= 0.85 && h.peakAngle >= 120 && travel >= 0.15;
+        // A locked elbow (160°+) is a straight even when depth makes the reach look short (chest-height
+        // test: a hard cross at 175° read as 69% reach and was thrown away).
+        const fastStraight = h.peakSpeed < 14 && ((h.peakExt >= 0.85 && h.peakAngle >= 120) || h.peakAngle >= 160) && travel >= 0.15;
         // A fist that never got half an arm's length from the shoulder (elbow folded past ~60°) is
         // the guard moving, not a punch: none of 120 labelled punches reached less than 0.54.
         const real = h.peakExt >= 0.5 && (h.peakSpeed < 6.5 || fastStraight) && (travel > 0.1 || h.peakExt > 0.85 || (h.peakSpeed > 2 && h.peakExt > 0.65));
@@ -906,7 +915,7 @@ export class FormAnalyzer {
   _queuePunch(role, h, t) {
     const c = {
       role, t, peakT: h.peakT ?? t, vis: this._vis([h.sh, h.el, h.wr]),
-      peakAngle: h.peakAngle, peakExt: h.peakExt, maxRise: h.maxRise, path: h.path, peakDisp: h.peakDisp,
+      peakAngle: h.peakAngle, peakExt: h.peakExt, maxRise: h.peakAngle < 140 ? Math.max(h.maxRise, h.maxLift) : h.maxRise, path: h.path, peakDisp: h.peakDisp,
       peakSpeed: h.peakSpeed, i2: h.i2, rearSeen: h.rearSeen, rearDropped: h.rearDropped,
       dur: t - h.startT, why: h.endWhy,
     };

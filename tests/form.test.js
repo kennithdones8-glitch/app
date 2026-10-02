@@ -593,3 +593,41 @@ test('the analyser learns the camera spot and uses taught punches only from a ma
   assert.equal(setupNear({ ratio: 3, side: 0.1 }, an.sig), false);
   assert.equal(an._reader(), null);
 });
+
+test('an uppercut that dips first reads as an uppercut, not a hook', () => {
+  const got = [];
+  const an = new FormAnalyzer({ onPunch: (p) => got.push(p) });
+  an.startRound();
+  let t = feed(an, still(10), 0);
+  const base = pose();
+  const W = LM.L_WR, E = LM.L_EL;
+  // Dip down and out (away from the face), then drive up to chin height, elbow bent.
+  const dip = { x: 0.22, y: -0.2, z: -0.2 }, dipE = { x: 0.24, y: -0.05, z: -0.08 };
+  const top = { x: 0.1, y: -0.6, z: -0.32 }, topE = { x: 0.16, y: -0.35, z: -0.2 };
+  const frames = [];
+  for (let i = 1; i <= 4; i++) frames.push(pose({ [W]: lerp(base[W], dip, i / 4), [E]: lerp(base[E], dipE, i / 4) }));
+  for (let i = 1; i <= 5; i++) frames.push(pose({ [W]: lerp(dip, top, i / 5), [E]: lerp(dipE, topE, i / 5) }));
+  for (let i = 1; i <= 6; i++) frames.push(pose({ [W]: lerp(top, base[W], i / 6), [E]: lerp(topE, base[E], i / 6) }));
+  t = feed(an, frames, t);
+  feed(an, still(15), t);
+  an.endRound();
+  assert.deepEqual(got, ['leadUppercut'], JSON.stringify(an.calib));
+});
+
+test('a hard cross with the elbow locked counts even when depth makes the reach look short', () => {
+  const an = new FormAnalyzer();
+  an.startRound();
+  let t = feed(an, still(10), 0);
+  // Wind up, then fire: elbow fully locked (180°) but depth squashes the reach to ~0.7, at ~8 m/s.
+  const base = pose(), W = LM.R_WR, E = LM.R_EL;
+  const back = { x: -0.2, y: -0.35, z: 0.2 }, backE = { x: -0.2, y: -0.15, z: 0.1 };
+  const hit = { x: -0.11, y: -0.47, z: -0.37 }, hitE = { x: -0.13, y: -0.46, z: -0.145 };
+  const frames = [];
+  for (let i = 1; i <= 4; i++) frames.push(pose({ [W]: lerp(base[W], back, i / 4), [E]: lerp(base[E], backE, i / 4) }));
+  for (let i = 1; i <= 2; i++) frames.push(pose({ [W]: lerp(back, hit, i / 2), [E]: lerp(backE, hitE, i / 2) }));
+  for (let i = 1; i <= 6; i++) frames.push(pose({ [W]: lerp(hit, base[W], i / 6), [E]: lerp(hitE, base[E], i / 6) }));
+  t = feed(an, frames, t);
+  feed(an, still(15), t);
+  an.endRound();
+  assert.equal(an.calib.punches.length, 1, JSON.stringify(an.calib.rejected));
+});
