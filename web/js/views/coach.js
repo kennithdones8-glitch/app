@@ -454,7 +454,8 @@ function settings(el, app) {
   });
   // A page that explains the app and how to install it, for other boxers.
   $('#shareApp', el)?.addEventListener('click', async () => {
-    const url = new URL('about.html', location.href.split('#')[0]).href;
+    // Inside the store app the page address is internal to the phone; share the public one.
+    const url = location.protocol.startsWith('http') ? new URL('about.html', location.href.split('#')[0]).href : 'https://kennithdones8-glitch.github.io/box-coach/about.html';
     try {
       if (navigator.share) await navigator.share({ title: 'BoxCoach', text: 'A boxing coach in your phone', url });
       else { await navigator.clipboard.writeText(url); toast('Link copied.'); }
