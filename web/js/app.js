@@ -43,7 +43,7 @@ function persist() {
   if (!store.save(state)) toast('Could not save — storage is full or blocked.');
 }
 
-export const APP_VERSION = '2026.10.02-4';
+export const APP_VERSION = '2026.10.03-1';
 
 const app = {
   version: APP_VERSION,
@@ -159,6 +159,7 @@ function renderHome() {
   const day = trainToday(state, ctx, { planItems: todays, tomorrowItems: nextPlan });
   const phase = ctx.phase;
   const dateLine = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const fresh = !sessions.length && !profile.onboarded; // first open: just the questions
 
   // Short, prioritised notes from the coach.
   const notes = [];
@@ -172,8 +173,8 @@ function renderHome() {
 
   view.innerHTML = `
     ${pageHead('Today', { eyebrow: esc(dateLine) })}
-    <a class="coachme-btn" href="#coachme"><b>🥊 Coach me</b><span>Today: ${esc(day.objective)}</span></a>
-    ${recapHTML()}
+    ${fresh ? '' : `<a class="coachme-btn" href="#coachme"><b>🥊 Coach me</b><span>Today: ${esc(day.objective)}</span></a>
+    ${recapHTML()}`}
 
     ${!sessions.length && !profile.onboarded ? onboardHTML() : needsCameraSetup() ? setupHTML() : !sessions.length ? `
       <section class="card hero">
@@ -185,6 +186,7 @@ function renderHome() {
         </ol>
       </section>` : ''}
 
+    ${fresh ? '' : `
     <section class="card">
       ${checkin ? `
         <div class="ready-row">
@@ -218,7 +220,7 @@ function renderHome() {
         <div><b>${ws ? ws.avg7 : '–'}</b><span>${esc(profile.unit)} avg</span></div>
       </div>
       <div class="bar"><div style="width:${Math.min(100, (wk.days / profile.weeklyGoal) * 100)}%"></div></div>
-    </section>`;
+    </section>`}`;
 
   $('#openCheckin')?.addEventListener('click', () => { showCheckin = true; renderHome(); });
   $('#hideCheckin')?.addEventListener('click', () => { showCheckin = false; renderHome(); });
@@ -244,6 +246,7 @@ function renderHome() {
     const f = e.target;
     state.profile = applyOnboarding(state.profile, { want: f.want.value, experience: f.experience.value, hand: f.hand.value, days: f.days.value });
     state.coach.equipment = [...f.querySelectorAll('[name=eq]:checked')].map((x) => x.value);
+    state.profile.equipment = state.coach.equipment; // what you own, for the weekly plan (Coach me asks what's with you each time)
     rebuildPlan(currentPlan().gymDays);
     persist();
     toast('Set up. Now the camera.');
@@ -1162,7 +1165,7 @@ function planInputs(gymDays, keep) {
   const ctx = app.model();
   return {
     profile: state.profile, memory: state.memory, sessions: state.sessions, weights: state.weights,
-    gymDays, lastWeek: prev ? weekCompletion(prev, state.sessions) : null, fromDay: todayIndex(), keep,
+    equipment: state.profile.equipment || null, gymDays, lastWeek: prev ? weekCompletion(prev, state.sessions) : null, fromDay: todayIndex(), keep,
     recovery: recoveryStatus(state), interventions: ctx.interventions,
   };
 }

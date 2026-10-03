@@ -280,6 +280,10 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .hero .btn.primary { background: #fff; color: #7a0f18; }
 .hero .linkbtn { color: #fff; opacity: 0.9; }
 .hero .eyebrow, .hero .muted { color: rgba(255, 255, 255, 0.8); }
+/* Forms on the red card (the welcome questions): every label readable. */
+.hero label, .hero legend, .hero .switch span { color: #fff; }
+.hero .radio span { color: var(--ink); }
+.hero select { color: var(--ink); }
 .steps { margin: 8px 0 0; }
 .ready-row { display: flex; align-items: center; gap: 14px; }
 .ring { --v: 0; flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;

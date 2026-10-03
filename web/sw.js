@@ -1,5 +1,5 @@
 // Offline support: cache the app shell, and cache the pose model/runtime after first use.
-const CACHE = 'boxcoach-v39';
+const CACHE = 'boxcoach-2026.10.03-1'; // must match APP_VERSION in js/app.js (a test checks)
 const SHELL = [
   './', 'index.html', 'about.html', 'privacy.html', 'support.html', 'css/styles.css', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png',
   'js/app.js', 'js/audio.js', 'js/chart.js', 'js/coach.js', 'js/form.js', 'js/motion.js', 'js/plan.js', 'js/pose.js', 'js/store.js', 'js/timer.js',
@@ -26,19 +26,20 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin === location.origin) {
-    // Network first, revalidating with the server (GitHub Pages lets browsers reuse files for
-    // 10 minutes otherwise), so updates land on the next open; fall back to cache offline.
+    // Open from the saved copy straight away: a gym with weak signal no longer waits on 30-odd
+    // requests. Each release renames CACHE, which installs a complete fresh copy of the app (all
+    // files from the same version), so updates land on the next open.
     e.respondWith(
-      fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })
+      caches.match(req, { ignoreSearch: true }).then((hit) => hit || fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })
         .then((res) => {
-          // Only keep good answers: a 404 or server error must not replace the cached file.
+          // Only keep good answers: a 404 or server error must not be saved.
           if (res.ok) {
             const copy = res.clone();
             caches.open(CACHE).then((c) => c.put(req, copy));
           }
           return res;
         })
-        .catch(() => caches.match(req, { ignoreSearch: true }).then((r) => r || caches.match('index.html'))),
+        .catch(() => caches.match('index.html'))),
     );
   } else if (RUNTIME_HOSTS.includes(url.hostname)) {
     e.respondWith(

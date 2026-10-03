@@ -68,7 +68,9 @@ function templates(profile, memory, phase, adjust) {
   const fight = profile.fight || { rounds: 6, roundSec: 180, restSec: 60 };
   const focus = memory?.focus?.area;
   const bestPpm = memory?.prs?.bestPpm?.value;
-  const vol = (n) => Math.max(2, Math.round(n * phase.volume) - adjust);
+  // Beginners: three rounds is plenty to start with.
+  const cap = profile.level === 'beginner' ? 3 : 12;
+  const vol = (n) => Math.min(cap, Math.max(2, Math.round(n * phase.volume) - adjust));
   const simRounds = phase.key === 'camp' || phase.key === 'tactical' ? fight.rounds + 1 : phase.key === 'taper' ? Math.max(2, Math.ceil(fight.rounds / 2)) : fight.rounds;
   const pace = bestPpm ? Math.round(bestPpm * 0.85) : null;
   const min = Math.round(fight.roundSec / 60 * 10) / 10;
@@ -128,7 +130,7 @@ export function recentLoad(sessions, now = new Date()) {
 
 // `fromDay` (0 = Mon) is the first day to schedule; earlier days keep `keep` items (from the
 // previous version of this week's plan) so rebuilding mid-week never rewrites the past.
-export function buildWeek({ profile = {}, memory = {}, sessions = [], weights = [], gymDays = [], lastWeek = null, now = new Date(), fromDay = 0, keep = [], recovery = null, interventions = [] }) {
+export function buildWeek({ profile = {}, equipment = null, memory = {}, sessions = [], weights = [], gymDays = [], lastWeek = null, now = new Date(), fromDay = 0, keep = [], recovery = null, interventions = [] }) {
   const start = weekStart(now);
   const deload = recovery?.status === 'deload';
   const basePhase = phaseFor(profile, now);
@@ -169,6 +171,10 @@ export function buildWeek({ profile = {}, memory = {}, sessions = [], weights = 
   if (phase.key === 'taper') queue = queue.filter((k) => !['bagVolume', 'intervals'].includes(k)).concat(['easyRun', 'mobility']);
   if (phase.key === 'specific') queue = queue.filter((k) => k !== 'bagVolume').concat('mobility');
   if (phase.key === 'camp') queue = ['fightSim', 'bagVolume', ...queue.filter((k) => k !== 'fightSim' && k !== 'bagVolume')];
+  // No bag at home and no gym: no bag sessions. Not training for a fight (or new to boxing):
+  // technique comes before fight simulations. (equipment null: not asked yet, plan as before.)
+  if (equipment && !equipment.includes('bag') && !equipment.includes('gym') && !gym.length) queue = queue.filter((k) => k !== 'fightSim' && k !== 'bagVolume');
+  if ((profile.level === 'beginner' || (profile.goal && profile.goal !== 'compete')) && phase.key !== 'camp') queue = ['shadowTech', ...queue.filter((k) => k !== 'shadowTech')];
   const focus = memory?.focus?.area;
   if (focus === 'output') queue = ['fightSim', 'bagVolume', ...queue.filter((k) => k !== 'fightSim' && k !== 'bagVolume')];
 
