@@ -658,3 +658,25 @@ test('a rear uppercut that dips first reads as a rear uppercut', () => {
   an.endRound();
   assert.deepEqual(got, ['rearUppercut'], JSON.stringify(an.calib));
 });
+
+test('side-on bag: a fist going backwards in the picture is the guard coming back, not a punch', async () => {
+  const fs = await import('fs');
+  const { backwardPunch } = await import('../web/js/form.js');
+  const clip = JSON.parse(fs.readFileSync(new URL('./fixtures/bag-side.json', import.meta.url)));
+  // That version counted both hands at the same moment as two punches; today only the cleaner one counts.
+  const rows = clip.punches.filter((r, i) => !clip.punches.some((o, k) => k !== i && o[0] !== r[0] && o[5] === r[5] && o[6] > r[6]));
+  const dir = { sum: 0, n: 0 };
+  let kept = 0;
+  for (const [, fwd, angle, ext, dx] of rows) {
+    if (angle >= 145 && ext >= 0.9) { dir.sum += dx; dir.n++; }
+    if (!backwardPunch({ dx, fwd, angle }, dir)) kept++;
+  }
+  assert.ok(kept >= clip.real[0] && kept <= clip.real[1], `kept ${kept} of ${clip.punches.length}, real ${clip.real}`);
+  // Never before 3 straights have shown which way is forward; never a locked arm or forward travel.
+  assert.equal(backwardPunch({ dx: -0.5, fwd: 0, angle: 100 }, { sum: 2, n: 2 }), false);
+  assert.equal(backwardPunch({ dx: -0.5, fwd: 0, angle: 160 }, { sum: 2, n: 5 }), false);
+  assert.equal(backwardPunch({ dx: -0.5, fwd: 0.2, angle: 100 }, { sum: 2, n: 5 }), false);
+  assert.equal(backwardPunch({ dx: -0.5, fwd: 0, angle: 100 }, { sum: 2, n: 5 }), true);
+  // Filmed from the other side, forward is the other way in the picture.
+  assert.equal(backwardPunch({ dx: 0.5, fwd: 0, angle: 100 }, { sum: -2, n: 5 }), true);
+});

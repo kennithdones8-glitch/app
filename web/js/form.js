@@ -506,6 +506,13 @@ const JOLT_MS = 250;
 const locked = (p) => p.peakExt >= 0.88 && p.peakAngle >= 140;
 const bent = (p) => p.peakExt < 0.8 && p.peakAngle < 110;
 const REARM_MS = 400; // after this long the same hand may punch again even if it stayed out
+// A side-on "punch" that moved the fist clearly away from the target in the picture (dx under -0.3
+// torso lengths against the forward direction learned from at least 3 straights), with no forward
+// travel and the elbow never locked, is the hand returning to the guard.
+export function backwardPunch({ dx, fwd, angle }, dir) {
+  if (!dir || dir.n < 3 || dx == null) return false;
+  return dx * Math.sign(dir.sum) < -0.3 && fwd < 0.1 && angle < 145;
+}
 const PUNCH_CONF = (vis, speed, vTh, margin) => 100 * (0.5 + 0.5 * vis) * (0.55 + 0.45 * Math.min(1, speed / (vTh * 1.8))) * (0.6 + 0.4 * Math.max(0, margin));
 
 export class FormAnalyzer {
@@ -543,6 +550,7 @@ export class FormAnalyzer {
     this.lastSeen = null;
     this.events = []; // detections with confidence, used for video review
     this.recent = []; // recent punch measurements, for learning which way is forward
+    this.fwd2d = { sum: 0, n: 0 }; // side-on: which way the straights go in the picture
     this.pending = []; // punches held for PAIR_MS in case the other hand fires at the same moment
     this.learnedAxis = null;
     this.roundNo = 0;
@@ -963,6 +971,18 @@ export class FormAnalyzer {
     const { fwd, lat } = base;
     const face = this.face ? [this.face.x, this.face.z] : null;
     const i2 = h.i2 ? { ext: h.i2.ext, angle: h.i2.maxAngle, dx: h.i2.dx, dy: h.i2.dy, fore: h.i2.fore } : null;
+    // Side-on (bag, pads): learn which way "towards the target" is in the picture from clear
+    // straights, then drop a "punch" whose fist went the other way with no forward travel: the
+    // hand coming back to the guard. A side-on bag clip with ~45-50 real punches counted 65; 16 of
+    // them went backwards like this (with the both-hands rule, 45-49 remain).
+    if (i2 && this.face && Math.abs(this.face.x) > 0.7) {
+      if (h.peakAngle >= 145 && h.peakExt >= 0.9) { this.fwd2d.sum += i2.dx; this.fwd2d.n++; }
+      if (backwardPunch({ dx: i2.dx, fwd, angle: h.peakAngle }, this.fwd2d)) {
+        this.hands[role].returnSince = null;
+        this._calibPush('rejected', [role === 'lead' ? 'L' : 'R', r2(h.peakSpeed), r2(h.peakExt), Math.round(h.peakAngle), r2(i2.dx), 'back']);
+        return;
+      }
+    }
     const reader = this._reader();
     if (reader) {
       const p = reader.predict(personalExample({ f: feats, fwd, lat, i2, face, setup: this.sig }, null));
