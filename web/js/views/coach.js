@@ -7,6 +7,9 @@ import * as store from '../store.js';
 import { $, $$, esc, shortDate, subnav, subOf, toast, opt, scoreClass, pageHead } from '../ui.js';
 import { aiKey, aiModel, setAi, AI_MODELS } from '../aicheck.js';
 import { buildBugReport } from '../bugreport.js';
+import { EQUIPMENT } from '../coachme.js';
+
+const OWN = Object.fromEntries(Object.entries(EQUIPMENT).filter(([k]) => k !== 'none'));
 
 const taughtText = (p) => {
   const all = p.punchLabels.length, spotted = p.punchLabels.filter((x) => x.ratio != null).length;
@@ -323,6 +326,7 @@ function settings(el, app) {
           <label>Units<select name="unit">${opt('lb', profile.unit, 'Pounds (lb)')}${opt('kg', profile.unit, 'Kilograms (kg)')}</select></label>
         </div>
         <label>Training days per week<input type="number" name="weeklyGoal" min="1" max="7" value="${profile.weeklyGoal}"></label>
+        <fieldset><legend>What you train with (for the weekly plan)</legend>${Object.entries(OWN).map(([k, v]) => `<label class="switch"><input type="checkbox" name="own" value="${k}" ${(profile.equipment || []).includes(k) ? 'checked' : ''}> <span>${esc(v)}</span></label>`).join('')}</fieldset>
         <label><span>Punch detection sensitivity <b id="sensOut">${profile.sensitivity}</b></span>
           <input type="range" name="sensitivity" min="0.5" max="2" step="0.1" value="${profile.sensitivity}"></label>
         ${profile.punchCal?.acc >= 0.6 ? `<p class="small muted" style="margin:0">Punch reading tuned to you from ${profile.punchCal.n} punches (drilled-combo videos, ${Math.round(profile.punchCal.acc * 100)}% right). <button type="button" class="linkbtn" id="resetCal">Reset</button></p>` : ''}
@@ -393,6 +397,9 @@ function settings(el, app) {
       fightDate: f.fightDate.value, opponentStyle: f.opponentStyle.value,
       targetWeight: target, unit: f.unit.value,
     };
+    // Never asked and nothing ticked: leave it unset, so the plan stays as it was.
+    const own = [...f.querySelectorAll('[name=own]:checked')].map((x) => x.value);
+    if (own.length || profile.equipment) app.state.profile.equipment = own;
     app.state.settings = { ...st, voice: f.voice.checked, cues: f.cues.checked, combos: f.combos.checked, comboInterval: +f.comboInterval.value };
     app.rebuildPlan();
     app.persist();

@@ -122,3 +122,17 @@ test('after the fight date the app leaves fight-week mode', async () => {
   assert.equal(phaseFor({ fightDate: '2026-10-08' }, now).key, 'taper', 'fight day itself');
   assert.equal(phaseFor({ fightDate: '2026-10-10' }, now).key, 'taper');
 });
+
+test('the week fits the boxer: no bag sessions without a bag, technique first for beginners', () => {
+  const monday = new Date('2026-09-28T09:00:00');
+  const beginner = { level: 'beginner', goal: 'technique', weeklyGoal: 3, fight: { rounds: 6, roundSec: 180, restSec: 60 } };
+  const kinds = (p) => p.items.filter((i) => i.kind !== 'rest').map((i) => i.kind);
+  const noBag = buildWeek({ profile: beginner, equipment: [], now: monday });
+  assert.ok(!kinds(noBag).some((k) => k === 'fightSim' || k === 'bagVolume'), kinds(noBag).join(','));
+  assert.equal(kinds(noBag)[0], 'shadowTech');
+  assert.ok(noBag.items.every((i) => !i.preset || i.preset.rounds <= 3), 'beginner rounds capped at 3');
+  // Never asked: planned as before (a fighter's week with the bag).
+  const fighter = { level: 'advanced', goal: 'compete', weeklyGoal: 6, fight: { rounds: 6, roundSec: 180, restSec: 60 } };
+  assert.ok(kinds(buildWeek({ profile: fighter, now: monday })).includes('fightSim'));
+  assert.ok(kinds(buildWeek({ profile: beginner, equipment: ['bag'], now: monday })).some((k) => k === 'fightSim' || k === 'bagVolume'));
+});

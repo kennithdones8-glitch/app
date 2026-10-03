@@ -121,3 +121,16 @@ test('every module the first screen preloads exists and is cached for offline us
     assert.ok(sw.includes(`'${f}'`), `${f} not in the offline cache list`);
   }
 });
+
+test('the offline copy is renamed with every release, and holds every script', async () => {
+  const fs = await import('node:fs');
+  const sw = fs.readFileSync(new URL('../web/sw.js', import.meta.url), 'utf8');
+  const app = fs.readFileSync(new URL('../web/js/app.js', import.meta.url), 'utf8');
+  const version = app.match(/APP_VERSION = '([^']+)'/)[1];
+  // The app opens from its saved copy; only a new cache name brings a new version to phones.
+  assert.match(sw, new RegExp(`const CACHE = 'boxcoach-${version.replace(/\./g, '\\.')}'`), 'bump CACHE in sw.js to match APP_VERSION');
+  const dir = new URL('../web/js/', import.meta.url);
+  const files = [...fs.readdirSync(dir).filter((f) => f.endsWith('.js')).map((f) => `js/${f}`),
+    ...fs.readdirSync(new URL('views/', dir)).map((f) => `js/views/${f}`)];
+  for (const f of files) assert.ok(sw.includes(`'${f}'`), `${f} not in the offline cache list`);
+});
